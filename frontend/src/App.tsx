@@ -51,7 +51,7 @@ function createDailyActivity(date = getLocalDateKey()): DailyActivity {
 function isValidDailyActivity(value: unknown): value is DailyActivity {
   if (!value || typeof value !== 'object') return false;
   const activity = value as Partial<DailyActivity>;
-  return typeof activity.date === 'string' &&
+  return isValidDateKey(activity.date) &&
     Array.isArray(activity.completedLessonIds) &&
     activity.completedLessonIds.every((id) => Number.isSafeInteger(id) && id > 0) &&
     Array.isArray(activity.highScoreLessonIds) &&
@@ -155,6 +155,28 @@ const navigation = [
 ];
 
 
+function mergeDailyActivity(remote: ApiProgress['dailyActivity'], local: DailyActivity): DailyActivity {
+  const today = getLocalDateKey();
+  const localToday = local.date === today && isValidDailyActivity(local) ? local : null;
+  const remoteToday = remote && remote.date === today && isValidDailyActivity(remote) ? remote : null;
+  if (!localToday && !remoteToday) return createDailyActivity(today);
+  if (!localToday) return {
+    date: today,
+    completedLessonIds: [...new Set(remoteToday!.completedLessonIds)],
+    highScoreLessonIds: [...new Set(remoteToday!.highScoreLessonIds)],
+  };
+  if (!remoteToday) return {
+    date: today,
+    completedLessonIds: [...new Set(localToday.completedLessonIds)],
+    highScoreLessonIds: [...new Set(localToday.highScoreLessonIds)],
+  };
+  return {
+    date: today,
+    completedLessonIds: [...new Set([...localToday.completedLessonIds, ...remoteToday.completedLessonIds])],
+    highScoreLessonIds: [...new Set([...localToday.highScoreLessonIds, ...remoteToday.highScoreLessonIds])],
+  };
+}
+
 function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedProgress {
   const completedLessons = { ...local.completedLessons };
   for (const lessonId of remote.completedLessonIds) completedLessons[lessonId] = true;
@@ -178,7 +200,7 @@ function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedPr
     .filter(isValidDateKey)
     .sort();
 
-  return { ...local, quests, completedLessons, quizBestXp, learningDates };
+  return { ...local, quests, completedLessons, quizBestXp, learningDates, dailyActivity: mergeDailyActivity(remote.dailyActivity, local.dailyActivity) };
 }
 
 function toRemoteProgress(local: SavedProgress): Pick<ApiProgress, 'completedLessonIds' | 'questStatuses'> {
@@ -250,7 +272,7 @@ function App() {
         setServerTotalXp(remote.totalXp);
         setQuizBestXp(merged.quizBestXp);
         setCompletedLessons(merged.completedLessons);
-
+        setDailyActivity(merged.dailyActivity);
         setLearningDates(merged.learningDates);
         setUser(currentUser);
         setSyncReady(true);
@@ -297,7 +319,7 @@ function App() {
       setServerTotalXp(remote.totalXp);
       setQuizBestXp(merged.quizBestXp);
       setCompletedLessons(merged.completedLessons);
-
+      setDailyActivity(merged.dailyActivity);
       setLearningDates(merged.learningDates);
       setUser(currentUser);
       setSyncReady(true);
