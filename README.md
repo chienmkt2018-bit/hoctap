@@ -45,7 +45,7 @@ npm run preview
 | P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu, tổng kết; GitHub Actions thành công |
 | P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng vào tổng XP và cấp độ; chống nhận XP lặp khi làm lại cùng bài; Actions run #12 thành công |
 | P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ; Actions run #13 thành công |
-| P3 | Backend, API, MongoDB và bảo mật | Chưa bắt đầu | Sau Learning Core |
+| P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, API contract OpenAPI, health endpoint; Actions run #14 thành công |\n| P3.2 | MongoDB và lưu tiến độ phía server | Chưa bắt đầu | Chỉ bắt đầu sau khi cấu hình secrets qua môi trường |\n| P3.3 | Xác thực, phân quyền và bảo vệ API | Chưa bắt đầu | JWT, kiểm tra dữ liệu và kiểm thử bảo mật |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Chưa bắt đầu | Kiểm tra chức năng và triển khai |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
@@ -84,6 +84,16 @@ npm run preview
 - Dữ liệu được kiểm tra cơ bản khi đọc. Nếu JSON hỏng hoặc trình duyệt chặn lưu trữ, ứng dụng dùng trạng thái mặc định; thông báo sẽ xuất hiện nếu không thể ghi dữ liệu.
 - Đây là lưu cục bộ theo trình duyệt/thiết bị, chưa đồng bộ giữa thiết bị hoặc tài khoản và có thể mất nếu người dùng xóa dữ liệu website. Đồng bộ máy chủ thuộc giai đoạn P3.
 - GitHub Actions run #13: type-check và build thành công cho commit `8df96b76d60601434e4c4677b60bc3d8d944b01c`.
+
+## P3.1 — Thiết kế backend và API
+
+- Đã đọc lại frontend, cách lưu tiến độ P2.4 và workflow hiện tại trước khi bổ sung backend. Không thay đổi luồng học, quiz hoặc XP ở frontend.
+- Tạo `backend/src/server.ts` bằng Express + TypeScript: `GET /api/v1/health`, phản hồi JSON 404/400/500, Helmet, giới hạn JSON body 100 KB và CORS theo biến môi trường `CORS_ORIGIN`.
+- Tạo `backend/package.json`, `backend/tsconfig.json`, `backend/.gitignore` và `backend/.env.example`. Không thêm thông tin bí mật hoặc URI cơ sở dữ liệu vào mã nguồn.
+- Đặc tả `docs/openapi.yaml` xác định hợp đồng dự kiến cho health, danh sách bài học, tiến độ người học và nộp bài quiz. Các endpoint nghiệp vụ trong OpenAPI hiện là **thiết kế**, chưa được triển khai ở server.
+- Cập nhật GitHub Actions để kiểm tra TypeScript/build của cả frontend lẫn backend khi có thay đổi trong `frontend/**`, `backend/**` hoặc đặc tả OpenAPI.
+- GitHub Actions run #14 thành công cho commit `4fcd2004f7e30c1472165554e8bfc2e385906534`; cả hai job frontend và backend đều thành công.
+- Chưa kết nối MongoDB, chưa triển khai đăng nhập/JWT hoặc endpoint lưu tiến độ thật. Đây là các bước tiếp theo, không được xem là đã hoàn thành ở P3.1.
 
 ## Kiểm tra tự động
 
