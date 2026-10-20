@@ -21,6 +21,23 @@ const initialQuests: Quest[] = [
 
 const progressStorageKey = 'hoc-tap-quest-progress-v1';
 
+function getProgressStorageKey(userId: string | null = null): string {
+  return userId
+    ? `${progressStorageKey}:account:${userId}`
+    : `${progressStorageKey}:guest`;
+}
+
+function createEmptySavedProgress(): SavedProgress {
+  return {
+    quests: initialQuests.map((quest) => ({ ...quest })),
+    earnedQuizXp: 0,
+    quizBestXp: {},
+    completedLessons: {},
+    dailyActivity: createDailyActivity(),
+    learningDates: [],
+  };
+}
+
 type DailyActivity = {
   date: string;
   completedLessonIds: number[];
@@ -101,10 +118,13 @@ function getCurrentWeek(learningDates: string[], today = new Date()) {
   });
 }
 
-function readSavedProgress(): SavedProgress | null {
+function readSavedProgress(userId: string | null = null): SavedProgress | null {
   try {
     if (typeof window === 'undefined') return null;
-    const raw = window.localStorage.getItem(progressStorageKey);
+    const storageKey = getProgressStorageKey(userId);
+    // Migrate the old unscoped key to guest-only reads; never import it into an account.
+    const raw = window.localStorage.getItem(storageKey) ??
+      (userId === null ? window.localStorage.getItem(progressStorageKey) : null);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
@@ -234,11 +254,11 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates } satisfies SavedProgress));
+      window.localStorage.setItem(getProgressStorageKey(user?.id ?? null), JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates } satisfies SavedProgress));
     } catch {
       setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');
     }
-  }, [quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates]);
+  }, [user?.id, quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates]);
 
   // Roll the daily checklist over when the local date changes while the tab remains open.
   useEffect(() => {
@@ -265,7 +285,9 @@ function App() {
         const currentUser = await getCurrentUser(token);
         const remote = await getRemoteProgress(token);
         if (cancelled) return;
-        const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates };
+        // Only merge server progress with this account's own local cache.
+        // Anonymous/guest progress must never be copied into an authenticated account.
+        const local = readSavedProgress(currentUser.id) ?? createEmptySavedProgress();
         const merged = mergeRemoteProgress(remote, local);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
@@ -312,7 +334,8 @@ function App() {
       const token = readAccessToken();
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
-      const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates };
+      // Load this account's own cache instead of merging the previous guest/account state.
+      const local = readSavedProgress(currentUser.id) ?? createEmptySavedProgress();
       const merged = mergeRemoteProgress(remote, local);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
@@ -335,11 +358,20 @@ function App() {
 
   function handleLogout() {
     clearAccessToken();
+    // Switch back to guest-only progress before the persistence effect runs.
+    const guest = readSavedProgress(null) ?? createEmptySavedProgress();
+    setQuests(guest.quests);
+    setEarnedQuizXp(guest.earnedQuizXp);
+    setQuizBestXp(guest.quizBestXp);
+    setCompletedLessons(guest.completedLessons);
+    setDailyActivity(guest.dailyActivity);
+    setLearningDates(guest.learningDates);
     setUser(null);
     setSyncReady(false);
     setServerTotalXp(null);
+    setSelectedQuest(null);
     setAuthOpen(false);
-    setNotice('Đã đăng xuất. Tiến độ trên trình duyệt vẫn được giữ nguyên.');
+    setNotice('Đã đăng xuất. Tiến độ của tài khoản đã được tách riêng; dữ liệu khách vẫn được giữ.');
   }
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
