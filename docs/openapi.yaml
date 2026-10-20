@@ -239,7 +239,7 @@ components:
       properties:
         progress:
           type: object
-          required: [totalXp, completedLessonIds, learningDates, bestXpByLesson, questStatuses, updatedAt]
+          required: [totalXp, completedLessonIds, learningDates, dailyActivity, bestXpByLesson, questStatuses, updatedAt]
           properties:
             totalXp: { type: integer, minimum: 0 }
             completedLessonIds:
@@ -249,6 +249,21 @@ components:
               type: array
               uniqueItems: true
               items: { type: string, format: date }
+            dailyActivity:
+              oneOf:
+                - type: object
+                  required: [date, completedLessonIds, highScoreLessonIds]
+                  properties:
+                    date: { type: string, format: date }
+                    completedLessonIds:
+                      type: array
+                      uniqueItems: true
+                      items: { type: integer, minimum: 1 }
+                    highScoreLessonIds:
+                      type: array
+                      uniqueItems: true
+                      items: { type: integer, minimum: 1 }
+                - type: 'null'
             bestXpByLesson:
               type: object
               additionalProperties: { type: integer, minimum: 0 }

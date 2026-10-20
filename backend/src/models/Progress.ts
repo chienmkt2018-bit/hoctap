@@ -1,6 +1,26 @@
 import mongoose from 'mongoose';
 import type { InferSchemaType, Model } from 'mongoose';
 
+const dailyActivitySchema = new mongoose.Schema({
+  date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+  completedLessonIds: {
+    type: [Number],
+    default: [],
+    validate: {
+      validator: (ids: number[]) => ids.every((id) => Number.isSafeInteger(id) && id > 0),
+      message: 'dailyActivity.completedLessonIds must contain positive integers.',
+    },
+  },
+  highScoreLessonIds: {
+    type: [Number],
+    default: [],
+    validate: {
+      validator: (ids: number[]) => ids.every((id) => Number.isSafeInteger(id) && id > 0),
+      message: 'dailyActivity.highScoreLessonIds must contain positive integers.',
+    },
+  },
+}, { _id: false });
+
 const progressSchema = new mongoose.Schema({
   learnerId: {
     type: String,
@@ -22,6 +42,10 @@ const progressSchema = new mongoose.Schema({
       validator: (ids: number[]) => ids.every((id) => Number.isSafeInteger(id) && id > 0),
       message: 'completedLessonIds must contain positive integers.',
     },
+  },
+  dailyActivity: {
+    type: dailyActivitySchema,
+    default: undefined,
   },
   learningDates: {
     type: [String],

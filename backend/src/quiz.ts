@@ -155,6 +155,16 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
       progress.completedLessonIds = [...new Set([...progress.completedLessonIds, lessonId])];
       progress.learningDates = [...new Set([...(progress.learningDates ?? []), learningDate])].sort();
+      const currentDailyActivity = progress.dailyActivity?.date === learningDate
+        ? progress.dailyActivity
+        : { date: learningDate, completedLessonIds: [], highScoreLessonIds: [] };
+      progress.dailyActivity = {
+        date: learningDate,
+        completedLessonIds: [...new Set([...currentDailyActivity.completedLessonIds, lessonId])],
+        highScoreLessonIds: percentage >= 80
+          ? [...new Set([...currentDailyActivity.highScoreLessonIds, lessonId])]
+          : [...new Set(currentDailyActivity.highScoreLessonIds)],
+      };
       await progress.save({ session });
 
       const [attempt] = await QuizAttemptModel.create([{

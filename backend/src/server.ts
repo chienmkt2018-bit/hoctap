@@ -61,6 +61,7 @@ function toProgressResponse(progress: {
   totalXp: number;
   completedLessonIds: number[];
   learningDates: string[];
+  dailyActivity?: { date: string; completedLessonIds: number[]; highScoreLessonIds: number[] } | null;
   bestXpByLesson: Map<string, number>;
   questStatuses: Map<string, 'done' | 'active' | 'locked'>;
   updatedAt?: Date;
@@ -70,6 +71,11 @@ function toProgressResponse(progress: {
       totalXp: progress.totalXp,
       completedLessonIds: progress.completedLessonIds,
       learningDates: [...new Set(progress.learningDates ?? [])].sort(),
+      dailyActivity: progress.dailyActivity ? {
+        date: progress.dailyActivity.date,
+        completedLessonIds: [...new Set(progress.dailyActivity.completedLessonIds ?? [])],
+        highScoreLessonIds: [...new Set(progress.dailyActivity.highScoreLessonIds ?? [])],
+      } : null,
       bestXpByLesson: Object.fromEntries(progress.bestXpByLesson.entries()),
       questStatuses: Object.fromEntries(progress.questStatuses.entries()),
       updatedAt: progress.updatedAt?.toISOString() ?? new Date().toISOString(),
