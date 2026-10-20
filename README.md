@@ -44,7 +44,7 @@ npm run preview
 | P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết; GitHub Actions thành công |
 | P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu, tổng kết; GitHub Actions thành công |
 | P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng vào tổng XP và cấp độ; chống nhận XP lặp khi làm lại cùng bài; Actions run #12 thành công |
-| P2.4 | Lưu tiến độ học | Chưa bắt đầu | Trước mắt lưu trên trình duyệt |
+| P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ; Actions run #13 thành công |
 | P3 | Backend, API, MongoDB và bảo mật | Chưa bắt đầu | Sau Learning Core |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Chưa bắt đầu | Kiểm tra chức năng và triển khai |
@@ -75,6 +75,15 @@ npm run preview
 - Tổng XP trên Dashboard và thanh tiến độ cấp độ được cập nhật theo XP quiz đã nhận. XP nhiệm vụ hiện có vẫn hoạt động.
 - Trạng thái XP và kết quả tốt nhất hiện chỉ giữ trong bộ nhớ phiên ứng dụng; tải lại trang sẽ làm mất dữ liệu. Lưu bền vững thuộc P2.4.
 - GitHub Actions run #12: type-check và build thành công cho commit `e13f07dc5b1e9b885e7c58b3bbebb779ac5f1395`.
+
+## P2.4 — Lưu tiến độ học
+
+- Lưu tự động trên trình duyệt bằng `localStorage` với khóa phiên bản `hoc-tap-quest-progress-v1`.
+- Sau khi tải lại hoặc mở lại website trong cùng trình duyệt, Dashboard khôi phục trạng thái nhiệm vụ, tổng XP quiz, XP tốt nhất theo từng bài và danh sách bài đã làm.
+- Thư viện bài học cập nhật nhãn **Đã hoàn thành** và bộ lọc theo trạng thái từ tiến độ đã lưu; quiz đạt 0 XP vẫn được ghi nhận là đã làm.
+- Dữ liệu được kiểm tra cơ bản khi đọc. Nếu JSON hỏng hoặc trình duyệt chặn lưu trữ, ứng dụng dùng trạng thái mặc định; thông báo sẽ xuất hiện nếu không thể ghi dữ liệu.
+- Đây là lưu cục bộ theo trình duyệt/thiết bị, chưa đồng bộ giữa thiết bị hoặc tài khoản và có thể mất nếu người dùng xóa dữ liệu website. Đồng bộ máy chủ thuộc giai đoạn P3.
+- GitHub Actions run #13: type-check và build thành công cho commit `8df96b76d60601434e4c4677b60bc3d8d944b01c`.
 
 ## Kiểm tra tự động
 
