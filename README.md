@@ -49,7 +49,8 @@ npm run preview
 | P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, OpenAPI và health endpoint; Actions run #16 thành công |
 | P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20; chưa có API quiz server-authoritative |
 | P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã xác minh trên Render | Ngày 2026-10-20: đăng ký, đăng nhập, `/auth/me`, GET/PUT `/progress` và đọc lại dữ liệu đều thành công; MongoDB trả dữ liệu đã lưu |
-| P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đang chờ CI/Review PR | Nhánh `feat/frontend-auth-progress-sync`: thêm giao diện đăng nhập/đăng ký, token theo phiên, hợp nhất tiến độ local/server; không xóa XP và điểm tốt nhất đang lưu cục bộ |\n| P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
+| P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; Actions #35 thành công | PR #3 đã được hợp nhất vào `main`; GitHub Actions #35 thành công theo xác nhận ngày 2026-10-20; còn cần kiểm thử trình duyệt production sau khi xác nhận CORS |
+| P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend Render và API xác thực/tiến độ đã được người dùng kiểm thử thành công; frontend integration vẫn cần CI, cấu hình CORS production và kiểm tra trình duyệt |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
