@@ -274,13 +274,9 @@ components:
     ProgressUpdate:
       type: object
       additionalProperties: false
-      required: [completedLessonIds, questStatuses]
+      required: [questStatuses]
+      description: Client updates cannot mark lessons complete. Completion is recorded from quiz attempts.
       properties:
-        completedLessonIds:
-          type: array
-          maxItems: 500
-          uniqueItems: true
-          items: { type: integer, minimum: 1 }
         questStatuses:
           type: object
           maxProperties: 100
