@@ -174,7 +174,11 @@ function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedPr
   );
   const quizBestXp = { ...local.quizBestXp, ...remoteBestXp };
 
-  return { ...local, quests, completedLessons, quizBestXp };
+  const learningDates = [...new Set([...local.learningDates, ...(remote.learningDates ?? [])])]
+    .filter(isValidDateKey)
+    .sort();
+
+  return { ...local, quests, completedLessons, quizBestXp, learningDates };
 }
 
 function toRemoteProgress(local: SavedProgress): Pick<ApiProgress, 'completedLessonIds' | 'questStatuses'> {
@@ -246,6 +250,8 @@ function App() {
         setServerTotalXp(remote.totalXp);
         setQuizBestXp(merged.quizBestXp);
         setCompletedLessons(merged.completedLessons);
+
+        setLearningDates(merged.learningDates);
         setUser(currentUser);
         setSyncReady(true);
       } catch (error) {
@@ -291,6 +297,8 @@ function App() {
       setServerTotalXp(remote.totalXp);
       setQuizBestXp(merged.quizBestXp);
       setCompletedLessons(merged.completedLessons);
+
+      setLearningDates(merged.learningDates);
       setUser(currentUser);
       setSyncReady(true);
       setAuthPassword('');
