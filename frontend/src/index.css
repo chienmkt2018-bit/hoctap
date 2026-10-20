@@ -428,3 +428,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
 .daily-check { display: grid; width: 23px; height: 23px; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: 7px; color: #777692; font-size: 11px; }
 .daily-check.is-visible { border-color: rgba(110,231,183,.28); color: #6ee7b7; background: rgba(16,185,129,.09); }
 .daily-footnote { margin: 12px 0 0; color: #777692; font-size: 9px; line-height: 1.7; }
+
+
+/* P4.3 — real learning streak states */
+.streak-chip strong { min-width: 1ch; }
+.mini-week .day-done { border-color: rgba(110,231,183,.2); color: #6ee7b7; background: rgba(16,185,129,.08); }
+.mini-week .day-today { outline: 1px solid rgba(103,232,249,.55); outline-offset: 2px; }
