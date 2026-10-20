@@ -185,7 +185,7 @@ function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boole
   });
 }
 
-function mergeRemoteProgress(remote: ApiProgress, _local: SavedProgress): SavedProgress {
+function mergeRemoteProgress(remote: ApiProgress): SavedProgress {
   // For signed-in accounts, quiz attempts on the server are the sole source of truth.
   // Do not resurrect stale local completion flags or client-written progress.
   const completedLessons = Object.fromEntries(
@@ -258,8 +258,7 @@ function App() {
     };
   }, []);
 
-  // Restore a session token, then merge server progress with local progress without
-  // discarding local-only XP/best-score data.
+  // Restore a session token and load progress from server-verified quiz attempts.
   useEffect(() => {
     const token = readAccessToken();
     if (!token) return;
@@ -269,10 +268,9 @@ function App() {
         const currentUser = await getCurrentUser(token);
         const remote = await getRemoteProgress(token);
         if (cancelled) return;
-        // Only merge server progress with this account's own local cache.
-        // Anonymous/guest progress must never be copied into an authenticated account.
-        const local = readSavedProgress(currentUser.id) ?? createEmptySavedProgress();
-        const merged = mergeRemoteProgress(remote, local);
+        // Authenticated progress comes only from server-verified quiz attempts.
+        // Guest and account-local caches are never used to grant completion.
+        const merged = mergeRemoteProgress(remote);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
         setServerTotalXp(remote.totalXp);
@@ -305,9 +303,8 @@ function App() {
       const token = readAccessToken();
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
-      // Load this account's own cache instead of merging the previous guest/account state.
-      const local = readSavedProgress(currentUser.id) ?? createEmptySavedProgress();
-      const merged = mergeRemoteProgress(remote, local);
+      // Load only server-verified quiz progress for this account.
+      const merged = mergeRemoteProgress(remote);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
       setServerTotalXp(remote.totalXp);
@@ -318,7 +315,7 @@ function App() {
       setUser(currentUser);
       setAuthPassword('');
       setAuthOpen(false);
-      setNotice(`Đã ${authMode === 'register' ? 'tạo tài khoản và đăng nhập' : 'đăng nhập'} thành công. Tiến độ cục bộ và trên tài khoản đã được hợp nhất.`);
+      setNotice(`Đã ${authMode === 'register' ? 'tạo tài khoản và đăng nhập' : 'đăng nhập'} thành công. Tiến độ quiz đã xác minh trên máy chủ được tải vào tài khoản.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Không thể đăng nhập lúc này.');
     } finally {
