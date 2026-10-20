@@ -1,0 +1,198 @@
+openapi: 3.1.0
+info:
+  title: HOC TAP QUEST API
+  version: 1.0.0
+  description: API contract for learner accounts, lesson progress, quiz results, and XP.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local development
+  - url: https://YOUR_RENDER_SERVICE.onrender.com/api/v1
+    description: Replace with the deployed Render service URL
+tags:
+  - name: System
+  - name: Progress
+  - name: Lessons
+  - name: Quiz
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Check API availability
+      responses:
+        '200':
+          description: API is available
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, version]
+                properties:
+                  status: { type: string, const: ok }
+                  service: { type: string, const: hoc-tap-quest-api }
+                  version: { type: string }
+  /progress:
+    get:
+      tags: [Progress]
+      summary: Get the authenticated learner's saved progress
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Learner progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Progress]
+      summary: Save the authenticated learner's progress
+      description: Server calculates authoritative XP from validated quiz results; clients must not submit an arbitrary XP balance.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressUpdate'
+      responses:
+        '200':
+          description: Progress saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProgressResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /lessons:
+    get:
+      tags: [Lessons]
+      summary: List published lessons
+      responses:
+        '200':
+          description: Lesson list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Lesson' }
+  /quizzes/{quizId}/attempts:
+    post:
+      tags: [Quiz]
+      summary: Submit a quiz attempt
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: quizId
+          required: true
+          schema: { type: string, minLength: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    required: [questionId, selectedOptionId]
+                    properties:
+                      questionId: { type: string }
+                      selectedOptionId: { type: string }
+      responses:
+        '201':
+          description: Attempt evaluated by the server
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attemptId, correctCount, totalQuestions, percentage, xpAwarded]
+                properties:
+                  attemptId: { type: string }
+                  correctCount: { type: integer, minimum: 0 }
+                  totalQuestions: { type: integer, minimum: 1 }
+                  percentage: { type: integer, minimum: 0, maximum: 100 }
+                  xpAwarded: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ProgressResponse:
+      type: object
+      required: [progress]
+      properties:
+        progress:
+          type: object
+          required: [totalXp, completedLessonIds, bestXpByLesson, questStatuses, updatedAt]
+          properties:
+            totalXp: { type: integer, minimum: 0 }
+            completedLessonIds:
+              type: array
+              items: { type: integer, minimum: 1 }
+            bestXpByLesson:
+              type: object
+              additionalProperties: { type: integer, minimum: 0 }
+            questStatuses:
+              type: object
+              additionalProperties:
+                type: string
+                enum: [done, active, locked]
+            updatedAt: { type: string, format: date-time }
+    ProgressUpdate:
+      type: object
+      required: [completedLessonIds, questStatuses]
+      properties:
+        completedLessonIds:
+          type: array
+          uniqueItems: true
+          items: { type: integer, minimum: 1 }
+        questStatuses:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [done, active, locked]
+    Lesson:
+      type: object
+      required: [id, title, subject, level, durationMinutes, baseXp]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        subject: { type: string }
+        level: { type: string }
+        durationMinutes: { type: integer, minimum: 1 }
+        baseXp: { type: integer, minimum: 0 }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
