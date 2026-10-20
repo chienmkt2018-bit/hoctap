@@ -1,6 +1,7 @@
-import { Schema, model, models, type InferSchemaType, type Model } from 'mongoose';
+import mongoose from 'mongoose';
+import type { InferSchemaType, Model } from 'mongoose';
 
-const progressSchema = new Schema({
+const progressSchema = new mongoose.Schema({
   learnerId: {
     type: String,
     required: true,
@@ -41,4 +42,5 @@ progressSchema.index({ learnerId: 1 }, { unique: true });
 
 export type ProgressDocument = InferSchemaType<typeof progressSchema>;
 export const ProgressModel: Model<ProgressDocument> =
-  (models.Progress as Model<ProgressDocument> | undefined) ?? model<ProgressDocument>('Progress', progressSchema);
+  (mongoose.models.Progress as Model<ProgressDocument> | undefined) ??
+  mongoose.model<ProgressDocument>('Progress', progressSchema);
