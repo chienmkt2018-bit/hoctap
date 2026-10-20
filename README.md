@@ -6,14 +6,8 @@ Nền tảng học tập theo phong cách trò chơi — React + TypeScript + Vi
 
 - React 19 + TypeScript + Vite
 - Express 5 + TypeScript + MongoDB Atlas (Mongoose)
-- JWT bearer token, băm mật khẩu bằng bcryptjs, giới hạn tần suất đăng nhập
+- JWT bearer token, bcryptjs và giới hạn tần suất đăng nhập
 - GitHub Actions kiểm tra TypeScript và build frontend/backend
-
-## Yêu cầu
-
-- Node.js 20.19+ hoặc 22.12+
-- npm
-- MongoDB Atlas hoặc MongoDB tương thích để chạy các API dữ liệu
 
 ## Chạy trên Windows
 
@@ -27,91 +21,75 @@ npm run dev
 
 Mở URL Vite hiển thị trong terminal (thường là http://localhost:5173).
 
-## Kiểm tra bản build
+Để build frontend:
 
 ```powershell
-cd frontend
 npm run build
-npm run preview
 ```
+
+Backend:
+
+```powershell
+cd ..\backend
+npm install
+npm run typecheck
+npm run build
+```
+
+Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy API có dữ liệu.
 
 ## Bảng theo dõi tiến độ
 
-| Mã | Hạng mục | Trạng thái | Ghi chú |
+| Mã | Hạng mục | Trạng thái theo bằng chứng | Ghi chú |
 |---|---|---|---|
-| P0 | Lập kế hoạch và kiến trúc | Hoàn thành | Đã xác định lộ trình P0–P6 |
-| P1.1 | Khởi tạo React + Vite + TypeScript và CI | Hoàn thành | Workflow Frontend build |
-| P1.2 | Dashboard và Quest Map | Hoàn thành | Dashboard, XP, chuỗi ngày học, nhiệm vụ và bản đồ chặng |
-| P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết |
-| P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu và tổng kết |
-| P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng XP; chống nhận XP lặp khi làm lại cùng bài |
-| P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ |
-| P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, OpenAPI và health endpoint; Actions run #16 thành công |
-| P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20 |
-| P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã xác minh trên Render | Ngày 2026-10-20: đăng ký, đăng nhập, `/auth/me`, GET/PUT `/progress` và đọc lại dữ liệu đều thành công; MongoDB trả dữ liệu đã lưu |
-| P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; Actions #35 thành công | PR #3 đã được hợp nhất vào `main`; GitHub Actions #35 thành công theo xác nhận ngày 2026-10-20; còn cần kiểm thử trình duyệt production sau khi xác nhận CORS |
-| P3.5 | API chấm quiz và XP phía máy chủ | Đang review trên nhánh riêng | Thêm `POST /api/v1/quizzes/:quizId/attempts`, đáp án chuẩn phía server, lưu lịch sử, chống gửi lặp bằng idempotency key và cập nhật XP trong MongoDB transaction; chưa triển khai production và chưa nối frontend |
-| P3.6 | Nối giao diện quiz với API server | Chưa bắt đầu | Sau khi P3.5 qua CI/review; giữ chế độ cục bộ khi chưa đăng nhập |
+| P0 | Lập kế hoạch và kiến trúc | Hoàn thành | Lộ trình P0–P6 đã xác định |
+| P1.1 | React + Vite + TypeScript và CI | Hoàn thành | Workflow CI đã tồn tại |
+| P1.2 | Dashboard và Quest Map | Hoàn thành | Dashboard, XP, nhiệm vụ và bản đồ chặng |
+| P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài học mẫu, bộ lọc và trang chi tiết |
+| P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, giải thích và tổng kết |
+| P2.3 | Kết quả và XP cục bộ | Hoàn thành | XP dựa trên điểm; chống cộng lặp trong phiên/trạng thái local |
+| P2.4 | Lưu tiến độ cục bộ | Hoàn thành | localStorage; theo trình duyệt/thiết bị |
+| P3.1 | Backend và hợp đồng API | Đã triển khai | Express + TypeScript; OpenAPI được chỉnh lại trong nhánh tài liệu này |
+| P3.2 | MongoDB Atlas | Đã xác minh trước đó trên Render | Health từng trả database=connected ngày 2026-10-20; cần kiểm tra lại nếu xác nhận trạng thái hiện tại |
+| P3.3 | Xác thực và bảo vệ tiến độ | Đã kiểm thử bởi người dùng trên Render | Đăng ký/đăng nhập, /auth/me và GET/PUT progress đã được xác nhận ngày 2026-10-20 |
+| P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; CI #35 được xác nhận thành công | CORS và luồng trình duyệt production vẫn cần kiểm thử thủ công |
+| P3.5 | API chấm quiz và XP phía máy chủ | Đã có trên main; CI/build đã được báo cáo thành công; production chưa xác minh | POST /api/v1/quizzes/:quizId/attempts; đáp án và XP do server quản lý; lưu QuizAttempt và cập nhật Progress trong transaction; idempotency theo tài khoản |
+| P3.6 | Nối giao diện quiz với API server | Chưa hoàn thành | QuizPanel vẫn tự chấm ở frontend; cần gửi câu trả lời tới API khi đăng nhập, xử lý loading/error và giữ chế độ local khi chưa đăng nhập |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
-| P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend Render và API xác thực/tiến độ đã được người dùng kiểm thử thành công; frontend integration vẫn cần CI, cấu hình CORS production và kiểm tra trình duyệt |
+| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | API auth/progress từng chạy trên Render; P3.5 và luồng quiz production chưa được xác minh |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
-## P2.4 — Lưu tiến độ học
+## Lưu trữ và tài khoản
 
-- Lưu tự động trên trình duyệt bằng `localStorage` với khóa `hoc-tap-quest-progress-v1`.
-- Dashboard khôi phục nhiệm vụ, XP quiz, XP tốt nhất theo từng bài và danh sách bài đã làm sau khi tải lại trang.
-- Dữ liệu được kiểm tra cơ bản khi đọc. Nếu JSON hỏng hoặc trình duyệt chặn lưu trữ, ứng dụng dùng trạng thái mặc định.
-- Đây là lưu cục bộ theo trình duyệt/thiết bị, chưa tự đồng bộ tài khoản hoặc thiết bị. Frontend chưa bị thay đổi trong P3.3.
+- Tiến độ cục bộ dùng khóa `hoc-tap-quest-progress-v1`.
+- Token đăng nhập được lưu trong `sessionStorage` của tab, không phải `localStorage`.
+- API progress chỉ nhận `completedLessonIds` và `questStatuses`; client không được gửi `totalXp` hoặc `bestXpByLesson` để quyết định XP.
+- Khi đăng xuất hoặc API lỗi, dữ liệu cục bộ không bị xóa.
 
-## P3.1 — Backend và hợp đồng API
+## API và triển khai
 
-- Express + TypeScript với `GET /api/v1/health`, Helmet, CORS theo `CORS_ORIGIN`, giới hạn JSON body 100 KB và phản hồi lỗi JSON.
-- Đặc tả OpenAPI nằm tại `docs/openapi.yaml`. `/lessons` vẫn là endpoint dự kiến; endpoint nộp quiz đang được triển khai trên nhánh P3.5 và chưa có trên production cho đến khi PR được duyệt, hợp nhất và Render triển khai.
-- GitHub Actions build/type-check frontend và backend khi có thay đổi trong thư mục tương ứng hoặc OpenAPI.
-
-## P3.2 — Kết nối MongoDB Atlas
-
-- Mongoose được cấu hình qua biến môi trường `MONGODB_URI`; model `Progress` lưu tiến độ theo một `learnerId` duy nhất.
-- `GET /api/v1/health` phản ánh trạng thái database và không tiết lộ URI hoặc thông tin xác thực.
-- **Xác minh production:** Render log báo `Connected to MongoDB.` và endpoint health trả `{"status":"ok","service":"hoc-tap-quest-api","version":"0.2.0","database":"connected"}` (trước khi nâng phiên bản backend lên 0.3.0) ngày 2026-10-20.
-- URI MongoDB thật chỉ được lưu trong Render Environment hoặc tệp `.env` cục bộ; tuyệt đối không commit lên GitHub.
-
-## P3.3 — Xác thực và bảo vệ tiến độ (đã xác minh trên Render)
-
-- `POST /api/v1/auth/register`: tạo tài khoản; mật khẩu được băm bằng bcryptjs, không lưu dạng văn bản thuần.
-- `POST /api/v1/auth/login`: xác minh thông tin đăng nhập và cấp JWT bearer token thời hạn 1 giờ.
-- `GET /api/v1/auth/me`: trả thông tin tài khoản của token hợp lệ.
-- `GET /api/v1/progress` và `PUT /api/v1/progress`: chỉ thao tác tiến độ của người dùng xác định từ JWT; client không thể chọn `learnerId` khác.
-- Xác thực giới hạn 10 lần/15 phút/IP; JWT được kiểm tra issuer, audience và thời hạn.
-- API cập nhật tiến độ chỉ nhận danh sách bài hoàn thành và trạng thái nhiệm vụ; không nhận `totalXp` hoặc `bestXpByLesson` từ client. XP có thẩm quyền cần endpoint nộp quiz phía server ở bước sau.
-- **Kiểm thử production ngày 2026-10-20 do người dùng thực hiện:** đăng ký thành công; đăng nhập thành công; `/auth/me` trả ID và email; GET progress, PUT progress và GET lại trả dữ liệu đã lưu đúng.
-- **CI đã ghi nhận trước đó:** run #27 (PR) và runs #28–#29 trên `main` thành công cho frontend/backend. PR P3.4 hiện tại vẫn cần CI riêng trước khi đánh dấu hoàn thành.
-
-## P3.4 — Đăng nhập frontend và đồng bộ tiến độ (đã hợp nhất; CI thành công)
-
-- Thêm client API tại `frontend/src/auth.ts` cho đăng ký, đăng nhập, xác minh tài khoản và đọc/ghi tiến độ.
-- Giao diện tài khoản được thêm vào thanh trên; đăng ký/đăng nhập xong sẽ lấy tiến độ máy chủ rồi hợp nhất với dữ liệu cục bộ.
-- Giữ nguyên khóa `hoc-tap-quest-progress-v1`; XP và điểm tốt nhất theo quiz tiếp tục lưu trên trình duyệt. Khi hợp nhất, bài đã hoàn thành được kết hợp theo phép hợp, trạng thái nhiệm vụ ưu tiên `done` rồi `active`; dữ liệu cục bộ không bị xóa khi đăng xuất hoặc khi API lỗi.
-- Token chỉ lưu trong `sessionStorage` của tab, không ghi vào `localStorage`. API không nhận XP do client tự gửi; XP máy chủ chỉ nên cập nhật qua luồng nộp quiz có xác minh ở bước sau.
-- API mặc định dùng `https://hoctap-6oeu.onrender.com`; có thể ghi đè bằng biến build `VITE_API_BASE_URL`.
-- **Cấu hình triển khai bắt buộc trước khi kiểm thử trên trình duyệt:** trên Render backend, đặt `CORS_ORIGIN` thành origin chính xác của website frontend production (chỉ scheme + hostname, không có path). Có thể dùng danh sách origin phân tách bằng dấu phẩy nếu cần nhiều origin. Không mở CORS cho mọi origin.
-- **Kiểm thử backend production:** người dùng xác nhận đăng ký/đăng nhập, đọc hồ sơ, GET/PUT tiến độ và đọc lại dữ liệu đều thành công ngày 2026-10-20.
-- **CI frontend/backend:** GitHub Actions run #35 được người dùng xác nhận thành công ngày 2026-10-20. PR #3 đã được hợp nhất vào `main` (merge commit `53ea0faa54aa489737f87a3fc34c7a7e5312de5c`).
-- **Còn cần kiểm thử thủ công:** xác nhận `CORS_ORIGIN` trên Render khớp origin frontend production, rồi thử đăng nhập, tải lại trang, học một bài, kiểm tra đồng bộ và đăng xuất trên trình duyệt. CI thành công không tự chứng minh CORS hoặc luồng giao diện production đã hoạt động.
+- Đặc tả API: [docs/openapi.yaml](docs/openapi.yaml).
+- Health endpoint: `GET /api/v1/health`.
+- API mặc định của frontend: `https://hoctap-6oeu.onrender.com`; có thể ghi đè bằng `VITE_API_BASE_URL`.
+- Render backend cần `MONGODB_URI`, `JWT_SECRET` mạnh (ít nhất 32 bytes) và `CORS_ORIGIN` trùng chính xác origin frontend.
+- Không commit mật khẩu, JWT secret, token hoặc URI MongoDB thật.
 
 ## Kiểm tra tự động
 
-Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/hoctap/actions).
+Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/hoctap/actions). CI build/type-check không thay thế kiểm thử API hoặc kiểm thử trình duyệt production.
 
-## Bảo mật
+## P3.5 — API chấm quiz phía máy chủ
 
-Không lưu thông tin đăng nhập, token, JWT secret hoặc URI cơ sở dữ liệu thật trong mã nguồn.
+- `POST /api/v1/quizzes/{quizId}/attempts` yêu cầu JWT.
+- Client gửi `attemptId` và lựa chọn của ba câu; không gửi số câu đúng hoặc XP.
+- Server tính điểm từ đáp án phía backend, ghi lịch sử vào `QuizAttempt`, cập nhật XP và điểm tốt nhất trong `Progress`.
+- Gửi lại cùng `attemptId` cho cùng tài khoản không cộng XP lần hai.
+- Lịch sử và tiến độ được cập nhật trong MongoDB transaction; môi trường MongoDB phải hỗ trợ transaction.
+- Mã đã có trên `main`; chưa xác nhận endpoint này trên Render.
 
+## P3.6 — Tích hợp quiz frontend (công việc kế tiếp)
 
-## P3.5 — API chấm quiz và XP phía máy chủ (đang review)
-
-- Endpoint `POST /api/v1/quizzes/{quizId}/attempts` yêu cầu JWT; nhận `attemptId` duy nhất và lựa chọn cho ba câu hỏi.
-- Đáp án đúng và XP cơ sở được giữ ở backend; client không gửi số câu đúng hoặc XP để server tin cậy.
-- Kết quả bài làm được lưu trong collection `QuizAttempt`; XP tổng, điểm tốt nhất và bài đã hoàn thành được cập nhật trong `Progress`.
-- Gửi lại cùng `attemptId` của cùng tài khoản trả lại kết quả cũ, không cộng XP lần hai. Cập nhật lịch sử và tiến độ dùng MongoDB transaction; môi trường database phải hỗ trợ transaction (MongoDB Atlas hỗ trợ).
-- **Chưa production:** cần CI xanh, review/merge PR và đợi Render deploy. Frontend chưa gọi endpoint này cho đến P3.6.
+- Khi đã đăng nhập, gửi câu trả lời tới API chấm điểm; hiển thị kết quả máy chủ và cập nhật XP từ phản hồi.
+- Khi chưa đăng nhập, giữ chế độ quiz cục bộ để không chặn trải nghiệm hiện tại.
+- Không coi XP do frontend tự tính là XP có thẩm quyền của tài khoản.
+- Kiểm tra loading, lỗi mạng, token hết hạn, gửi lại yêu cầu và không cộng XP hai lần trước khi đánh dấu hoàn thành.
