@@ -1,6 +1,7 @@
-import { Schema, model, models, type InferSchemaType, type Model } from 'mongoose';
+import mongoose from 'mongoose';
+import type { InferSchemaType, Model } from 'mongoose';
 
-const userSchema = new Schema({
+const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
@@ -21,4 +22,5 @@ const userSchema = new Schema({
 
 export type UserDocument = InferSchemaType<typeof userSchema>;
 export const UserModel: Model<UserDocument> =
-  (models.User as Model<UserDocument> | undefined) ?? model<UserDocument>('User', userSchema);
+  (mongoose.models.User as Model<UserDocument> | undefined) ??
+  mongoose.model<UserDocument>('User', userSchema);
