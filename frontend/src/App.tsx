@@ -101,6 +101,7 @@ function App() {
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [notice, setNotice] = useState('');
   const [earnedQuizXp, setEarnedQuizXp] = useState(() => readSavedProgress()?.earnedQuizXp ?? 0);
+  const [serverTotalXp, setServerTotalXp] = useState<number | null>(null);
   const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
   const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -134,6 +135,7 @@ function App() {
         const merged = mergeRemoteProgress(remote, local);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
+        setServerTotalXp(remote.totalXp);
         setQuizBestXp(merged.quizBestXp);
         setCompletedLessons(merged.completedLessons);
         setUser(currentUser);
@@ -178,6 +180,7 @@ function App() {
       const merged = mergeRemoteProgress(remote, local);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
+      setServerTotalXp(remote.totalXp);
       setQuizBestXp(merged.quizBestXp);
       setCompletedLessons(merged.completedLessons);
       setUser(currentUser);
@@ -196,18 +199,26 @@ function App() {
     clearAccessToken();
     setUser(null);
     setSyncReady(false);
+    setServerTotalXp(null);
     setAuthOpen(false);
     setNotice('Đã đăng xuất. Tiến độ trên trình duyệt vẫn được giữ nguyên.');
   }
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
-  const xp = 680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp;
+  const xp = serverTotalXp ?? (680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp);
   const level = 3 + Math.floor(xp / 1000) - Math.floor(680 / 1000);
   const levelProgress = xp % 1000;
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
 
   function handleQuizComplete(result: QuizResult): number {
     setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));
+    if (result.serverAwardedXp !== undefined) {
+      const awarded = result.serverAwardedXp;
+      setEarnedQuizXp((current) => current + awarded);
+      setServerTotalXp(result.serverTotalXp ?? null);
+      setNotice(`Máy chủ đã lưu quiz “${result.lessonTitle}”: ${result.correctCount}/${result.totalQuestions} câu đúng (${result.percentage}%). XP cộng thêm: ${awarded}; tổng XP tài khoản: ${(result.serverTotalXp ?? 0).toLocaleString('vi-VN')}.`);
+      return awarded;
+    }
     const previousBest = quizBestXp[result.lessonId] ?? 0;
     const newBest = Math.max(previousBest, result.calculatedXp);
     const awarded = newBest - previousBest;
