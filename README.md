@@ -42,7 +42,7 @@ npm run preview
 | P1.1 | Khởi tạo React + Vite + TypeScript và CI | Hoàn thành | Workflow Frontend build |
 | P1.2 | Dashboard và Quest Map | Hoàn thành | Dashboard, XP, chuỗi ngày học, nhiệm vụ và bản đồ chặng |
 | P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết; GitHub Actions thành công |
-| P2.2 | Quiz tương tác | Chưa bắt đầu | Chấm đáp án và giải thích |
+| P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu, tổng kết; GitHub Actions thành công |
 | P2.3 | Kết quả và XP theo kết quả học | Chưa bắt đầu | Không cộng XP chỉ bằng thao tác bấm hoàn thành |
 | P2.4 | Lưu tiến độ học | Chưa bắt đầu | Trước mắt lưu trên trình duyệt |
 | P3 | Backend, API, MongoDB và bảo mật | Chưa bắt đầu | Sau Learning Core |
@@ -57,6 +57,15 @@ npm run preview
 - Xem trang chi tiết gồm mô tả, mục tiêu học tập, dàn ý, thời lượng và XP dự kiến.
 - Bài khóa không thể mở; nút bắt đầu hiện chỉ là điểm nối giao diện. Quiz, chấm điểm và thưởng XP sẽ được làm ở P2.2–P2.3.
 - Dữ liệu hiện là dữ liệu mẫu phía frontend, chưa kết nối tài khoản hoặc cơ sở dữ liệu.
+
+## P2.2 — Quiz tương tác
+
+- Mở quiz từ trang chi tiết của bài học đang mở hoặc đã hoàn thành.
+- Luồng học: chọn một phương án → kiểm tra đáp án → xem trạng thái đúng/sai và giải thích → chuyển câu tiếp theo.
+- Có thanh tiến độ, khóa lựa chọn sau khi kiểm tra, màn hình tổng kết số câu đúng và nút làm lại.
+- Đã có bộ câu hỏi mẫu cho các bài Tư duy nền tảng, Tiếng Anh và Toán & Logic; các bài chưa có bộ riêng dùng bộ câu hỏi dự phòng.
+- Dữ liệu câu hỏi hiện nằm trong frontend, chưa lấy từ API/MongoDB. Điểm được tổng kết ở quiz nhưng chưa lưu lịch sử; XP chỉ hiển thị là mức dự kiến và chưa được cộng thực tế (dự kiến P2.3).
+- GitHub Actions run #9: build và type-check thành công cho commit `46d3875fc2dfe76402cf8628de8b6faaf3a68403`.
 
 ## Kiểm tra tự động
 
