@@ -20,16 +20,30 @@ paths:
       summary: Check API availability
       responses:
         '200':
-          description: API is available
+          description: API is available; database is connected or not configured
+
           content:
             application/json:
               schema:
                 type: object
-                required: [status, service, version]
+                required: [status, service, version, database]
                 properties:
-                  status: { type: string, const: ok }
+                  status: { type: string, enum: [ok, degraded] }
+                  database: { type: string, enum: [connected, disconnected, not_configured, connecting] }
                   service: { type: string, const: hoc-tap-quest-api }
                   version: { type: string }
+        '503':
+          description: API is running but configured database is unavailable
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service, version, database]
+                properties:
+                  status: { type: string, const: degraded }
+                  service: { type: string, const: hoc-tap-quest-api }
+                  version: { type: string }
+                  database: { type: string, enum: [disconnected, connecting] }
   /progress:
     get:
       tags: [Progress]
