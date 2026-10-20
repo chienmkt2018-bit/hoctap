@@ -71,17 +71,27 @@ function App() {
   const [quests, setQuests] = useState(() => readSavedProgress()?.quests ?? initialQuests);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [notice, setNotice] = useState('');
-  const [earnedQuizXp, setEarnedQuizXp] = useState(0);
-  const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>({});
+  const [earnedQuizXp, setEarnedQuizXp] = useState(() => readSavedProgress()?.earnedQuizXp ?? 0);
+  const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
+  const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
 
-  useEffect(() => {\n    try {\n      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons } satisfies SavedProgress));\n    } catch {\n      setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');\n    }\n  }, [quests, earnedQuizXp, quizBestXp, completedLessons]);\n\n  const completedCount = quests.filter((quest) => quest.status === 'done').length;
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons } satisfies SavedProgress));
+    } catch {
+      setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');
+    }
+  }, [quests, earnedQuizXp, quizBestXp, completedLessons]);
+
+  const completedCount = quests.filter((quest) => quest.status === 'done').length;
   const xp = 680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp;
   const level = 3 + Math.floor(xp / 1000) - Math.floor(680 / 1000);
   const levelProgress = xp % 1000;
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
 
   function handleQuizComplete(result: QuizResult): number {
-    setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));\n    const previousBest = quizBestXp[result.lessonId] ?? 0;
+    setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));
+    const previousBest = quizBestXp[result.lessonId] ?? 0;
     const newBest = Math.max(previousBest, result.calculatedXp);
     const awarded = newBest - previousBest;
     if (awarded > 0) {
