@@ -53,8 +53,8 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P3.2 | MongoDB Atlas | Đã xác minh trước đó trên Render | Health từng trả database=connected ngày 2026-10-20; cần kiểm tra lại nếu xác nhận trạng thái hiện tại |
 | P3.3 | Xác thực và bảo vệ tiến độ | Đã kiểm thử bởi người dùng trên Render | Đăng ký/đăng nhập, /auth/me và GET/PUT progress đã được xác nhận ngày 2026-10-20 |
 | P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; CI #35 được xác nhận thành công | CORS và luồng trình duyệt production vẫn cần kiểm thử thủ công |
-| P3.5 | API chấm quiz và XP phía máy chủ | Đã merge; backend production và Health đã xác minh | PR #4 đã merge; Actions run #40 thành công; Render log báo build/khởi động thành công và Health trả `status: ok`, `database: connected` ngày 2026-10-20. Endpoint quiz vẫn cần kiểm thử riêng. |
-| P3.6 | Nối giao diện quiz với API server | Chưa hoàn thành | QuizPanel vẫn tự chấm ở frontend; cần gửi câu trả lời tới API khi đăng nhập, xử lý loading/error và giữ chế độ local khi chưa đăng nhập |
+| P3.5 | API chấm quiz và XP phía máy chủ | Đã hợp nhất; CI thành công; Health production đã xác minh; endpoint quiz chưa kiểm thử riêng | PR #4 đã merge; Actions run #40 thành công; Render Health từng trả `status: ok`, `database: connected` ngày 2026-10-20. Chưa xác minh POST attempts trên production. |
+| P3.6 | Nối giao diện quiz với API server | Đã hợp nhất; Actions #47 thành công; production chưa xác minh | PR #8 tích hợp gửi đáp án khi đăng nhập, hiển thị loading/lỗi, giữ chế độ local khi chưa đăng nhập và dùng XP từ phản hồi máy chủ; cần kiểm thử end-to-end sau deploy |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
@@ -87,9 +87,11 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - Lịch sử và tiến độ được cập nhật trong MongoDB transaction; môi trường MongoDB phải hỗ trợ transaction.
 - **Bằng chứng production ngày 2026-10-20:** Render build thành công, backend khởi động trên cổng 10000, log xác nhận MongoDB kết nối và Health trả `status: ok`, `database: connected`. Chưa có bằng chứng kiểm thử chức năng endpoint quiz trên production.
 
-## P3.6 — Tích hợp quiz frontend (công việc kế tiếp)
+## P3.6 — Tích hợp quiz frontend (đã hợp nhất; production chưa xác minh)
 
-- Khi đã đăng nhập, gửi câu trả lời tới API chấm điểm; hiển thị kết quả máy chủ và cập nhật XP từ phản hồi.
-- Khi chưa đăng nhập, giữ chế độ quiz cục bộ để không chặn trải nghiệm hiện tại.
-- Không coi XP do frontend tự tính là XP có thẩm quyền của tài khoản.
-- Kiểm tra loading, lỗi mạng, token hết hạn, gửi lại yêu cầu và không cộng XP hai lần trước khi đánh dấu hoàn thành.
+- PR #8 đã được hợp nhất vào `main`; GitHub Actions run #47 thành công cho type-check/build frontend và backend.
+- Khi đã đăng nhập, `QuizPanel` gửi lựa chọn của ba câu và một `attemptId` tới `POST /api/v1/quizzes/:quizId/attempts`; client không gửi số câu đúng hoặc XP có thẩm quyền.
+- Điểm, XP cộng thêm và tổng XP tài khoản được lấy từ phản hồi máy chủ.
+- Khi chưa đăng nhập, quiz tiếp tục dùng chế độ cục bộ.
+- Nếu gửi thất bại, giao diện hiển thị lỗi và cho phép gửi lại cùng `attemptId`; nếu token bị từ chối, không âm thầm chuyển lượt đó sang chấm cục bộ.
+- **Chưa xác minh production:** chưa có bằng chứng trong lượt làm việc này rằng Render đã triển khai phiên bản frontend mới hoặc luồng quiz đã được thử thành công trên trình duyệt. Cần kiểm tra deploy, CORS, MongoDB transaction, gửi quiz khi đăng nhập, replay cùng attemptId và chế độ local khi đăng xuất.
