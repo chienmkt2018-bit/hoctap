@@ -6,6 +6,8 @@ import { requireAuthentication } from './auth.js';
 
 const router = Router();
 
+type SubmittedAnswer = { questionId: string; selectedOptionId: string };
+
 // Correct option indexes stay on the server. These values match the current sample quiz bank.
 const quizAnswerIndexes: Record<number, number[]> = {
   1: [1, 0, 2],
@@ -56,6 +58,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isSubmittedAnswerArray(value: unknown, expectedCount: number): value is SubmittedAnswer[] {
+  if (!Array.isArray(value) || value.length !== expectedCount) return false;
+  if (!value.every((answer) => isRecord(answer) &&
+      Object.keys(answer).length === 2 &&
+      Object.keys(answer).every((key) => ['questionId', 'selectedOptionId'].includes(key)) &&
+      typeof answer.questionId === 'string' &&
+      typeof answer.selectedOptionId === 'string')) return false;
+
+  const answers = value as SubmittedAnswer[];
+  return new Set(answers.map((answer) => answer.questionId)).size === expectedCount &&
+    answers.every((answer) => /^q[1-3]$/.test(answer.questionId) &&
+      /^[0-2]$/.test(answer.selectedOptionId)) &&
+    Array.from({ length: expectedCount }, (_, index) => `q${index + 1}`)
+      .every((questionId) => answers.some((answer) => answer.questionId === questionId));
+}
+
 function databaseUnavailable(response: Response): void {
   response.status(503).json({
     error: { code: 'DATABASE_UNAVAILABLE', message: 'Database is not available. Try again later.' },
@@ -84,22 +102,7 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
         Object.keys(body).some((key) => !['attemptId', 'answers'].includes(key)) ||
         typeof body.attemptId !== 'string' ||
         !/^[a-zA-Z0-9_-]{16,128}$/.test(body.attemptId) ||
-        !Array.isArray(body.answers) ||
-        body.answers.length !== correctIndexes.length ||
-        !body.answers.every((answer) => isRecord(answer) &&
-          Object.keys(answer).length === 2 &&
-          Object.keys(answer).every((key) => ['questionId', 'selectedOptionId'].includes(key)) &&
-          typeof answer.questionId === 'string' &&
-          typeof answer.selectedOptionId === 'string') ||
-        new Set(body.answers.map((answer) => (answer as { questionId: string }).questionId)).size !== correctIndexes.length ||
-        !body.answers.every((answer) => {
-          const value = answer as { questionId: string; selectedOptionId: string };
-          const selected = Number(value.selectedOptionId);
-          return /^q[1-3]$/.test(value.questionId) &&
-            Number.isInteger(selected) && selected >= 0 && selected <= 2;
-        }) ||
-        !correctIndexes.every((_, index) => body.answers.some((answer) =>
-          (answer as { questionId: string }).questionId === `q${index + 1}`))) {
+        !isSubmittedAnswerArray(body.answers, correctIndexes.length)) {
       response.status(400).json({
         error: {
           code: 'INVALID_QUIZ_ATTEMPT',
@@ -110,7 +113,7 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     }
 
     const learnerId = response.locals.userId as string;
-    const answers = body.answers as Array<{ questionId: string; selectedOptionId: string }>;
+    const answers = body.answers as SubmittedAnswer[];
     const correctCount = correctIndexes.reduce((count, correctIndex, index) => {
       const answer = answers.find((item) => item.questionId === `q${index + 1}`);
       return count + (Number(answer?.selectedOptionId) === correctIndex ? 1 : 0);
@@ -118,15 +121,15 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     const totalQuestions = correctIndexes.length;
     const percentage = Math.round((correctCount / totalQuestions) * 100);
     const calculatedXp = Math.round((lessonXp[lessonId] * correctCount) / totalQuestions);
+    const resultHolder: { value: AttemptResult | null } = { value: null };
 
-    let result: AttemptResult | null = null;
     await session.withTransaction(async () => {
       const existing = await QuizAttemptModel.findOne({
         learnerId,
         idempotencyKey: body.attemptId as string,
       }).session(session);
       if (existing) {
-        result = resultFromAttempt(existing, true);
+        resultHolder.value = resultFromAttempt(existing, true);
         return;
       }
 
@@ -157,16 +160,18 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
         totalXpAfter: progress.totalXp,
       }], { session });
       if (!attempt) throw new Error('Could not save quiz attempt.');
-      result = resultFromAttempt(attempt, false);
+      resultHolder.value = resultFromAttempt(attempt, false);
     });
 
+    const result = resultHolder.value;
     if (!result) throw new Error('Quiz attempt did not produce a result.');
     response.status(result.replayed ? 200 : 201).json(result);
   } catch (error) {
     if (isRecord(error) && error.code === 11000) {
+      const body = request.body as { attemptId?: string } | undefined;
       const existing = await QuizAttemptModel.findOne({
         learnerId: response.locals.userId,
-        idempotencyKey: (request.body as { attemptId?: string } | undefined)?.attemptId,
+        idempotencyKey: body?.attemptId,
       });
       if (existing) {
         response.status(200).json(resultFromAttempt(existing, true));
