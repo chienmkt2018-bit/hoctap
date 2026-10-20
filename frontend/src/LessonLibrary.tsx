@@ -19,25 +19,26 @@ const lessons: Lesson[] = [
 ];
 
 const statusLabels: Record<LessonStatus, string> = { completed: 'Đã hoàn thành', available: 'Có thể học', locked: 'Chưa mở khóa' };
-type Props = { onNotice: (message: string) => void; onQuizComplete: (result: QuizResult) => number };
+type Props = { onNotice: (message: string) => void; onQuizComplete: (result: QuizResult) => number; completedLessonIds: number[] };
 
-export default function LessonLibrary({ onNotice, onQuizComplete }: Props) {
+export default function LessonLibrary({ onNotice, onQuizComplete, completedLessonIds }: Props) {
   const [subject, setSubject] = useState('Tất cả');
   const [level, setLevel] = useState('Tất cả');
   const [status, setStatus] = useState('Tất cả');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [quizStarted, setQuizStarted] = useState(false);
+  const displayLessons = useMemo(() => lessons.map((lesson) => completedLessonIds.includes(lesson.id) ? { ...lesson, status: 'completed' as const } : lesson), [completedLessonIds]);
   const subjects = ['Tất cả', ...Array.from(new Set(lessons.map((lesson) => lesson.subject)))];
   const levels = ['Tất cả', ...Array.from(new Set(lessons.map((lesson) => lesson.level)))];
-  const filteredLessons = useMemo(() => lessons.filter((lesson) =>
+  const filteredLessons = useMemo(() => displayLessons.filter((lesson) =>
     (subject === 'Tất cả' || lesson.subject === subject) &&
     (level === 'Tất cả' || lesson.level === level) &&
     (status === 'Tất cả' || statusLabels[lesson.status] === status)
-  ), [subject, level, status]);
-  const selectedLesson = lessons.find((lesson) => lesson.id === selectedId) ?? null;
+  ), [displayLessons, subject, level, status]);
+  const selectedLesson = displayLessons.find((lesson) => lesson.id === selectedId) ?? null;
   if (selectedId !== null && !selectedLesson) setSelectedId(null);
-  const availableCount = lessons.filter((lesson) => lesson.status === 'available').length;
-  const completedCount = lessons.filter((lesson) => lesson.status === 'completed').length;
+  const availableCount = displayLessons.filter((lesson) => lesson.status === 'available').length;
+  const completedCount = displayLessons.filter((lesson) => lesson.status === 'completed').length;
 
   function selectLesson(lesson: Lesson) {
     if (lesson.status === 'locked') { onNotice('Bài học này đang khóa. Hãy hoàn thành các chặng đang mở trước nhé.'); return; }
