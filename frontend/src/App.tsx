@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import LessonLibrary from './LessonLibrary';
 import type { QuizResult } from './QuizPanel';
 
@@ -18,6 +18,46 @@ const initialQuests: Quest[] = [
   { id: 4, title: 'Trùm chương', subtitle: 'Kiểm tra tổng hợp · 10 phút', xp: 100, status: 'locked', icon: '♜' },
 ];
 
+const progressStorageKey = 'hoc-tap-quest-progress-v1';
+
+type SavedProgress = {
+  quests: Quest[];
+  earnedQuizXp: number;
+  quizBestXp: Record<number, number>;
+  completedLessons: Record<number, boolean>;
+};
+
+function readSavedProgress(): SavedProgress | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(progressStorageKey);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const value = parsed as Partial<SavedProgress>;
+    const validQuests = Array.isArray(value.quests) && value.quests.length === initialQuests.length && value.quests.every((quest) =>
+      quest && initialQuests.some((initial) => initial.id === quest.id) &&
+      ['done', 'active', 'locked'].includes(quest.status)
+    );
+    const validNumberRecord = (record: unknown): record is Record<number, number> =>
+      !!record && typeof record === 'object' && !Array.isArray(record) &&
+      Object.values(record).every((number) => typeof number === 'number' && Number.isFinite(number) && number >= 0);
+    const validCompleted = !!value.completedLessons && typeof value.completedLessons === 'object' && !Array.isArray(value.completedLessons) &&
+      Object.values(value.completedLessons).every((flag) => typeof flag === 'boolean');
+    if (!validQuests || typeof value.earnedQuizXp !== 'number' || !Number.isFinite(value.earnedQuizXp) || value.earnedQuizXp < 0 ||
+      !validNumberRecord(value.quizBestXp) || !validCompleted) return null;
+    return {
+      quests: initialQuests.map((initial) => value.quests!.find((quest) => quest.id === initial.id)!),
+      earnedQuizXp: value.earnedQuizXp,
+      quizBestXp: value.quizBestXp,
+      completedLessons: value.completedLessons as Record<number, boolean>,
+    };
+  } catch {
+    // Storage may be disabled or contain malformed data; start with clean defaults.
+    return null;
+  }
+}
+
 const navigation = [
   { id: 'overview', icon: '◫', label: 'Tổng quan' },
   { id: 'map', icon: '⌘', label: 'Bản đồ nhiệm vụ' },
@@ -28,20 +68,20 @@ const navigation = [
 
 function App() {
   const [activeNav, setActiveNav] = useState('overview');
-  const [quests, setQuests] = useState(initialQuests);
+  const [quests, setQuests] = useState(() => readSavedProgress()?.quests ?? initialQuests);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [notice, setNotice] = useState('');
   const [earnedQuizXp, setEarnedQuizXp] = useState(0);
   const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>({});
 
-  const completedCount = quests.filter((quest) => quest.status === 'done').length;
+  useEffect(() => {\n    try {\n      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons } satisfies SavedProgress));\n    } catch {\n      setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');\n    }\n  }, [quests, earnedQuizXp, quizBestXp, completedLessons]);\n\n  const completedCount = quests.filter((quest) => quest.status === 'done').length;
   const xp = 680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp;
   const level = 3 + Math.floor(xp / 1000) - Math.floor(680 / 1000);
   const levelProgress = xp % 1000;
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
 
   function handleQuizComplete(result: QuizResult): number {
-    const previousBest = quizBestXp[result.lessonId] ?? 0;
+    setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));\n    const previousBest = quizBestXp[result.lessonId] ?? 0;
     const newBest = Math.max(previousBest, result.calculatedXp);
     const awarded = newBest - previousBest;
     if (awarded > 0) {
@@ -172,7 +212,7 @@ function App() {
             </>
           )}
 
-          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} onQuizComplete={handleQuizComplete} />}
+          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} onQuizComplete={handleQuizComplete} completedLessonIds={Object.keys(completedLessons).map(Number)} />}
 
           {activeNav === 'map' && (
             <section className="alternate-panel"><div className="section-heading"><div><p className="section-kicker">CHAPTER SELECT</p><h2>Chọn chặng tiếp theo</h2><p className="section-description">Nhấn vào nhiệm vụ đang mở hoặc đã hoàn thành để xem chi tiết.</p></div></div><div className="alternate-quests">{quests.map((quest) => <button type="button" key={quest.id} className="alternate-quest" onClick={() => startQuest(quest)}><span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span><span className="alternate-quest-copy"><strong>{quest.title}</strong><small>{quest.subtitle}</small></span><span className="daily-reward">+{quest.xp} XP</span><span className="alternate-status">{quest.status === 'done' ? 'ĐÃ XONG' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span></button>)}</div></section>
@@ -180,7 +220,7 @@ function App() {
           {activeNav === 'practice' && <section className="alternate-panel"><p className="section-kicker">PRACTICE HUB</p><h2>Chọn cách bạn muốn luyện tập</h2><div className="practice-grid"><button type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}><span>✧</span><strong>Luyện tập nhanh</strong><small>Ôn lại kiến thức trong vài phút</small></button><button type="button" onClick={() => setNotice('Chế độ thử thách sẽ được phát triển ở P2 — Learning Core.')}><span>⚡</span><strong>Thử thách kiến thức</strong><small>Kiểm tra mức độ ghi nhớ</small></button><button type="button" onClick={() => setNotice('Lịch sử học tập sẽ được kết nối với dữ liệu thực ở giai đoạn backend.')}><span>◷</span><strong>Lịch sử học tập</strong><small>Theo dõi những gì bạn đã học</small></button></div></section>}
           {activeNav === 'achievements' && <section className="alternate-panel"><p className="section-kicker">YOUR COLLECTION</p><h2>Thành tựu của nhà thám hiểm</h2><div className="achievement-grid"><article><span>✦</span><strong>Bước đầu tiên</strong><small>Hoàn thành nhiệm vụ đầu tiên</small><em>ĐÃ MỞ KHÓA</em></article><article><span>♨</span><strong>Giữ lửa</strong><small>Học 5 ngày liên tiếp</small><em>ĐÃ MỞ KHÓA</em></article><article className="achievement-locked"><span>♛</span><strong>Bậc thầy tri thức</strong><small>Hoàn thành toàn bộ chương 1</small><em>CHƯA MỞ KHÓA</em></article></div></section>}
 
-          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> P2.3 · RESULTS & XP</span></footer>
+          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> P2.4 · SAVED PROGRESS</span></footer>
         </div>
       </section>
     </main>
