@@ -170,6 +170,11 @@ paths:
               additionalProperties: false
               required: [attemptId, answers]
               properties:
+                timezoneOffsetMinutes:
+                  type: integer
+                  minimum: -840
+                  maximum: 840
+                  description: Browser timezone offset in minutes (UTC minus local time); the server still determines the activity timestamp.
                 attemptId:
                   type: string
                   minLength: 16
@@ -234,12 +239,16 @@ components:
       properties:
         progress:
           type: object
-          required: [totalXp, completedLessonIds, bestXpByLesson, questStatuses, updatedAt]
+          required: [totalXp, completedLessonIds, learningDates, bestXpByLesson, questStatuses, updatedAt]
           properties:
             totalXp: { type: integer, minimum: 0 }
             completedLessonIds:
               type: array
               items: { type: integer, minimum: 1 }
+            learningDates:
+              type: array
+              uniqueItems: true
+              items: { type: string, format: date }
             bestXpByLesson:
               type: object
               additionalProperties: { type: integer, minimum: 0 }
