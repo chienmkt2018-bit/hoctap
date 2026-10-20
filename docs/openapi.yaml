@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: HOC TAP QUEST API
-  version: 1.1.0
-  description: API contract for learner accounts, lesson progress, quiz results, and XP.
+  version: 0.3.0
+  description: API contract for authentication, learner progress, and server-authoritative quiz attempts.
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
@@ -12,7 +12,6 @@ tags:
   - name: System
   - name: Authentication
   - name: Progress
-  - name: Lessons
   - name: Quiz
 paths:
   /health:
@@ -21,7 +20,7 @@ paths:
       summary: Check API and database availability
       responses:
         '200':
-          description: API is available; database is connected or not configured
+          description: API is available and database is connected or not configured
           content:
             application/json:
               schema:
@@ -29,21 +28,15 @@ paths:
                 required: [status, service, version, database]
                 properties:
                   status: { type: string, enum: [ok, degraded] }
-                  database: { type: string, enum: [connected, disconnected, not_configured, connecting] }
                   service: { type: string, const: hoc-tap-quest-api }
                   version: { type: string }
+                  database: { type: string, enum: [connected, disconnected, not_configured, connecting] }
         '503':
-          description: API is running but configured database is unavailable
+          description: Configured database is unavailable
           content:
             application/json:
               schema:
-                type: object
-                required: [status, service, version, database]
-                properties:
-                  status: { type: string, const: degraded }
-                  service: { type: string, const: hoc-tap-quest-api }
-                  version: { type: string }
-                  database: { type: string, enum: [disconnected, connecting] }
+                $ref: '#/components/schemas/HealthResponse'
   /auth/register:
     post:
       tags: [Authentication]
@@ -54,6 +47,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required: [email, password]
               properties:
                 email: { type: string, format: email, maxLength: 254 }
@@ -69,7 +63,8 @@ paths:
           description: Email is already registered
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /auth/login:
     post:
@@ -81,6 +76,7 @@ paths:
           application/json:
             schema:
               type: object
+              additionalProperties: false
               required: [email, password]
               properties:
                 email: { type: string, format: email, maxLength: 254 }
@@ -96,12 +92,8 @@ paths:
           description: Email or password is incorrect
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
-        '429':
-          description: Too many authentication attempts
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /auth/me:
     get:
@@ -132,60 +124,43 @@ paths:
           description: Learner progress
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ProgressResponse'
+              schema: { $ref: '#/components/schemas/ProgressResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
     put:
       tags: [Progress]
-      summary: Save lesson completion and quest statuses for the authenticated learner
-      description: The learner ID is derived from the verified token. Clients cannot submit totalXp or bestXpByLesson; authoritative XP is reserved for server-validated quiz attempts.
+      summary: Save lesson completion and quest statuses
+      description: Learner identity is derived from the verified JWT. Clients cannot submit totalXp or bestXpByLesson.
       security:
         - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/ProgressUpdate'
+            schema: { $ref: '#/components/schemas/ProgressUpdate' }
       responses:
         '200':
           description: Progress saved
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/ProgressResponse'
+              schema: { $ref: '#/components/schemas/ProgressResponse' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
-  /lessons:
-    get:
-      tags: [Lessons]
-      summary: List published lessons (planned; not implemented yet)
-      responses:
-        '200':
-          description: Lesson list
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [items]
-                properties:
-                  items:
-                    type: array
-                    items: { $ref: '#/components/schemas/Lesson' }
   /quizzes/{quizId}/attempts:
     post:
       tags: [Quiz]
       summary: Submit a quiz attempt and calculate XP on the server
-      description: Correct answers and lesson XP are server-controlled. Reusing the same attemptId for the same learner is idempotent and does not award XP twice. Requires MongoDB transaction support.
+      description: Correct answers and base XP are server-controlled. Reusing an attemptId for the same learner is idempotent. Requires MongoDB transaction support.
       security:
         - bearerAuth: []
       parameters:
         - in: path
           name: quizId
           required: true
-          schema: { type: string, enum: ['1', '2', '3', '4', '5', '6', '7', '8'] }
+          schema:
+            type: string
+            enum: ['1', '2', '3', '4', '5', '6', '7', '8']
       requestBody:
         required: true
         content:
@@ -195,142 +170,34 @@ paths:
               additionalProperties: false
               required: [attemptId, answers]
               properties:
-                attemptId: { type: string, minLength: 16, maxLength: 128, pattern: '^[a-zA-Z0-9_-]+
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  schemas:
-    AuthResponse:
-      type: object
-      required: [token, tokenType, expiresIn, user]
-      properties:
-        token: { type: string }
-        tokenType: { type: string, const: Bearer }
-        expiresIn: { type: integer, const: 3600 }
-        user: { $ref: '#/components/schemas/User' }
-    User:
-      type: object
-      required: [id, email]
-      properties:
-        id: { type: string }
-        email: { type: string, format: email }
-    ProgressResponse:
-      type: object
-      required: [progress]
-      properties:
-        progress:
-          type: object
-          required: [totalXp, completedLessonIds, bestXpByLesson, questStatuses, updatedAt]
-          properties:
-            totalXp: { type: integer, minimum: 0 }
-            completedLessonIds:
-              type: array
-              items: { type: integer, minimum: 1 }
-            bestXpByLesson:
-              type: object
-              additionalProperties: { type: integer, minimum: 0 }
-            questStatuses:
-              type: object
-              additionalProperties:
-                type: string
-                enum: [done, active, locked]
-            updatedAt: { type: string, format: date-time }
-    ProgressUpdate:
-      type: object
-      required: [completedLessonIds, questStatuses]
-      additionalProperties: false
-      properties:
-        completedLessonIds:
-          type: array
-          maxItems: 500
-          uniqueItems: true
-          items: { type: integer, minimum: 1 }
-        questStatuses:
-          type: object
-          maxProperties: 100
-          additionalProperties:
-            type: string
-            enum: [done, active, locked]
-    QuizAttemptResult:
-      type: object
-      required: [attemptId, correctCount, totalQuestions, percentage, xpAwarded, totalXp, replayed]
-      properties:
-        attemptId: { type: string }
-        correctCount: { type: integer, minimum: 0 }
-        totalQuestions: { type: integer, const: 3 }
-        percentage: { type: integer, minimum: 0, maximum: 100 }
-        xpAwarded: { type: integer, minimum: 0 }
-        totalXp: { type: integer, minimum: 0 }
-        replayed: { type: boolean }
-    Lesson:
-      type: object
-      required: [id, title, subject, level, durationMinutes, baseXp]
-      properties:
-        id: { type: string }
-        title: { type: string }
-        subject: { type: string }
-        level: { type: string }
-        durationMinutes: { type: integer, minimum: 1 }
-        baseXp: { type: integer, minimum: 0 }
-    Error:
-      type: object
-      required: [error]
-      properties:
-        error:
-          type: object
-          required: [code, message]
-          properties:
-            code: { type: string }
-            message: { type: string }
-  responses:
-    BadRequest:
-      description: Invalid request
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
-    Unauthorized:
-      description: Authentication required or token invalid
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
-    ServiceUnavailable:
-      description: Database or authentication configuration unavailable
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
- }
+                attemptId:
+                  type: string
+                  minLength: 16
+                  maxLength: 128
+                  pattern: '^[a-zA-Z0-9_-]+$'
                 answers:
                   type: array
                   minItems: 3
                   maxItems: 3
-                  items:
-                    type: object
-                    additionalProperties: false
-                    required: [questionId, selectedOptionId]
-                    properties:
-                      questionId: { type: string, enum: [q1, q2, q3] }
-                      selectedOptionId: { type: string, enum: ['0', '1', '2'] }
+                  items: { $ref: '#/components/schemas/SubmittedAnswer' }
       responses:
         '201':
-          description: Attempt evaluated and saved; XP is awarded only for improvement over the learner's previous best for this lesson
+          description: Quiz attempt saved and XP processed
           content:
             application/json:
               schema: { $ref: '#/components/schemas/QuizAttemptResult' }
         '200':
-          description: Idempotent replay of an attempt already saved
+          description: Previously processed attempt returned without duplicate XP
           content:
             application/json:
               schema: { $ref: '#/components/schemas/QuizAttemptResult' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404':
-          description: Quiz is not available
+          description: Quiz does not exist
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
 components:
   securitySchemes:
@@ -339,6 +206,14 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    HealthResponse:
+      type: object
+      required: [status, service, version, database]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        service: { type: string, const: hoc-tap-quest-api }
+        version: { type: string }
+        database: { type: string, enum: [connected, disconnected, not_configured, connecting] }
     AuthResponse:
       type: object
       required: [token, tokenType, expiresIn, user]
@@ -370,14 +245,12 @@ components:
               additionalProperties: { type: integer, minimum: 0 }
             questStatuses:
               type: object
-              additionalProperties:
-                type: string
-                enum: [done, active, locked]
+              additionalProperties: { type: string, enum: [done, active, locked] }
             updatedAt: { type: string, format: date-time }
     ProgressUpdate:
       type: object
-      required: [completedLessonIds, questStatuses]
       additionalProperties: false
+      required: [completedLessonIds, questStatuses]
       properties:
         completedLessonIds:
           type: array
@@ -387,20 +260,26 @@ components:
         questStatuses:
           type: object
           maxProperties: 100
-          additionalProperties:
-            type: string
-            enum: [done, active, locked]
-    Lesson:
+          additionalProperties: { type: string, enum: [done, active, locked] }
+    SubmittedAnswer:
       type: object
-      required: [id, title, subject, level, durationMinutes, baseXp]
+      additionalProperties: false
+      required: [questionId, selectedOptionId]
       properties:
-        id: { type: string }
-        title: { type: string }
-        subject: { type: string }
-        level: { type: string }
-        durationMinutes: { type: integer, minimum: 1 }
-        baseXp: { type: integer, minimum: 0 }
-    Error:
+        questionId: { type: string, enum: [q1, q2, q3] }
+        selectedOptionId: { type: string, enum: ['0', '1', '2'] }
+    QuizAttemptResult:
+      type: object
+      required: [attemptId, correctCount, totalQuestions, percentage, xpAwarded, totalXp, replayed]
+      properties:
+        attemptId: { type: string }
+        correctCount: { type: integer, minimum: 0, maximum: 3 }
+        totalQuestions: { type: integer, const: 3 }
+        percentage: { type: integer, minimum: 0, maximum: 100 }
+        xpAwarded: { type: integer, minimum: 0 }
+        totalXp: { type: integer, minimum: 0 }
+        replayed: { type: boolean }
+    ErrorResponse:
       type: object
       required: [error]
       properties:
@@ -412,17 +291,22 @@ components:
             message: { type: string }
   responses:
     BadRequest:
-      description: Invalid request
+      description: Invalid request body or fields
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     Unauthorized:
-      description: Authentication required or token invalid
+      description: Missing or invalid access token
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RateLimited:
+      description: Too many authentication attempts
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     ServiceUnavailable:
-      description: Database or authentication configuration unavailable
+      description: Database or required authentication configuration is unavailable
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
