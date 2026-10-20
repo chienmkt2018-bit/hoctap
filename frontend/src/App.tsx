@@ -13,8 +13,8 @@ type Quest = {
 };
 
 const initialQuests: Quest[] = [
-  { id: 1, title: 'Khởi động tư duy', subtitle: 'Bài học nền tảng · 5 phút', xp: 30, status: 'done', icon: '✦' },
-  { id: 2, title: 'Mở khóa kiến thức', subtitle: 'Khái niệm cốt lõi · 8 phút', xp: 40, status: 'active', icon: '◈' },
+  { id: 1, title: 'Khởi động tư duy', subtitle: 'Bài học nền tảng · 5 phút', xp: 30, status: 'active', icon: '✦' },
+  { id: 2, title: 'Mở khóa kiến thức', subtitle: 'Khái niệm cốt lõi · 8 phút', xp: 40, status: 'locked', icon: '◈' },
   { id: 3, title: 'Thử thách nhanh', subtitle: '5 câu hỏi · 4 phút', xp: 50, status: 'locked', icon: '⚡' },
   { id: 4, title: 'Trùm chương', subtitle: 'Kiểm tra tổng hợp · 10 phút', xp: 100, status: 'locked', icon: '♜' },
 ];
@@ -197,19 +197,22 @@ function mergeDailyActivity(remote: ApiProgress['dailyActivity'], local: DailyAc
   };
 }
 
+function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boolean>): Quest[] {
+  let previousQuestCompleted = true;
+  return initialQuests.map((quest) => {
+    const done = completedLessons[quest.id] === true;
+    const status: Quest['status'] = done ? 'done' : previousQuestCompleted ? 'active' : 'locked';
+    previousQuestCompleted = done;
+    return { ...quest, status };
+  });
+}
+
 function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedProgress {
   const completedLessons = { ...local.completedLessons };
   for (const lessonId of remote.completedLessonIds) completedLessons[lessonId] = true;
 
-  const quests = local.quests.map((quest) => {
-    const remoteStatus = remote.questStatuses[`quest_${quest.id}`];
-    const status = quest.status === 'done' || remoteStatus === 'done'
-      ? 'done'
-      : quest.status === 'active' || remoteStatus === 'active'
-        ? 'active'
-        : 'locked';
-    return { ...quest, status } as Quest;
-  });
+  // Completion is derived from a recorded quiz result, not a client-supplied quest status.
+  const quests = deriveQuestsFromCompletedLessons(completedLessons);
 
   const remoteBestXp = Object.fromEntries(
     Object.entries(remote.bestXpByLesson).map(([lessonId, xp]) => [Number(lessonId), xp]),
@@ -229,7 +232,7 @@ function toRemoteProgress(local: SavedProgress): Pick<ApiProgress, 'completedLes
       .filter(([, completed]) => completed)
       .map(([lessonId]) => Number(lessonId))
       .filter((lessonId) => Number.isSafeInteger(lessonId) && lessonId > 0),
-    questStatuses: Object.fromEntries(local.quests.map((quest) => [`quest_${quest.id}`, quest.status])),
+    questStatuses: Object.fromEntries(deriveQuestsFromCompletedLessons(local.completedLessons).map((quest) => [`quest_${quest.id}`, quest.status])),
   };
 }
 
@@ -375,8 +378,8 @@ function App() {
   }
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
-  const xp = 680 + Math.max(0, completedCount - 1) * 30 + (serverTotalXp ?? earnedQuizXp);
-  const level = 3 + Math.floor(xp / 1000) - Math.floor(680 / 1000);
+  const xp = serverTotalXp ?? earnedQuizXp;
+  const level = 1 + Math.floor(xp / 1000);
   const levelProgress = xp % 1000;
 
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
@@ -403,7 +406,9 @@ function App() {
   const currentWeek = getCurrentWeek(learningDates);
 
   function handleQuizComplete(result: QuizResult): number {
-    setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));
+    const updatedCompletedLessons = { ...completedLessons, [result.lessonId]: true };
+    setCompletedLessons(updatedCompletedLessons);
+    setQuests(deriveQuestsFromCompletedLessons(updatedCompletedLessons));
     setDailyActivity((current) => {
       const today = getLocalDateKey();
       const activity = current.date === today ? current : createDailyActivity(today);
@@ -448,17 +453,6 @@ function App() {
     }
     setSelectedQuest(quest);
     setNotice('');
-  }
-
-  function completeSelectedQuest() {
-    if (!selectedQuest) return;
-    setQuests((current) => current.map((quest) => {
-      if (quest.id === selectedQuest.id) return { ...quest, status: 'done' };
-      if (quest.status === 'locked' && quest.id === selectedQuest.id + 1) return { ...quest, status: 'active' };
-      return quest;
-    }));
-    setNotice(`Hoàn thành “${selectedQuest.title}”! Bạn vừa tiến thêm một bước trên hành trình.`);
-    setSelectedQuest(null);
   }
 
   return (
@@ -532,7 +526,7 @@ function App() {
             <section className="lesson-panel" aria-live="polite">
               <div className="lesson-symbol">{selectedQuest.icon}</div>
               <div className="lesson-body"><span className="section-kicker">NHIỆM VỤ ĐANG CHỌN · +{selectedQuest.xp} XP</span><h2>{selectedQuest.title}</h2><p>{selectedQuest.subtitle}. Sẵn sàng bắt đầu phiên học ngắn của bạn?</p></div>
-              <button className="primary-button" type="button" onClick={completeSelectedQuest}>Hoàn thành nhiệm vụ <span>↗</span></button>
+              <button className="primary-button" type="button" onClick={() => { setActiveNav('lessons'); setSelectedQuest(null); setNotice('Hãy mở bài học tương ứng và hoàn thành quiz để ghi nhận nhiệm vụ.'); }}>Mở thư viện bài học <span>↗</span></button>
               <button className="close-button" type="button" aria-label="Đóng nhiệm vụ" onClick={() => setSelectedQuest(null)}>×</button>
             </section>
           )}
