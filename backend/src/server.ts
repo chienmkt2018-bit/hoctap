@@ -6,6 +6,7 @@ import { closeDatabase, connectDatabase, getDatabaseStatus } from './database.js
 import { createAccessToken, getJwtSecret, hashPassword, requireAuthentication, verifyPassword } from './auth.js';
 import { ProgressModel } from './models/Progress.js';
 import { UserModel } from './models/User.js';
+import quizRouter from './quiz.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -255,6 +256,8 @@ app.put('/api/v1/progress', requireAuthentication, async (request, response, nex
     next(error);
   }
 });
+
+app.use('/api/v1', quizRouter);
 
 app.use((_request, response) => {
   response.status(404).json({

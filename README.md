@@ -47,9 +47,11 @@ npm run preview
 | P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng XP; chống nhận XP lặp khi làm lại cùng bài |
 | P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ |
 | P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, OpenAPI và health endpoint; Actions run #16 thành công |
-| P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20; chưa có API quiz server-authoritative |
+| P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20 |
 | P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã xác minh trên Render | Ngày 2026-10-20: đăng ký, đăng nhập, `/auth/me`, GET/PUT `/progress` và đọc lại dữ liệu đều thành công; MongoDB trả dữ liệu đã lưu |
 | P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; Actions #35 thành công | PR #3 đã được hợp nhất vào `main`; GitHub Actions #35 thành công theo xác nhận ngày 2026-10-20; còn cần kiểm thử trình duyệt production sau khi xác nhận CORS |
+| P3.5 | API chấm quiz và XP phía máy chủ | Đang review trên nhánh riêng | Thêm `POST /api/v1/quizzes/:quizId/attempts`, đáp án chuẩn phía server, lưu lịch sử, chống gửi lặp bằng idempotency key và cập nhật XP trong MongoDB transaction; chưa triển khai production và chưa nối frontend |
+| P3.6 | Nối giao diện quiz với API server | Chưa bắt đầu | Sau khi P3.5 qua CI/review; giữ chế độ cục bộ khi chưa đăng nhập |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend Render và API xác thực/tiến độ đã được người dùng kiểm thử thành công; frontend integration vẫn cần CI, cấu hình CORS production và kiểm tra trình duyệt |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
@@ -64,7 +66,7 @@ npm run preview
 ## P3.1 — Backend và hợp đồng API
 
 - Express + TypeScript với `GET /api/v1/health`, Helmet, CORS theo `CORS_ORIGIN`, giới hạn JSON body 100 KB và phản hồi lỗi JSON.
-- Đặc tả OpenAPI nằm tại `docs/openapi.yaml`. Các endpoint `/lessons` và `/quizzes/{quizId}/attempts` vẫn là thiết kế, chưa được triển khai.
+- Đặc tả OpenAPI nằm tại `docs/openapi.yaml`. `/lessons` vẫn là endpoint dự kiến; endpoint nộp quiz đang được triển khai trên nhánh P3.5 và chưa có trên production cho đến khi PR được duyệt, hợp nhất và Render triển khai.
 - GitHub Actions build/type-check frontend và backend khi có thay đổi trong thư mục tương ứng hoặc OpenAPI.
 
 ## P3.2 — Kết nối MongoDB Atlas
@@ -104,3 +106,12 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 ## Bảo mật
 
 Không lưu thông tin đăng nhập, token, JWT secret hoặc URI cơ sở dữ liệu thật trong mã nguồn.
+
+
+## P3.5 — API chấm quiz và XP phía máy chủ (đang review)
+
+- Endpoint `POST /api/v1/quizzes/{quizId}/attempts` yêu cầu JWT; nhận `attemptId` duy nhất và lựa chọn cho ba câu hỏi.
+- Đáp án đúng và XP cơ sở được giữ ở backend; client không gửi số câu đúng hoặc XP để server tin cậy.
+- Kết quả bài làm được lưu trong collection `QuizAttempt`; XP tổng, điểm tốt nhất và bài đã hoàn thành được cập nhật trong `Progress`.
+- Gửi lại cùng `attemptId` của cùng tài khoản trả lại kết quả cũ, không cộng XP lần hai. Cập nhật lịch sử và tiến độ dùng MongoDB transaction; môi trường database phải hỗ trợ transaction (MongoDB Atlas hỗ trợ).
+- **Chưa production:** cần CI xanh, review/merge PR và đợi Render deploy. Frontend chưa gọi endpoint này cho đến P3.6.
