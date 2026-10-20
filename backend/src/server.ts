@@ -61,7 +61,7 @@ function toProgressResponse(progress: {
   totalXp: number;
   completedLessonIds: number[];
   learningDates: string[];
-  dailyActivity?: { date: string; completedLessonIds: number[]; highScoreLessonIds: number[] };
+  dailyActivity?: { date: string; completedLessonIds: number[]; highScoreLessonIds: number[] } | null;
   bestXpByLesson: Map<string, number>;
   questStatuses: Map<string, 'done' | 'active' | 'locked'>;
   updatedAt?: Date;
