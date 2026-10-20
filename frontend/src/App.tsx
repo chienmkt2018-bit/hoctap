@@ -33,6 +33,7 @@ type SavedProgress = {
   quizBestXp: Record<number, number>;
   completedLessons: Record<number, boolean>;
   dailyActivity: DailyActivity;
+  learningDates: string[];
 };
 
 function getLocalDateKey(): string {
@@ -55,6 +56,49 @@ function isValidDailyActivity(value: unknown): value is DailyActivity {
     activity.completedLessonIds.every((id) => Number.isSafeInteger(id) && id > 0) &&
     Array.isArray(activity.highScoreLessonIds) &&
     activity.highScoreLessonIds.every((id) => Number.isSafeInteger(id) && id > 0);
+}
+
+function isValidDateKey(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00`);
+  return !Number.isNaN(date.getTime()) && getDateKey(date) === value;
+}
+
+function getDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function shiftDateKey(dateKey: string, amount: number): string {
+  const date = new Date(`${dateKey}T12:00:00`);
+  date.setDate(date.getDate() + amount);
+  return getDateKey(date);
+}
+
+function getCurrentLearningStreak(learningDates: string[], today = getLocalDateKey()): number {
+  const learned = new Set(learningDates);
+  let cursor = learned.has(today) ? today : shiftDateKey(today, -1);
+  if (!learned.has(cursor)) return 0;
+  let streak = 0;
+  while (learned.has(cursor)) {
+    streak += 1;
+    cursor = shiftDateKey(cursor, -1);
+  }
+  return streak;
+}
+
+function getCurrentWeek(learningDates: string[], today = new Date()) {
+  const mondayOffset = (today.getDay() + 6) % 7;
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset, 12);
+  const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const learned = new Set(learningDates);
+  return labels.map((label, index) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index, 12);
+    const dateKey = getDateKey(date);
+    return { label, dateKey, learned: learned.has(dateKey), today: dateKey === getDateKey(today) };
+  });
 }
 
 function readSavedProgress(): SavedProgress | null {
@@ -88,6 +132,13 @@ function readSavedProgress(): SavedProgress | null {
             highScoreLessonIds: [...new Set(value.dailyActivity.highScoreLessonIds)],
           }
         : createDailyActivity(),
+      // Migrate only dates with evidence: preserve recorded dates and today's actual P4.2 quiz activity.
+      learningDates: [...new Set([
+        ...(Array.isArray(value.learningDates) ? value.learningDates.filter(isValidDateKey) : []),
+        ...(isValidDailyActivity(value.dailyActivity) && value.dailyActivity.completedLessonIds.length > 0 && isValidDateKey(value.dailyActivity.date)
+          ? [value.dailyActivity.date]
+          : []),
+      ])].sort(),
     };
   } catch {
     // Storage may be disabled or contain malformed data; start with clean defaults.
@@ -146,6 +197,7 @@ function App() {
   const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
   const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
   const [dailyActivity, setDailyActivity] = useState<DailyActivity>(() => readSavedProgress()?.dailyActivity ?? createDailyActivity());
+  const [learningDates, setLearningDates] = useState<string[]>(() => readSavedProgress()?.learningDates ?? []);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -156,11 +208,11 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity } satisfies SavedProgress));
+      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates } satisfies SavedProgress));
     } catch {
       setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');
     }
-  }, [quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity]);
+  }, [quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates]);
 
   // Roll the daily checklist over when the local date changes while the tab remains open.
   useEffect(() => {
@@ -187,7 +239,7 @@ function App() {
         const currentUser = await getCurrentUser(token);
         const remote = await getRemoteProgress(token);
         if (cancelled) return;
-        const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity };
+        const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates };
         const merged = mergeRemoteProgress(remote, local);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
@@ -213,7 +265,7 @@ function App() {
     if (!user || !syncReady) return;
     const token = readAccessToken();
     if (!token) return;
-    const snapshot: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity };
+    const snapshot: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates };
     const timeout = window.setTimeout(() => {
       void saveRemoteProgress(token, toRemoteProgress(snapshot)).catch((error: unknown) => {
         setNotice(error instanceof Error ? `Không đồng bộ được lên máy chủ: ${error.message} Tiến độ cục bộ vẫn được giữ.` : 'Không đồng bộ được lên máy chủ; tiến độ cục bộ vẫn được giữ.');
@@ -232,7 +284,7 @@ function App() {
       const token = readAccessToken();
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
-      const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity };
+      const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates };
       const merged = mergeRemoteProgress(remote, local);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
@@ -285,6 +337,8 @@ function App() {
     { id: 'high-score', icon: '✧', title: 'Đạt ít nhất 80% chính xác', description: 'Đạt 80% trở lên ở một bài quiz hôm nay.', progress: Math.min(dailyActivity.highScoreLessonIds.length, 1), target: 1 },
   ].map((quest) => ({ ...quest, done: quest.progress >= quest.target }));
   const completedDailyQuestCount = dailyQuests.filter((quest) => quest.done).length;
+  const learningStreak = getCurrentLearningStreak(learningDates);
+  const currentWeek = getCurrentWeek(learningDates);
 
   function handleQuizComplete(result: QuizResult): number {
     setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));
@@ -297,6 +351,10 @@ function App() {
         : activity.highScoreLessonIds;
       return { date: today, completedLessonIds, highScoreLessonIds };
     });
+    // A streak day is earned only by a completed quiz result, never by opening the app.
+    setLearningDates((current) => current.includes(getLocalDateKey())
+      ? current
+      : [...current, getLocalDateKey()].sort());
     if (result.serverAwardedXp !== undefined) {
       const awarded = result.serverAwardedXp;
       setQuizBestXp((current) => ({
@@ -376,7 +434,7 @@ function App() {
         <header className="topbar">
           <div className="breadcrumb"><span>HOC TAP QUEST</span><span className="breadcrumb-slash">/</span><strong>{activeTitle}</strong></div>
           <div className="topbar-right">
-            <div className="streak-chip"><span>♨</span><strong>5</strong><span className="chip-caption">NGÀY</span></div>
+            <div className="streak-chip" title="Chuỗi ngày tính từ các ngày có hoàn thành quiz"><span>♨</span><strong>{learningStreak}</strong><span className="chip-caption">NGÀY</span></div>
             <div className="currency-chip"><span className="gem">◆</span><strong>120</strong><span className="chip-caption">GEMS</span></div>
             <button className="icon-button" type="button" aria-label="Thông báo" onClick={() => setNotice('Bạn đã xem thông báo mới nhất.')}>♧<span className="notification-dot" /></button>
             {user ? <div className="account-chip" title={user.email}><span className="account-dot" /><span className="account-email">{user.email}</span><button type="button" onClick={handleLogout}>Đăng xuất</button></div> : <button className="auth-trigger" type="button" onClick={() => { setAuthOpen((open) => !open); setNotice(''); }}>{authOpen ? 'Đóng' : 'Đăng nhập'}</button>}
@@ -421,7 +479,7 @@ function App() {
             <>
               <section className="stats-grid" aria-label="Thống kê học tập">
                 <article className="stat-card"><div className="stat-top"><span className="stat-icon purple-icon">✧</span><span className="stat-trend">+12% ↗</span></div><span className="stat-label">TỔNG KINH NGHIỆM</span><div className="stat-value">{xp.toLocaleString('vi-VN')} <small>XP</small></div><div className="stat-foot">Bạn đang tiến bộ mỗi ngày</div></article>
-                <article className="stat-card"><div className="stat-top"><span className="stat-icon orange-icon">♨</span><span className="stat-note">MỤC TIÊU: 7 NGÀY</span></div><span className="stat-label">CHUỖI NGÀY HỌC</span><div className="stat-value">5 <small>ngày</small></div><div className="mini-week"><span className="day-done">T2</span><span className="day-done">T3</span><span className="day-done">T4</span><span className="day-done">T5</span><span className="day-today">T6</span><span>T7</span><span>CN</span></div></article>
+                <article className="stat-card"><div className="stat-top"><span className="stat-icon orange-icon">♨</span><span className="stat-note">THEO QUIZ THỰC TẾ</span></div><span className="stat-label">CHUỖI NGÀY HỌC</span><div className="stat-value">{learningStreak} <small>ngày</small></div><div className="mini-week" aria-label="Ngày học trong tuần hiện tại">{currentWeek.map((day) => <span key={day.dateKey} title={day.dateKey} className={day.learned ? 'day-done' : day.today ? 'day-today' : ''}>{day.label}</span>)}</div><div className="stat-foot">{learningDates.length === 0 ? 'Hoàn thành quiz để bắt đầu chuỗi ngày học.' : 'Chỉ tính ngày có ít nhất một quiz hoàn thành.'}</div></article>
                 <article className="stat-card"><div className="stat-top"><span className="stat-icon cyan-icon">◈</span><span className="stat-note">HÔM NAY</span></div><span className="stat-label">NHIỆM VỤ HOÀN THÀNH</span><div className="stat-value">{completedCount}<small> / {quests.length}</small></div><div className="stat-progress"><span style={{ width: `${completedCount / quests.length * 100}%` }} /></div><div className="stat-foot">{Math.round(completedCount / quests.length * 100)}% hành trình hiện tại</div></article>
               </section>
 
