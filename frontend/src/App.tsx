@@ -198,11 +198,11 @@ function mergeDailyActivity(remote: ApiProgress['dailyActivity'], local: DailyAc
 }
 
 function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boolean>): Quest[] {
-  let previousQuestCompleted = true;
+  let allPreviousQuestsCompleted = true;
   return initialQuests.map((quest) => {
     const done = completedLessons[quest.id] === true;
-    const status: Quest['status'] = done ? 'done' : previousQuestCompleted ? 'active' : 'locked';
-    previousQuestCompleted = done;
+    const status: Quest['status'] = done ? 'done' : allPreviousQuestsCompleted ? 'active' : 'locked';
+    allPreviousQuestsCompleted = allPreviousQuestsCompleted && done;
     return { ...quest, status };
   });
 }
