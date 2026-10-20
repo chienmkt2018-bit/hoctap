@@ -55,7 +55,8 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; CI #35 được xác nhận thành công | CORS và luồng trình duyệt production vẫn cần kiểm thử thủ công |
 | P3.5 | API chấm quiz và XP phía máy chủ | Đã hợp nhất; CI thành công; Health production đã xác minh; endpoint quiz chưa kiểm thử riêng | PR #4 đã merge; Actions run #40 thành công; Render Health từng trả `status: ok`, `database: connected` ngày 2026-10-20. Chưa xác minh POST attempts trên production. |
 | P3.6 | Nối giao diện quiz với API server | Đã hợp nhất; Actions #47 thành công; production chưa xác minh | PR #8 tích hợp gửi đáp án khi đăng nhập, hiển thị loading/lỗi, giữ chế độ local khi chưa đăng nhập và dùng XP từ phản hồi máy chủ; cần kiểm thử end-to-end sau deploy |
-| P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
+| P4 | Gamification mở rộng | Đang triển khai | Triển khai theo từng PR, không cộng thưởng ngoài hệ XP phía máy chủ |
+| P4.1 | Thành tựu dựa trên tiến độ | Đang chờ CI/PR | 6 thành tựu suy ra từ bài học, quiz có XP và tổng XP quiz; không thêm API hay schema mới |
 | P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
