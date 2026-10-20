@@ -70,6 +70,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
   const completionHandled = useRef(false);
   const attemptIdRef = useRef<string | null>(null);
   const answersRef = useRef<Record<string, number>>({});
+  const serverSubmissionRequired = useRef(false);
 
   const question = questions[questionIndex];
 
@@ -90,6 +91,10 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
 
     try {
       const token = readAccessToken();
+      if (token) serverSubmissionRequired.current = true;
+      if (serverSubmissionRequired.current && !token) {
+        throw new Error('Phiên đăng nhập không còn hợp lệ. Hãy đăng nhập lại rồi gửi lại kết quả; XP chưa được ghi nhận ở chế độ cục bộ.');
+      }
       if (token) {
         const attemptId = attemptIdRef.current ?? crypto.randomUUID().replace(/-/g, '');
         attemptIdRef.current = attemptId;
@@ -103,7 +108,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
           correctCount: serverResult.correctCount,
           percentage: serverResult.percentage,
           calculatedXp: serverResult.xpAwarded,
-          serverAwardedXp: serverResult.xpAwarded,
+          serverAwardedXp: serverResult.replayed ? 0 : serverResult.xpAwarded,
           serverTotalXp: serverResult.totalXp,
         });
         setAwardedXp(awarded);
@@ -142,6 +147,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
     setServerScored(false);
     attemptIdRef.current = null;
     answersRef.current = {};
+    serverSubmissionRequired.current = false;
     completionHandled.current = false;
     setFinished(false);
   }
