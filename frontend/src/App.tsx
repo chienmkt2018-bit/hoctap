@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import LessonLibrary from './LessonLibrary';
 
 type Quest = {
   id: number;
@@ -19,6 +20,7 @@ const initialQuests: Quest[] = [
 const navigation = [
   { id: 'overview', icon: '◫', label: 'Tổng quan' },
   { id: 'map', icon: '⌘', label: 'Bản đồ nhiệm vụ' },
+  { id: 'lessons', icon: '▤', label: 'Bài học' }, 
   { id: 'practice', icon: '✧', label: 'Luyện tập' },
   { id: 'achievements', icon: '♛', label: 'Thành tựu' },
 ];
@@ -99,7 +101,7 @@ function App() {
             <div>
               <p className="eyebrow"><span className="eyebrow-line" /> THỨ HAI · HÀNH TRÌNH CỦA BẠN</p>
               <h1>{activeNav === 'overview' ? <>Chào mừng trở lại,<br /><span>nhà thám hiểm.</span></> : activeTitle + '.'}</h1>
-              <p className="intro-copy">{activeNav === 'map' ? 'Chọn một điểm trên bản đồ và tiếp tục hành trình chinh phục kiến thức.' : activeNav === 'practice' ? 'Rèn luyện mỗi ngày để biến kiến thức thành kỹ năng.' : activeNav === 'achievements' ? 'Mỗi cột mốc là bằng chứng cho nỗ lực của bạn.' : 'Một bước nhỏ hôm nay, một phiên bản giỏi hơn vào ngày mai.'}</p>
+              <p className="intro-copy">{activeNav === 'map' ? 'Chọn một điểm trên bản đồ và tiếp tục hành trình chinh phục kiến thức.' : activeNav === 'lessons' ? 'Khám phá bài học theo chủ đề, cấp độ và trạng thái của hành trình.' : activeNav === 'practice' ? 'Rèn luyện mỗi ngày để biến kiến thức thành kỹ năng.' : activeNav === 'achievements' ? 'Mỗi cột mốc là bằng chứng cho nỗ lực của bạn.' : 'Một bước nhỏ hôm nay, một phiên bản giỏi hơn vào ngày mai.'}</p>
             </div>
             <div className="level-card">
               <div className="level-orb"><span>03</span><small>LVL</small></div>
@@ -151,13 +153,15 @@ function App() {
             </>
           )}
 
+          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} />}
+
           {activeNav === 'map' && (
             <section className="alternate-panel"><div className="section-heading"><div><p className="section-kicker">CHAPTER SELECT</p><h2>Chọn chặng tiếp theo</h2><p className="section-description">Nhấn vào nhiệm vụ đang mở hoặc đã hoàn thành để xem chi tiết.</p></div></div><div className="alternate-quests">{quests.map((quest) => <button type="button" key={quest.id} className="alternate-quest" onClick={() => startQuest(quest)}><span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span><span className="alternate-quest-copy"><strong>{quest.title}</strong><small>{quest.subtitle}</small></span><span className="daily-reward">+{quest.xp} XP</span><span className="alternate-status">{quest.status === 'done' ? 'ĐÃ XONG' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span></button>)}</div></section>
           )}
           {activeNav === 'practice' && <section className="alternate-panel"><p className="section-kicker">PRACTICE HUB</p><h2>Chọn cách bạn muốn luyện tập</h2><div className="practice-grid"><button type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}><span>✧</span><strong>Luyện tập nhanh</strong><small>Ôn lại kiến thức trong vài phút</small></button><button type="button" onClick={() => setNotice('Chế độ thử thách sẽ được phát triển ở P2 — Learning Core.')}><span>⚡</span><strong>Thử thách kiến thức</strong><small>Kiểm tra mức độ ghi nhớ</small></button><button type="button" onClick={() => setNotice('Lịch sử học tập sẽ được kết nối với dữ liệu thực ở giai đoạn backend.')}><span>◷</span><strong>Lịch sử học tập</strong><small>Theo dõi những gì bạn đã học</small></button></div></section>}
           {activeNav === 'achievements' && <section className="alternate-panel"><p className="section-kicker">YOUR COLLECTION</p><h2>Thành tựu của nhà thám hiểm</h2><div className="achievement-grid"><article><span>✦</span><strong>Bước đầu tiên</strong><small>Hoàn thành nhiệm vụ đầu tiên</small><em>ĐÃ MỞ KHÓA</em></article><article><span>♨</span><strong>Giữ lửa</strong><small>Học 5 ngày liên tiếp</small><em>ĐÃ MỞ KHÓA</em></article><article className="achievement-locked"><span>♛</span><strong>Bậc thầy tri thức</strong><small>Hoàn thành toàn bộ chương 1</small><em>CHƯA MỞ KHÓA</em></article></div></section>}
 
-          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> P1.2 · DASHBOARD + QUEST MAP</span></footer>
+          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> P2.1 · LESSON LIBRARY</span></footer>
         </div>
       </section>
     </main>
