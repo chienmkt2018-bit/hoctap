@@ -50,8 +50,8 @@ npm run preview
 | P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20 |
 | P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã xác minh trên Render | Ngày 2026-10-20: đăng ký, đăng nhập, `/auth/me`, GET/PUT `/progress` và đọc lại dữ liệu đều thành công; MongoDB trả dữ liệu đã lưu |
 | P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; Actions #35 thành công | PR #3 đã được hợp nhất vào `main`; GitHub Actions #35 thành công theo xác nhận ngày 2026-10-20; còn cần kiểm thử trình duyệt production sau khi xác nhận CORS |
-| P3.5 | API chấm quiz và XP phía máy chủ | Đang review trên nhánh riêng | Thêm `POST /api/v1/quizzes/:quizId/attempts`, đáp án chuẩn phía server, lưu lịch sử, chống gửi lặp bằng idempotency key và cập nhật XP trong MongoDB transaction; chưa triển khai production và chưa nối frontend |
-| P3.6 | Nối giao diện quiz với API server | Chưa bắt đầu | Sau khi P3.5 qua CI/review; giữ chế độ cục bộ khi chưa đăng nhập |
+| P3.5 | API chấm quiz và XP phía máy chủ | Đã merge; backend production và Health đã xác minh | PR #4 đã merge vào `main`; Actions run #40 thành công; Render triển khai commit `d3d5f9b` và Health trả `status: ok`, `database: connected` ngày 2026-10-20. API nộp quiz vẫn cần kiểm thử chức năng thực tế. |
+| P3.6 | Nối giao diện quiz với API server | Chưa bắt đầu | Cần gửi đáp án lên server khi đăng nhập; giữ cơ chế cục bộ khi chưa đăng nhập và khi API lỗi; kiểm thử end-to-end trước khi đánh dấu hoàn thành. |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend Render và API xác thực/tiến độ đã được người dùng kiểm thử thành công; frontend integration vẫn cần CI, cấu hình CORS production và kiểm tra trình duyệt |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
@@ -66,7 +66,7 @@ npm run preview
 ## P3.1 — Backend và hợp đồng API
 
 - Express + TypeScript với `GET /api/v1/health`, Helmet, CORS theo `CORS_ORIGIN`, giới hạn JSON body 100 KB và phản hồi lỗi JSON.
-- Đặc tả OpenAPI nằm tại `docs/openapi.yaml`. `/lessons` vẫn là endpoint dự kiến; endpoint nộp quiz đang được triển khai trên nhánh P3.5 và chưa có trên production cho đến khi PR được duyệt, hợp nhất và Render triển khai.
+- Đặc tả OpenAPI nằm tại `docs/openapi.yaml`. `/lessons` vẫn là endpoint dự kiến; `POST /quizzes/{quizId}/attempts` đã được thêm ở P3.5 và đã được deploy cùng backend phiên bản 0.3.0. Tính khả dụng của Health đã được xác minh; chức năng chấm quiz vẫn cần kiểm thử riêng.
 - GitHub Actions build/type-check frontend và backend khi có thay đổi trong thư mục tương ứng hoặc OpenAPI.
 
 ## P3.2 — Kết nối MongoDB Atlas
@@ -108,10 +108,10 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 Không lưu thông tin đăng nhập, token, JWT secret hoặc URI cơ sở dữ liệu thật trong mã nguồn.
 
 
-## P3.5 — API chấm quiz và XP phía máy chủ (đang review)
+## P3.5 — API chấm quiz và XP phía máy chủ (đã merge; cần kiểm thử chức năng production)
 
 - Endpoint `POST /api/v1/quizzes/{quizId}/attempts` yêu cầu JWT; nhận `attemptId` duy nhất và lựa chọn cho ba câu hỏi.
 - Đáp án đúng và XP cơ sở được giữ ở backend; client không gửi số câu đúng hoặc XP để server tin cậy.
 - Kết quả bài làm được lưu trong collection `QuizAttempt`; XP tổng, điểm tốt nhất và bài đã hoàn thành được cập nhật trong `Progress`.
 - Gửi lại cùng `attemptId` của cùng tài khoản trả lại kết quả cũ, không cộng XP lần hai. Cập nhật lịch sử và tiến độ dùng MongoDB transaction; môi trường database phải hỗ trợ transaction (MongoDB Atlas hỗ trợ).
-- **Chưa production:** cần CI xanh, review/merge PR và đợi Render deploy. Frontend chưa gọi endpoint này cho đến P3.6.
+- **Bằng chứng production ngày 2026-10-20:** Render build thành công, backend khởi động trên cổng 10000, log xác nhận MongoDB kết nối, Health trả `status: ok` và `database: connected`. Chưa có bằng chứng kiểm thử endpoint nộp quiz trên production; frontend chưa gọi endpoint này cho đến P3.6.
