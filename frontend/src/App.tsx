@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import LessonLibrary from './LessonLibrary';
 import type { QuizResult } from './QuizPanel';
+import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, saveRemoteProgress, type ApiProgress, type AuthUser } from './auth';
 
 type Quest = {
   id: number;
@@ -66,6 +67,34 @@ const navigation = [
   { id: 'achievements', icon: '♛', label: 'Thành tựu' },
 ];
 
+
+function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedProgress {
+  const completedLessons = { ...local.completedLessons };
+  for (const lessonId of remote.completedLessonIds) completedLessons[lessonId] = true;
+
+  const quests = local.quests.map((quest) => {
+    const remoteStatus = remote.questStatuses[`quest_${quest.id}`];
+    const status = quest.status === 'done' || remoteStatus === 'done'
+      ? 'done'
+      : quest.status === 'active' || remoteStatus === 'active'
+        ? 'active'
+        : 'locked';
+    return { ...quest, status } as Quest;
+  });
+
+  return { ...local, quests, completedLessons };
+}
+
+function toRemoteProgress(local: SavedProgress): Pick<ApiProgress, 'completedLessonIds' | 'questStatuses'> {
+  return {
+    completedLessonIds: Object.entries(local.completedLessons)
+      .filter(([, completed]) => completed)
+      .map(([lessonId]) => Number(lessonId))
+      .filter((lessonId) => Number.isSafeInteger(lessonId) && lessonId > 0),
+    questStatuses: Object.fromEntries(local.quests.map((quest) => [`quest_${quest.id}`, quest.status])),
+  };
+}
+
 function App() {
   const [activeNav, setActiveNav] = useState('overview');
   const [quests, setQuests] = useState(() => readSavedProgress()?.quests ?? initialQuests);
@@ -74,6 +103,13 @@ function App() {
   const [earnedQuizXp, setEarnedQuizXp] = useState(() => readSavedProgress()?.earnedQuizXp ?? 0);
   const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
   const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [syncReady, setSyncReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -82,6 +118,87 @@ function App() {
       setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');
     }
   }, [quests, earnedQuizXp, quizBestXp, completedLessons]);
+
+  // Restore a session token, then merge server progress with local progress without
+  // discarding local-only XP/best-score data.
+  useEffect(() => {
+    const token = readAccessToken();
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const currentUser = await getCurrentUser(token);
+        const remote = await getRemoteProgress(token);
+        if (cancelled) return;
+        const local = readSavedProgress() ?? { quests, earnedQuizXp, quizBestXp, completedLessons };
+        const merged = mergeRemoteProgress(remote, local);
+        setQuests(merged.quests);
+        setEarnedQuizXp(merged.earnedQuizXp);
+        setQuizBestXp(merged.quizBestXp);
+        setCompletedLessons(merged.completedLessons);
+        setUser(currentUser);
+        setSyncReady(true);
+      } catch (error) {
+        if (!cancelled) {
+          clearAccessToken();
+          setNotice(error instanceof Error ? error.message : 'Không thể khôi phục phiên đăng nhập. Dữ liệu cục bộ vẫn được giữ.');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+    // Restore only once on application startup.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounce remote writes; localStorage remains the immediate local fallback.
+  useEffect(() => {
+    if (!user || !syncReady) return;
+    const token = readAccessToken();
+    if (!token) return;
+    const snapshot: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons };
+    const timeout = window.setTimeout(() => {
+      void saveRemoteProgress(token, toRemoteProgress(snapshot)).catch((error: unknown) => {
+        setNotice(error instanceof Error ? `Không đồng bộ được lên máy chủ: ${error.message} Tiến độ cục bộ vẫn được giữ.` : 'Không đồng bộ được lên máy chủ; tiến độ cục bộ vẫn được giữ.');
+      });
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [user, syncReady, quests, earnedQuizXp, quizBestXp, completedLessons]);
+
+  async function handleAuthSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (authBusy) return;
+    setAuthBusy(true);
+    setNotice('');
+    try {
+      const currentUser = await authenticate(authMode, authEmail.trim(), authPassword);
+      const token = readAccessToken();
+      if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
+      const remote = await getRemoteProgress(token);
+      const local = readSavedProgress() ?? { quests, earnedQuizXp, quizBestXp, completedLessons };
+      const merged = mergeRemoteProgress(remote, local);
+      setQuests(merged.quests);
+      setEarnedQuizXp(merged.earnedQuizXp);
+      setQuizBestXp(merged.quizBestXp);
+      setCompletedLessons(merged.completedLessons);
+      setUser(currentUser);
+      setSyncReady(true);
+      setAuthPassword('');
+      setAuthOpen(false);
+      setNotice(`Đã ${authMode === 'register' ? 'tạo tài khoản và đăng nhập' : 'đăng nhập'} thành công. Tiến độ cục bộ và trên tài khoản đã được hợp nhất.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Không thể đăng nhập lúc này.');
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  function handleLogout() {
+    clearAccessToken();
+    setUser(null);
+    setSyncReady(false);
+    setAuthOpen(false);
+    setNotice('Đã đăng xuất. Tiến độ trên trình duyệt vẫn được giữ nguyên.');
+  }
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
   const xp = 680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp;
@@ -162,10 +279,21 @@ function App() {
             <div className="streak-chip"><span>♨</span><strong>5</strong><span className="chip-caption">NGÀY</span></div>
             <div className="currency-chip"><span className="gem">◆</span><strong>120</strong><span className="chip-caption">GEMS</span></div>
             <button className="icon-button" type="button" aria-label="Thông báo" onClick={() => setNotice('Bạn đã xem thông báo mới nhất.')}>♧<span className="notification-dot" /></button>
+            {user ? <div className="account-chip" title={user.email}><span className="account-dot" /><span className="account-email">{user.email}</span><button type="button" onClick={handleLogout}>Đăng xuất</button></div> : <button className="auth-trigger" type="button" onClick={() => { setAuthOpen((open) => !open); setNotice(''); }}>{authOpen ? 'Đóng' : 'Đăng nhập'}</button>}
           </div>
         </header>
 
         <div className="content-wrap">
+          {authOpen && !user && <section className="auth-panel" aria-labelledby="auth-panel-title">
+            <div className="auth-panel-heading"><div><p className="section-kicker">TÀI KHOẢN HỌC TẬP</p><h2 id="auth-panel-title">{authMode === 'login' ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}</h2><p>Đăng nhập để đồng bộ bài đã hoàn thành giữa các thiết bị. Tiến độ hiện có trên trình duyệt sẽ được giữ và hợp nhất.</p></div><button type="button" className="close-button" aria-label="Đóng biểu mẫu" onClick={() => setAuthOpen(false)}>×</button></div>
+            <form className="auth-form" onSubmit={handleAuthSubmit}>
+              <label>Email<input type="email" autoComplete="email" required maxLength={254} value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="ban@example.com" /></label>
+              <label>Mật khẩu<input type="password" autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} required minLength={authMode === 'register' ? 10 : 1} maxLength={128} value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} placeholder={authMode === 'register' ? 'Tối thiểu 10 ký tự' : 'Nhập mật khẩu'} /></label>
+              <div className="auth-form-footer"><button className="primary-button" type="submit" disabled={authBusy}>{authBusy ? 'Đang xử lý…' : authMode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} <span>→</span></button><button className="auth-mode-toggle" type="button" disabled={authBusy} onClick={() => { setAuthMode((mode) => mode === 'login' ? 'register' : 'login'); setNotice(''); }}>{authMode === 'login' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}</button></div>
+            </form>
+            <p className="auth-footnote">Phiên đăng nhập được giữ trong tab hiện tại; khi đăng xuất, dữ liệu học cục bộ không bị xóa.</p>
+          </section>}
+
           <div className="page-intro">
             <div>
               <p className="eyebrow"><span className="eyebrow-line" /> THỨ HAI · HÀNH TRÌNH CỦA BẠN</p>
