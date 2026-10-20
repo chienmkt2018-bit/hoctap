@@ -22,8 +22,7 @@ export async function connectDatabase(): Promise<void> {
     console.log('Connected to MongoDB.');
   }).catch((error: unknown) => {
     // Do not print the URI or credentials in connection errors.
-    const message = error instanceof Error ? error.message : 'Unknown connection error';
-    console.error(`MongoDB connection failed: ${message.replace(uri, '[REDACTED_MONGODB_URI]')}`);
+    console.error('MongoDB connection failed. Check MONGODB_URI and Atlas network access settings.');
     throw error;
   }).finally(() => {
     connectionAttempt = undefined;
