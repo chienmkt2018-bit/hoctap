@@ -1,19 +1,24 @@
-name: Frontend build
+name: Frontend and backend build
 
 on:
   push:
     branches: [main]
     paths:
       - "frontend/**"
+      - "backend/**"
+      - "docs/openapi.yaml"
       - ".github/workflows/frontend-build.yml"
   pull_request:
     branches: [main]
     paths:
       - "frontend/**"
+      - "backend/**"
+      - "docs/openapi.yaml"
       - ".github/workflows/frontend-build.yml"
 
 jobs:
-  build:
+  frontend:
+    name: Frontend type-check and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,7 +30,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: npm install
-      - name: Type-check and build
+      - name: Type-check and build frontend
+        run: npm run build
+
+  backend:
+    name: Backend type-check and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install backend dependencies
+        run: npm install
+      - name: Type-check and build backend
         run: npm run build
