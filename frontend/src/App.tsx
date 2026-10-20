@@ -21,12 +21,41 @@ const initialQuests: Quest[] = [
 
 const progressStorageKey = 'hoc-tap-quest-progress-v1';
 
+type DailyActivity = {
+  date: string;
+  completedLessonIds: number[];
+  highScoreLessonIds: number[];
+};
+
 type SavedProgress = {
   quests: Quest[];
   earnedQuizXp: number;
   quizBestXp: Record<number, number>;
   completedLessons: Record<number, boolean>;
+  dailyActivity: DailyActivity;
 };
+
+function getLocalDateKey(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function createDailyActivity(date = getLocalDateKey()): DailyActivity {
+  return { date, completedLessonIds: [], highScoreLessonIds: [] };
+}
+
+function isValidDailyActivity(value: unknown): value is DailyActivity {
+  if (!value || typeof value !== 'object') return false;
+  const activity = value as Partial<DailyActivity>;
+  return typeof activity.date === 'string' &&
+    Array.isArray(activity.completedLessonIds) &&
+    activity.completedLessonIds.every((id) => Number.isSafeInteger(id) && id > 0) &&
+    Array.isArray(activity.highScoreLessonIds) &&
+    activity.highScoreLessonIds.every((id) => Number.isSafeInteger(id) && id > 0);
+}
 
 function readSavedProgress(): SavedProgress | null {
   try {
@@ -52,6 +81,13 @@ function readSavedProgress(): SavedProgress | null {
       earnedQuizXp: value.earnedQuizXp,
       quizBestXp: value.quizBestXp,
       completedLessons: value.completedLessons as Record<number, boolean>,
+      dailyActivity: isValidDailyActivity(value.dailyActivity) && value.dailyActivity.date === getLocalDateKey()
+        ? {
+            date: value.dailyActivity.date,
+            completedLessonIds: [...new Set(value.dailyActivity.completedLessonIds)],
+            highScoreLessonIds: [...new Set(value.dailyActivity.highScoreLessonIds)],
+          }
+        : createDailyActivity(),
     };
   } catch {
     // Storage may be disabled or contain malformed data; start with clean defaults.
@@ -109,6 +145,7 @@ function App() {
   const [serverTotalXp, setServerTotalXp] = useState<number | null>(null);
   const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
   const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
+  const [dailyActivity, setDailyActivity] = useState<DailyActivity>(() => readSavedProgress()?.dailyActivity ?? createDailyActivity());
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -119,11 +156,11 @@ function App() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons } satisfies SavedProgress));
+      window.localStorage.setItem(progressStorageKey, JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity } satisfies SavedProgress));
     } catch {
       setNotice('Không thể lưu tiến độ trên trình duyệt này. Hãy kiểm tra chế độ riêng tư hoặc dung lượng lưu trữ.');
     }
-  }, [quests, earnedQuizXp, quizBestXp, completedLessons]);
+  }, [quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity]);
 
   // Restore a session token, then merge server progress with local progress without
   // discarding local-only XP/best-score data.
@@ -136,7 +173,7 @@ function App() {
         const currentUser = await getCurrentUser(token);
         const remote = await getRemoteProgress(token);
         if (cancelled) return;
-        const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons };
+        const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity };
         const merged = mergeRemoteProgress(remote, local);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
@@ -162,7 +199,7 @@ function App() {
     if (!user || !syncReady) return;
     const token = readAccessToken();
     if (!token) return;
-    const snapshot: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons };
+    const snapshot: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity };
     const timeout = window.setTimeout(() => {
       void saveRemoteProgress(token, toRemoteProgress(snapshot)).catch((error: unknown) => {
         setNotice(error instanceof Error ? `Không đồng bộ được lên máy chủ: ${error.message} Tiến độ cục bộ vẫn được giữ.` : 'Không đồng bộ được lên máy chủ; tiến độ cục bộ vẫn được giữ.');
@@ -181,7 +218,7 @@ function App() {
       const token = readAccessToken();
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
-      const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons };
+      const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity };
       const merged = mergeRemoteProgress(remote, local);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
@@ -228,9 +265,24 @@ function App() {
     { id: 'century-xp', icon: '◆', title: 'Cột mốc 100 XP', description: 'Tích lũy 100 XP quiz theo dữ liệu hiện có.', progress: `${Math.min(achievementXp, 100).toLocaleString('vi-VN')}/100 XP`, unlocked: achievementXp >= 100 },
   ];
   const unlockedAchievementCount = achievements.filter((achievement) => achievement.unlocked).length;
+  const dailyQuests = [
+    { id: 'one-quiz', icon: '◉', title: 'Hoàn thành một bài quiz', description: 'Hoàn thành ít nhất một bài luyện tập hôm nay.', progress: Math.min(dailyActivity.completedLessonIds.length, 1), target: 1 },
+    { id: 'two-lessons', icon: '⌁', title: 'Khám phá hai bài khác nhau', description: 'Luyện tập ở hai bài học khác nhau trong ngày.', progress: Math.min(dailyActivity.completedLessonIds.length, 2), target: 2 },
+    { id: 'high-score', icon: '✧', title: 'Đạt ít nhất 80% chính xác', description: 'Đạt 80% trở lên ở một bài quiz hôm nay.', progress: Math.min(dailyActivity.highScoreLessonIds.length, 1), target: 1 },
+  ].map((quest) => ({ ...quest, done: quest.progress >= quest.target }));
+  const completedDailyQuestCount = dailyQuests.filter((quest) => quest.done).length;
 
   function handleQuizComplete(result: QuizResult): number {
     setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));
+    setDailyActivity((current) => {
+      const today = getLocalDateKey();
+      const activity = current.date === today ? current : createDailyActivity(today);
+      const completedLessonIds = [...new Set([...activity.completedLessonIds, result.lessonId])];
+      const highScoreLessonIds = result.percentage >= 80
+        ? [...new Set([...activity.highScoreLessonIds, result.lessonId])]
+        : activity.highScoreLessonIds;
+      return { date: today, completedLessonIds, highScoreLessonIds };
+    });
     if (result.serverAwardedXp !== undefined) {
       const awarded = result.serverAwardedXp;
       setQuizBestXp((current) => ({
@@ -378,7 +430,7 @@ function App() {
               </section>
 
               <section className="bottom-grid">
-                <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">DAILY QUESTS</p><h2>Nhiệm vụ hôm nay</h2></div><span className="daily-count">1 / 3</span></div><div className="daily-row"><span className="daily-icon">◉</span><div className="daily-copy"><strong>Hoàn thành một bài học</strong><span>Tiến thêm một bước trên bản đồ</span><div className="daily-track"><span style={{ width: '100%' }} /></div></div><span className="daily-reward">+30 XP</span><span className="daily-check">✓</span></div><div className="daily-row"><span className="daily-icon">⌁</span><div className="daily-copy"><strong>Học liên tục 10 phút</strong><span>Giữ nhịp học tập của bạn</span><div className="daily-track"><span style={{ width: '40%' }} /></div></div><span className="daily-reward">+20 XP</span></div><div className="daily-row"><span className="daily-icon">✧</span><div className="daily-copy"><strong>Đạt 80% bài luyện tập</strong><span>Chính xác và bền bỉ</span><div className="daily-track"><span style={{ width: '0%' }} /></div></div><span className="daily-reward">+50 XP</span></div></article>
+                <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">DAILY QUESTS · P4.2</p><h2>Nhiệm vụ hôm nay</h2><p className="daily-date">Ngày ${dailyActivity.date} · tiến độ tự ghi nhận từ quiz</p></div><span className="daily-count">${completedDailyQuestCount} / ${dailyQuests.length}</span></div>{dailyQuests.map((quest) => <div className={`daily-row ${quest.done ? 'daily-row-done' : ''}`} key={quest.id}><span className="daily-icon">{quest.done ? '✓' : quest.icon}</span><div className="daily-copy"><strong>{quest.title}</strong><span>{quest.description}</span><div className="daily-track"><span style={{ width: `${quest.progress / quest.target * 100}%` }} /></div><small className="daily-progress-label">{quest.progress} / {quest.target}</small></div><span className={`daily-check ${quest.done ? 'is-visible' : ''}`}>{quest.done ? '✓' : '—'}</span></div>)}<p className="daily-footnote">Nhiệm vụ chỉ theo dõi tiến độ, không phát XP thưởng. XP vẫn do quy tắc quiz hiện tại quyết định; dữ liệu hôm nay được lưu cục bộ trên trình duyệt này.</p></article>
                 <article className="focus-card"><div className="focus-glow" /><p className="section-kicker">YOUR NEXT MILESTONE</p><div className="focus-art" aria-hidden="true">✧</div><h2>Mở khóa<br /><span>chân trời mới.</span></h2><p>Hoàn thành chặng tiếp theo để tiến gần hơn tới cấp độ 4.</p><button className="primary-button full-button" type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}>Tiếp tục hành trình <span>→</span></button><span className="focus-footer">MỌI BƯỚC TIẾN ĐỀU ĐÁNG GIÁ</span></article>
               </section>
             </>
