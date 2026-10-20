@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 type Question = {
   prompt: string;
@@ -7,11 +7,21 @@ type Question = {
   explanation: string;
 };
 
+export type QuizResult = {
+  lessonId: number;
+  lessonTitle: string;
+  correctCount: number;
+  totalQuestions: number;
+  percentage: number;
+  calculatedXp: number;
+};
+
 type Props = {
   lessonId: number;
   lessonTitle: string;
   lessonXp: number;
   onBack: () => void;
+  onQuizComplete: (result: QuizResult) => number;
 };
 
 const questionBank: Record<number, Question[]> = {
@@ -43,13 +53,15 @@ const fallbackQuestions: Question[] = [
   { prompt: 'Sau khi trả lời một câu hỏi, cách nào giúp tiến bộ?', options: ['Không xem phản hồi', 'Luôn giữ nguyên suy đoán', 'Đọc giải thích và rút kinh nghiệm'], answer: 2, explanation: 'Phản hồi cho biết lý do đúng hoặc sai, giúp điều chỉnh cách hiểu trước câu tiếp theo.' },
 ];
 
-export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack }: Props) {
+export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQuizComplete }: Props) {
   const questions = questionBank[lessonId] ?? fallbackQuestions;
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isChecked, setIsChecked] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [awardedXp, setAwardedXp] = useState(0);
+  const completionHandled = useRef(false);
 
   const question = questions[questionIndex];
 
@@ -59,10 +71,20 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack }: P
     setIsChecked(true);
   }
 
+  function finishQuiz() {
+    if (completionHandled.current) return;
+    completionHandled.current = true;
+    const percentage = Math.round((correctCount / questions.length) * 100);
+    const calculatedXp = Math.round((lessonXp * correctCount) / questions.length);
+    const awarded = onQuizComplete({ lessonId, lessonTitle, correctCount, totalQuestions: questions.length, percentage, calculatedXp });
+    setAwardedXp(awarded);
+    setFinished(true);
+  }
+
   function nextQuestion() {
     if (!isChecked) return;
     if (questionIndex === questions.length - 1) {
-      setFinished(true);
+      finishQuiz();
       return;
     }
     setQuestionIndex((index) => index + 1);
@@ -75,6 +97,8 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack }: P
     setSelectedOption(null);
     setIsChecked(false);
     setCorrectCount(0);
+    setAwardedXp(0);
+    completionHandled.current = false;
     setFinished(false);
   }
 
@@ -82,12 +106,12 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack }: P
     const percentage = Math.round((correctCount / questions.length) * 100);
     return (
       <section className="quiz-panel quiz-results" aria-live="polite">
-        <div className="quiz-topline"><span className="section-kicker">P2.2 · KẾT QUẢ LUYỆN TẬP</span><span className="quiz-count">{questions.length}/{questions.length} câu</span></div>
+        <div className="quiz-topline"><span className="section-kicker">P2.3 · KẾT QUẢ LUYỆN TẬP</span><span className="quiz-count">{questions.length}/{questions.length} câu</span></div>
         <div className="quiz-result-orb"><span>{percentage}%</span><small>CHÍNH XÁC</small></div>
         <h3>{percentage >= 80 ? 'Làm tốt lắm!' : percentage >= 50 ? 'Bạn đang tiến bộ!' : 'Hãy thử lại nhé!'}</h3>
         <p className="quiz-result-copy">Bạn trả lời đúng <strong>{correctCount}/{questions.length}</strong> câu trong bài “{lessonTitle}”. Hãy xem lại phần giải thích để củng cố kiến thức.</p>
-        <div className="quiz-result-stats"><div><span>Đúng</span><strong>{correctCount}</strong></div><div><span>Chưa đúng</span><strong>{questions.length - correctCount}</strong></div><div><span>XP dự kiến</span><strong>{lessonXp}</strong></div></div>
-        <p className="quiz-note">XP ở đây chỉ là mức dự kiến của bài học. Hệ thống cộng XP theo kết quả sẽ được nối ở P2.3.</p>
+        <div className="quiz-result-stats"><div><span>Đúng</span><strong>{correctCount}/{questions.length}</strong></div><div><span>Độ chính xác</span><strong>{percentage}%</strong></div><div><span>XP nhận lần này</span><strong>+{awardedXp}</strong></div></div>
+        <p className="quiz-note">XP được tính theo số câu đúng. Mỗi bài chỉ thưởng theo mức điểm cao nhất đã đạt trong phiên hiện tại; làm lại với kết quả bằng hoặc thấp hơn không cộng XP trùng. Điểm và XP chưa được lưu sau khi tải lại trang.</p>
         <div className="quiz-actions"><button className="secondary-button" type="button" onClick={onBack}>← Quay lại bài học</button><button className="primary-button" type="button" onClick={retryQuiz}>Làm lại quiz <span>↻</span></button></div>
       </section>
     );
@@ -95,7 +119,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack }: P
 
   return (
     <section className="quiz-panel" aria-labelledby="quiz-question-title">
-      <div className="quiz-topline"><span className="section-kicker">QUIZ TƯƠNG TÁC · P2.2</span><span className="quiz-count">CÂU {questionIndex + 1}/{questions.length}</span></div>
+      <div className="quiz-topline"><span className="section-kicker">QUIZ TƯƠNG TÁC · P2.3</span><span className="quiz-count">CÂU {questionIndex + 1}/{questions.length}</span></div>
       <div className="quiz-progress" aria-label={`Tiến độ câu hỏi ${questionIndex + 1} trên ${questions.length}`}><span style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }} /></div>
       <div className="quiz-context"><span className="lesson-card-icon">✦</span><div><span className="lesson-subject">BÀI HỌC</span><h3>{lessonTitle}</h3></div></div>
       <h2 id="quiz-question-title">{question.prompt}</h2>
