@@ -57,7 +57,8 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P3.6 | Nối giao diện quiz với API server | Đã hợp nhất; Actions #47 thành công; production chưa xác minh | PR #8 tích hợp gửi đáp án khi đăng nhập, hiển thị loading/lỗi, giữ chế độ local khi chưa đăng nhập và dùng XP từ phản hồi máy chủ; cần kiểm thử end-to-end sau deploy |
 | P4 | Gamification mở rộng | Đang triển khai | Triển khai theo từng PR, không cộng thưởng ngoài hệ XP phía máy chủ |
 | P4.1 | Thành tựu dựa trên tiến độ | Hoàn thành trong PR #11; CI #53 thành công | 6 thành tựu suy ra từ tiến độ thực; không thêm API hay schema mới |
-| P4.2 | Nhiệm vụ hằng ngày | Đang triển khai | 3 nhiệm vụ suy ra từ quiz hoàn thành hôm nay; không phát XP thưởng; dữ liệu ngày lưu cục bộ |
+| P4.2 | Nhiệm vụ hằng ngày | Đã hợp nhất trong PR #12; CI thành công | 3 nhiệm vụ suy ra từ quiz thực tế; không phát XP thưởng; tiến độ lưu cục bộ |
+| P4.3 | Chuỗi ngày học thực tế | Đang triển khai | Chỉ ghi ngày khi hoàn thành quiz; thay số ngày giả lập; dữ liệu lịch sử lưu cục bộ |
 | P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
@@ -106,3 +107,12 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - Tiến độ nhiệm vụ được ghi trong khóa localStorage hiện có `hoc-tap-quest-progress-v1`; dữ liệu tiến độ cũ được giữ và bổ sung trường mới khi lưu lần tiếp theo.
 - Bản MVP không cộng XP thưởng từ nhiệm vụ; XP tiếp tục theo quy tắc chấm quiz hiện tại, tránh cộng trùng.
 - Tiến độ nhiệm vụ hằng ngày hiện chỉ đồng bộ trên cùng trình duyệt/thiết bị, chưa đồng bộ giữa thiết bị hoặc tài khoản.
+
+
+## P4.3 — Chuỗi ngày học thực tế (đang triển khai)
+
+- Một ngày chỉ được ghi nhận khi người học hoàn thành và nhận được kết quả quiz; mở ứng dụng hoặc xem bài học không làm tăng chuỗi.
+- Chuỗi hiện tại được tính từ các ngày có bằng chứng quiz liên tiếp. Nếu hôm nay chưa học, chuỗi vẫn được giữ nếu hôm qua có hoạt động; mất nhịp khi bỏ qua cả hôm nay lẫn hôm qua.
+- Lịch ngày trong tuần hiển thị dựa trên lịch sử quiz, không dùng số ngày giả lập.
+- Dữ liệu lịch sử được lưu bổ sung trong khóa localStorage hiện có `hoc-tap-quest-progress-v1`; không xóa hoặc đổi khóa lưu trữ. Bản MVP lưu cục bộ theo trình duyệt/thiết bị, chưa đồng bộ lịch sử streak lên máy chủ.
+- Khi nâng cấp từ P4.2, chỉ có thể khôi phục ngày hiện tại nếu `dailyActivity` cũ còn chứa quiz đã hoàn thành; không suy đoán hoặc tự tạo dữ liệu cho các ngày trước đó.
