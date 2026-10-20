@@ -84,7 +84,7 @@ npm run preview
 - **Kiểm thử production ngày 2026-10-20 do người dùng thực hiện:** đăng ký thành công; đăng nhập thành công; `/auth/me` trả ID và email; GET progress, PUT progress và GET lại trả dữ liệu đã lưu đúng.
 - **CI đã ghi nhận trước đó:** run #27 (PR) và runs #28–#29 trên `main` thành công cho frontend/backend. PR P3.4 hiện tại vẫn cần CI riêng trước khi đánh dấu hoàn thành.
 
-## P3.4 — Đăng nhập frontend và đồng bộ tiến độ (đang chờ CI/Review)
+## P3.4 — Đăng nhập frontend và đồng bộ tiến độ (đã hợp nhất; CI thành công)
 
 - Thêm client API tại `frontend/src/auth.ts` cho đăng ký, đăng nhập, xác minh tài khoản và đọc/ghi tiến độ.
 - Giao diện tài khoản được thêm vào thanh trên; đăng ký/đăng nhập xong sẽ lấy tiến độ máy chủ rồi hợp nhất với dữ liệu cục bộ.
@@ -92,7 +92,9 @@ npm run preview
 - Token chỉ lưu trong `sessionStorage` của tab, không ghi vào `localStorage`. API không nhận XP do client tự gửi; XP máy chủ chỉ nên cập nhật qua luồng nộp quiz có xác minh ở bước sau.
 - API mặc định dùng `https://hoctap-6oeu.onrender.com`; có thể ghi đè bằng biến build `VITE_API_BASE_URL`.
 - **Cấu hình triển khai bắt buộc trước khi kiểm thử trên trình duyệt:** trên Render backend, đặt `CORS_ORIGIN` thành origin chính xác của website frontend production (chỉ scheme + hostname, không có path). Có thể dùng danh sách origin phân tách bằng dấu phẩy nếu cần nhiều origin. Không mở CORS cho mọi origin.
-- **Trạng thái kiểm thử:** API backend được người dùng xác nhận đăng ký/đăng nhập, đọc hồ sơ, GET/PUT tiến độ và đọc lại dữ liệu đều thành công ngày 2026-10-20. Chưa đánh dấu CI/frontend integration hoàn thành cho đến khi GitHub Actions của PR này có kết quả thực tế.
+- **Kiểm thử backend production:** người dùng xác nhận đăng ký/đăng nhập, đọc hồ sơ, GET/PUT tiến độ và đọc lại dữ liệu đều thành công ngày 2026-10-20.
+- **CI frontend/backend:** GitHub Actions run #35 được người dùng xác nhận thành công ngày 2026-10-20. PR #3 đã được hợp nhất vào `main` (merge commit `53ea0faa54aa489737f87a3fc34c7a7e5312de5c`).
+- **Còn cần kiểm thử thủ công:** xác nhận `CORS_ORIGIN` trên Render khớp origin frontend production, rồi thử đăng nhập, tải lại trang, học một bài, kiểm tra đồng bộ và đăng xuất trên trình duyệt. CI thành công không tự chứng minh CORS hoặc luồng giao diện production đã hoạt động.
 
 ## Kiểm tra tự động
 
