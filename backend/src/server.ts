@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { closeDatabase, connectDatabase, getDatabaseStatus } from './database.js';
 import { createAccessToken, getJwtSecret, hashPassword, requireAuthentication, verifyPassword } from './auth.js';
 import { ProgressModel } from './models/Progress.js';
+import { QuizAttemptModel } from './models/QuizAttempt.js';
 import { UserModel } from './models/User.js';
 import quizRouter from './quiz.js';
 
@@ -65,11 +66,11 @@ function toProgressResponse(progress: {
   bestXpByLesson: Map<string, number>;
   questStatuses: Map<string, 'done' | 'active' | 'locked'>;
   updatedAt?: Date;
-}) {
+}, authoritativeCompletedLessonIds: number[] = progress.completedLessonIds) {
   return {
     progress: {
       totalXp: progress.totalXp,
-      completedLessonIds: progress.completedLessonIds,
+      completedLessonIds: authoritativeCompletedLessonIds,
       learningDates: [...new Set(progress.learningDates ?? [])].sort(),
       dailyActivity: progress.dailyActivity ? {
         date: progress.dailyActivity.date,
@@ -215,7 +216,9 @@ app.get('/api/v1/progress', requireAuthentication, async (_request, response, ne
       { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
     );
     if (!progress) return databaseUnavailable(response);
-    response.status(200).json(toProgressResponse(progress));
+    const quizAttempts = await QuizAttemptModel.find({ learnerId }).select('lessonId').lean();
+    const authoritativeCompletedLessonIds = [...new Set(quizAttempts.map((attempt) => attempt.lessonId))].sort((a, b) => a - b);
+    response.status(200).json(toProgressResponse(progress, authoritativeCompletedLessonIds));
   } catch (error) {
     next(error);
   }
@@ -225,12 +228,10 @@ app.put('/api/v1/progress', requireAuthentication, async (request, response, nex
   try {
     if (getDatabaseStatus() !== 'connected') return databaseUnavailable(response);
     const body: unknown = request.body;
+    // Completion can only be written by the quiz-attempt endpoint.
+    // This legacy endpoint may store display preferences, but never completion evidence.
     if (!isRecord(body) ||
-        Object.keys(body).some((key) => !['completedLessonIds', 'questStatuses'].includes(key)) ||
-        !Array.isArray(body.completedLessonIds) ||
-        body.completedLessonIds.length > 500 ||
-        !body.completedLessonIds.every((id) => Number.isSafeInteger(id) && (id as number) > 0) ||
-        new Set(body.completedLessonIds).size !== body.completedLessonIds.length ||
+        Object.keys(body).some((key) => key !== 'questStatuses') ||
         !isRecord(body.questStatuses) ||
         Object.keys(body.questStatuses).length > 100 ||
         !Object.entries(body.questStatuses).every(([key, value]) =>
@@ -240,7 +241,7 @@ app.put('/api/v1/progress', requireAuthentication, async (request, response, nex
       response.status(400).json({
         error: {
           code: 'INVALID_PROGRESS',
-          message: 'Progress must contain unique positive lesson IDs and valid quest statuses only.',
+          message: 'Only questStatuses may be updated here. Lesson completion is recorded by quiz attempts.',
         },
       });
       return;
@@ -250,21 +251,19 @@ app.put('/api/v1/progress', requireAuthentication, async (request, response, nex
     const progress = await ProgressModel.findOneAndUpdate(
       { learnerId },
       {
-        $set: {
-          completedLessonIds: body.completedLessonIds as number[],
-          questStatuses: body.questStatuses,
-        },
+        $set: { questStatuses: body.questStatuses },
         $setOnInsert: { learnerId },
       },
       { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
     );
     if (!progress) return databaseUnavailable(response);
-    response.status(200).json(toProgressResponse(progress));
+    const quizAttempts = await QuizAttemptModel.find({ learnerId }).select('lessonId').lean();
+    const authoritativeCompletedLessonIds = [...new Set(quizAttempts.map((attempt) => attempt.lessonId))].sort((a, b) => a - b);
+    response.status(200).json(toProgressResponse(progress, authoritativeCompletedLessonIds));
   } catch (error) {
     next(error);
   }
 });
-
 app.use('/api/v1', quizRouter);
 
 app.use((_request, response) => {
