@@ -53,10 +53,10 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P3.2 | MongoDB Atlas | Đã xác minh trước đó trên Render | Health từng trả database=connected ngày 2026-10-20; cần kiểm tra lại nếu xác nhận trạng thái hiện tại |
 | P3.3 | Xác thực và bảo vệ tiến độ | Đã kiểm thử bởi người dùng trên Render | Đăng ký/đăng nhập, /auth/me và GET/PUT progress đã được xác nhận ngày 2026-10-20 |
 | P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; CI #35 được xác nhận thành công | CORS và luồng trình duyệt production vẫn cần kiểm thử thủ công |
-| P3.5 | API chấm quiz và XP phía máy chủ | Đã có trên main; CI/build đã được báo cáo thành công; production chưa xác minh | POST /api/v1/quizzes/:quizId/attempts; đáp án và XP do server quản lý; lưu QuizAttempt và cập nhật Progress trong transaction; idempotency theo tài khoản |
+| P3.5 | API chấm quiz và XP phía máy chủ | Đã merge; backend production và Health đã xác minh | PR #4 đã merge; Actions run #40 thành công; Render log báo build/khởi động thành công và Health trả `status: ok`, `database: connected` ngày 2026-10-20. Endpoint quiz vẫn cần kiểm thử riêng. |
 | P3.6 | Nối giao diện quiz với API server | Chưa hoàn thành | QuizPanel vẫn tự chấm ở frontend; cần gửi câu trả lời tới API khi đăng nhập, xử lý loading/error và giữ chế độ local khi chưa đăng nhập |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
-| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | API auth/progress từng chạy trên Render; P3.5 và luồng quiz production chưa được xác minh |
+| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
 ## Lưu trữ và tài khoản
@@ -85,7 +85,7 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - Server tính điểm từ đáp án phía backend, ghi lịch sử vào `QuizAttempt`, cập nhật XP và điểm tốt nhất trong `Progress`.
 - Gửi lại cùng `attemptId` cho cùng tài khoản không cộng XP lần hai.
 - Lịch sử và tiến độ được cập nhật trong MongoDB transaction; môi trường MongoDB phải hỗ trợ transaction.
-- Mã đã có trên `main`; chưa xác nhận endpoint này trên Render.
+- **Bằng chứng production ngày 2026-10-20:** Render build thành công, backend khởi động trên cổng 10000, log xác nhận MongoDB kết nối và Health trả `status: ok`, `database: connected`. Chưa có bằng chứng kiểm thử chức năng endpoint quiz trên production.
 
 ## P3.6 — Tích hợp quiz frontend (công việc kế tiếp)
 
