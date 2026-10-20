@@ -60,6 +60,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function toProgressResponse(progress: {
   totalXp: number;
   completedLessonIds: number[];
+  learningDates: string[];
   bestXpByLesson: Map<string, number>;
   questStatuses: Map<string, 'done' | 'active' | 'locked'>;
   updatedAt?: Date;
@@ -68,6 +69,7 @@ function toProgressResponse(progress: {
     progress: {
       totalXp: progress.totalXp,
       completedLessonIds: progress.completedLessonIds,
+      learningDates: [...new Set(progress.learningDates ?? [])].sort(),
       bestXpByLesson: Object.fromEntries(progress.bestXpByLesson.entries()),
       questStatuses: Object.fromEntries(progress.questStatuses.entries()),
       updatedAt: progress.updatedAt?.toISOString() ?? new Date().toISOString(),

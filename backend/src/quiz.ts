@@ -99,10 +99,14 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
 
     const body: unknown = request.body;
     if (!isRecord(body) ||
-        Object.keys(body).some((key) => !['attemptId', 'answers'].includes(key)) ||
+        Object.keys(body).some((key) => !['attemptId', 'answers', 'timezoneOffsetMinutes'].includes(key)) ||
         typeof body.attemptId !== 'string' ||
         !/^[a-zA-Z0-9_-]{16,128}$/.test(body.attemptId) ||
-        !isSubmittedAnswerArray(body.answers, correctIndexes.length)) {
+        !isSubmittedAnswerArray(body.answers, correctIndexes.length) ||
+        (body.timezoneOffsetMinutes !== undefined &&
+          (!Number.isSafeInteger(body.timezoneOffsetMinutes) ||
+            (body.timezoneOffsetMinutes as number) < -840 ||
+            (body.timezoneOffsetMinutes as number) > 840))) {
       response.status(400).json({
         error: {
           code: 'INVALID_QUIZ_ATTEMPT',
@@ -113,6 +117,10 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     }
 
     const learnerId = response.locals.userId as string;
+    // JavaScript's getTimezoneOffset is UTC minus local time. The offset only selects
+    // the user's calendar date; the activity timestamp is always server-generated.
+    const timezoneOffsetMinutes = (body.timezoneOffsetMinutes as number | undefined) ?? 0;
+    const learningDate = new Date(Date.now() - timezoneOffsetMinutes * 60_000).toISOString().slice(0, 10);
     const answers = body.answers as SubmittedAnswer[];
     const correctCount = correctIndexes.reduce((count, correctIndex, index) => {
       const answer = answers.find((item) => item.questionId === `q${index + 1}`);
@@ -146,6 +154,7 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       progress.totalXp += xpAwarded;
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
       progress.completedLessonIds = [...new Set([...progress.completedLessonIds, lessonId])];
+      progress.learningDates = [...new Set([...(progress.learningDates ?? []), learningDate])].sort();
       await progress.save({ session });
 
       const [attempt] = await QuizAttemptModel.create([{

@@ -3,6 +3,7 @@ export type AuthUser = { id: string; email: string };
 export type ApiProgress = {
   totalXp: number;
   completedLessonIds: number[];
+  learningDates: string[];
   bestXpByLesson: Record<string, number>;
   questStatuses: Record<string, 'done' | 'active' | 'locked'>;
   updatedAt: string;
@@ -117,6 +118,6 @@ export async function submitQuizAttempt(
 ): Promise<ServerQuizAttemptResult> {
   return request<ServerQuizAttemptResult>(`/api/v1/quizzes/${quizId}/attempts`, {
     method: 'POST',
-    body: JSON.stringify({ attemptId, answers }),
+    body: JSON.stringify({ attemptId, answers, timezoneOffsetMinutes: new Date().getTimezoneOffset() }),
   }, token);
 }
