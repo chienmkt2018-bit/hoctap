@@ -108,7 +108,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
           ...localResult,
           correctCount: serverResult.correctCount,
           percentage: serverResult.percentage,
-          calculatedXp: serverResult.xpAwarded,
+          calculatedXp: Math.round((lessonXp * serverResult.correctCount) / serverResult.totalQuestions),
           serverAwardedXp: serverResult.replayed ? 0 : serverResult.xpAwarded,
           serverTotalXp: serverResult.totalXp,
         });

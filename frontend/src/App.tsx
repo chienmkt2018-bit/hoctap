@@ -82,7 +82,12 @@ function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedPr
     return { ...quest, status } as Quest;
   });
 
-  return { ...local, quests, completedLessons };
+  const remoteBestXp = Object.fromEntries(
+    Object.entries(remote.bestXpByLesson).map(([lessonId, xp]) => [Number(lessonId), xp]),
+  );
+  const quizBestXp = { ...local.quizBestXp, ...remoteBestXp };
+
+  return { ...local, quests, completedLessons, quizBestXp };
 }
 
 function toRemoteProgress(local: SavedProgress): Pick<ApiProgress, 'completedLessonIds' | 'questStatuses'> {
@@ -205,7 +210,7 @@ function App() {
   }
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
-  const xp = serverTotalXp ?? (680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp);
+  const xp = 680 + Math.max(0, completedCount - 1) * 30 + (serverTotalXp ?? earnedQuizXp);
   const level = 3 + Math.floor(xp / 1000) - Math.floor(680 / 1000);
   const levelProgress = xp % 1000;
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
@@ -214,6 +219,10 @@ function App() {
     setCompletedLessons((current) => ({ ...current, [result.lessonId]: true }));
     if (result.serverAwardedXp !== undefined) {
       const awarded = result.serverAwardedXp;
+      setQuizBestXp((current) => ({
+        ...current,
+        [result.lessonId]: Math.max(current[result.lessonId] ?? 0, result.calculatedXp),
+      }));
       setEarnedQuizXp((current) => current + awarded);
       setServerTotalXp(result.serverTotalXp ?? null);
       setNotice(`Máy chủ đã lưu quiz “${result.lessonTitle}”: ${result.correctCount}/${result.totalQuestions} câu đúng (${result.percentage}%). XP cộng thêm: ${awarded}; tổng XP tài khoản: ${(result.serverTotalXp ?? 0).toLocaleString('vi-VN')}.`);

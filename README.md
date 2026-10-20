@@ -91,7 +91,8 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 
 - PR #8 đã được hợp nhất vào `main`; GitHub Actions run #47 thành công cho type-check/build frontend và backend.
 - Khi đã đăng nhập, `QuizPanel` gửi lựa chọn của ba câu và một `attemptId` tới `POST /api/v1/quizzes/:quizId/attempts`; client không gửi số câu đúng hoặc XP có thẩm quyền.
-- Điểm, XP cộng thêm và tổng XP tài khoản được lấy từ phản hồi máy chủ.
+- Điểm, XP cộng thêm và tổng XP quiz tài khoản được lấy từ phản hồi máy chủ; dashboard cộng phần XP nền/nhiệm vụ cục bộ riêng để tránh làm XP hiển thị tụt về 0 khi đăng nhập.
+- Điểm tốt nhất từ tiến độ máy chủ được hợp nhất vào trạng thái giao diện; giá trị XP thưởng có thẩm quyền vẫn do API quyết định.
 - Khi chưa đăng nhập, quiz tiếp tục dùng chế độ cục bộ.
 - Nếu gửi thất bại, giao diện hiển thị lỗi và cho phép gửi lại cùng `attemptId`; nếu token bị từ chối, không âm thầm chuyển lượt đó sang chấm cục bộ.
 - **Chưa xác minh production:** chưa có bằng chứng trong lượt làm việc này rằng Render đã triển khai phiên bản frontend mới hoặc luồng quiz đã được thử thành công trên trình duyệt. Cần kiểm tra deploy, CORS, MongoDB transaction, gửi quiz khi đăng nhập, replay cùng attemptId và chế độ local khi đăng xuất.
