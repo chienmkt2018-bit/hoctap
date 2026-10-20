@@ -48,9 +48,9 @@ npm run preview
 | P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ |
 | P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, OpenAPI và health endpoint; Actions run #16 thành công |
 | P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20; chưa có API quiz server-authoritative |
-| P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã hợp nhất; chờ kiểm thử Render | PR #1 đã hợp nhất vào `main`; Actions #28 và #29 trên `main` đều thành công; cần cấu hình `JWT_SECRET` trên Render |
-| P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
-| P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend hiện có trên Render; cần kiểm thử xác thực sau khi cấu hình JWT_SECRET |
+| P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã xác minh trên Render | Ngày 2026-10-20: đăng ký, đăng nhập, `/auth/me`, GET/PUT `/progress` và đọc lại dữ liệu đều thành công; MongoDB trả dữ liệu đã lưu |
+| P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đang chờ CI/Review PR | Nhánh `feat/frontend-auth-progress-sync`: thêm giao diện đăng nhập/đăng ký, token theo phiên, hợp nhất tiến độ local/server; không xóa XP và điểm tốt nhất đang lưu cục bộ |\n| P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
+| P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend Render và API xác thực/tiến độ đã được người dùng kiểm thử thành công; frontend integration vẫn cần CI, cấu hình CORS production và kiểm tra trình duyệt |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
 ## P2.4 — Lưu tiến độ học
@@ -88,6 +88,16 @@ npm run preview
   Dán kết quả trực tiếp vào Render → Environment; không gửi token/secret vào chat hoặc commit vào repository.
 - **CI:** GitHub Actions run #27 (PR) và runs #28–#29 trên `main` đều thành công cho cả hai job frontend và backend. Run #29 kiểm tra commit cập nhật bảng theo dõi.
 - **Chưa hoàn tất:** đã hợp nhất thay đổi sau khi CI thành công; cần thêm `JWT_SECRET` vào Render Environment và kiểm thử đăng ký/đăng nhập, token không hợp lệ, đọc/ghi tiến độ trong môi trường triển khai.
+
+## P3.4 — Đăng nhập frontend và đồng bộ tiến độ (đang chờ CI/Review)
+
+- Thêm client API tại `frontend/src/auth.ts` cho đăng ký, đăng nhập, xác minh tài khoản và đọc/ghi tiến độ.
+- Giao diện tài khoản được thêm vào thanh trên; đăng ký/đăng nhập xong sẽ lấy tiến độ máy chủ rồi hợp nhất với dữ liệu cục bộ.
+- Giữ nguyên khóa `hoc-tap-quest-progress-v1`; XP và điểm tốt nhất theo quiz tiếp tục lưu trên trình duyệt. Khi hợp nhất, bài đã hoàn thành được kết hợp theo phép hợp, trạng thái nhiệm vụ ưu tiên `done` rồi `active`; dữ liệu cục bộ không bị xóa khi đăng xuất hoặc khi API lỗi.
+- Token chỉ lưu trong `sessionStorage` của tab, không ghi vào `localStorage`. API không nhận XP do client tự gửi; XP máy chủ chỉ nên cập nhật qua luồng nộp quiz có xác minh ở bước sau.
+- API mặc định dùng `https://hoctap-6oeu.onrender.com`; có thể ghi đè bằng biến build `VITE_API_BASE_URL`.
+- **Cấu hình triển khai bắt buộc trước khi kiểm thử trên trình duyệt:** trên Render backend, đặt `CORS_ORIGIN` thành origin chính xác của website frontend production (chỉ scheme + hostname, không có path). Có thể dùng danh sách origin phân tách bằng dấu phẩy nếu cần nhiều origin. Không mở CORS cho mọi origin.
+- **Trạng thái kiểm thử:** API backend được người dùng xác nhận đăng ký/đăng nhập, đọc hồ sơ, GET/PUT tiến độ và đọc lại dữ liệu đều thành công ngày 2026-10-20. Chưa đánh dấu CI/frontend integration hoàn thành cho đến khi GitHub Actions của PR này có kết quả thực tế.
 
 ## Kiểm tra tự động
 
