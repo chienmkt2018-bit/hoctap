@@ -1,0 +1,24 @@
+import { Schema, model, models, type InferSchemaType, type Model } from 'mongoose';
+
+const userSchema = new Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+    trim: true,
+    maxlength: 254,
+  },
+  passwordHash: {
+    type: String,
+    required: true,
+    select: false,
+  },
+}, {
+  timestamps: true,
+  versionKey: false,
+});
+
+export type UserDocument = InferSchemaType<typeof userSchema>;
+export const UserModel: Model<UserDocument> =
+  (models.User as Model<UserDocument> | undefined) ?? model<UserDocument>('User', userSchema);
