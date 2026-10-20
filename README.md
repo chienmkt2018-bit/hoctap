@@ -48,7 +48,7 @@ npm run preview
 | P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ |
 | P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, OpenAPI và health endpoint; Actions run #16 thành công |
 | P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20; chưa có API quiz server-authoritative |
-| P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã hợp nhất; chờ kiểm thử Render | PR #1 đã hợp nhất vào `main`; GitHub Actions run #27 thành công cho frontend và backend; cần cấu hình `JWT_SECRET` trên Render |
+| P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đã hợp nhất; chờ kiểm thử Render | PR #1 đã hợp nhất vào `main`; Actions #28 và #29 trên `main` đều thành công; cần cấu hình `JWT_SECRET` trên Render |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend hiện có trên Render; cần kiểm thử xác thực sau khi cấu hình JWT_SECRET |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
@@ -73,7 +73,7 @@ npm run preview
 - **Xác minh production:** Render log báo `Connected to MongoDB.` và endpoint health trả `{"status":"ok","service":"hoc-tap-quest-api","version":"0.2.0","database":"connected"}` (trước khi nâng phiên bản backend lên 0.3.0) ngày 2026-10-20.
 - URI MongoDB thật chỉ được lưu trong Render Environment hoặc tệp `.env` cục bộ; tuyệt đối không commit lên GitHub.
 
-## P3.3 — Xác thực và bảo vệ tiến độ (đang chờ CI)
+## P3.3 — Xác thực và bảo vệ tiến độ (đã hợp nhất; chờ xác minh Render)
 
 - `POST /api/v1/auth/register`: tạo tài khoản bằng email và mật khẩu; mật khẩu được băm bằng bcryptjs, không lưu dạng văn bản thuần.
 - `POST /api/v1/auth/login`: kiểm tra thông tin đăng nhập và cấp JWT bearer token có thời hạn 1 giờ.
@@ -86,7 +86,7 @@ npm run preview
   node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
   ```
   Dán kết quả trực tiếp vào Render → Environment; không gửi token/secret vào chat hoặc commit vào repository.
-- **CI:** GitHub Actions run #27 thành công cho cả hai job frontend và backend sau khi sửa lỗi TypeScript phát hiện ở run #24.
+- **CI:** GitHub Actions run #27 (PR) và runs #28–#29 trên `main` đều thành công cho cả hai job frontend và backend. Run #29 kiểm tra commit cập nhật bảng theo dõi.
 - **Chưa hoàn tất:** đã hợp nhất thay đổi sau khi CI thành công; cần thêm `JWT_SECRET` vào Render Environment và kiểm thử đăng ký/đăng nhập, token không hợp lệ, đọc/ghi tiến độ trong môi trường triển khai.
 
 ## Kiểm tra tự động
