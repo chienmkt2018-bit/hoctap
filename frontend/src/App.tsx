@@ -59,7 +59,7 @@ function isValidDailyActivity(value: unknown): value is DailyActivity {
 }
 
 function isValidDateKey(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T12:00:00`);
   return !Number.isNaN(date.getTime()) && getDateKey(date) === value;
 }
@@ -479,7 +479,7 @@ function App() {
             <>
               <section className="stats-grid" aria-label="Thống kê học tập">
                 <article className="stat-card"><div className="stat-top"><span className="stat-icon purple-icon">✧</span><span className="stat-trend">+12% ↗</span></div><span className="stat-label">TỔNG KINH NGHIỆM</span><div className="stat-value">{xp.toLocaleString('vi-VN')} <small>XP</small></div><div className="stat-foot">Bạn đang tiến bộ mỗi ngày</div></article>
-                <article className="stat-card"><div className="stat-top"><span className="stat-icon orange-icon">♨</span><span className="stat-note">THEO QUIZ THỰC TẾ</span></div><span className="stat-label">CHUỖI NGÀY HỌC</span><div className="stat-value">{learningStreak} <small>{learningStreak === 1 ? 'ngày' : 'ngày'}</small></div><div className="mini-week" aria-label="Ngày học trong tuần hiện tại">{currentWeek.map((day) => <span key={day.dateKey} title={day.dateKey} className={day.learned ? 'day-done' : day.today ? 'day-today' : ''}>{day.label}</span>)}</div><div className="stat-foot">{learningDates.length === 0 ? 'Hoàn thành quiz để bắt đầu chuỗi ngày học.' : 'Chỉ tính ngày có ít nhất một quiz hoàn thành.'}</div></article>
+                <article className="stat-card"><div className="stat-top"><span className="stat-icon orange-icon">♨</span><span className="stat-note">THEO QUIZ THỰC TẾ</span></div><span className="stat-label">CHUỖI NGÀY HỌC</span><div className="stat-value">{learningStreak} <small>ngày</small></div><div className="mini-week" aria-label="Ngày học trong tuần hiện tại">{currentWeek.map((day) => <span key={day.dateKey} title={day.dateKey} className={day.learned ? 'day-done' : day.today ? 'day-today' : ''}>{day.label}</span>)}</div><div className="stat-foot">{learningDates.length === 0 ? 'Hoàn thành quiz để bắt đầu chuỗi ngày học.' : 'Chỉ tính ngày có ít nhất một quiz hoàn thành.'}</div></article>
                 <article className="stat-card"><div className="stat-top"><span className="stat-icon cyan-icon">◈</span><span className="stat-note">HÔM NAY</span></div><span className="stat-label">NHIỆM VỤ HOÀN THÀNH</span><div className="stat-value">{completedCount}<small> / {quests.length}</small></div><div className="stat-progress"><span style={{ width: `${completedCount / quests.length * 100}%` }} /></div><div className="stat-foot">{Math.round(completedCount / quests.length * 100)}% hành trình hiện tại</div></article>
               </section>
 
