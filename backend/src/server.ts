@@ -1,4 +1,3 @@
-import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import express, { type ErrorRequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -206,6 +205,7 @@ app.get('/api/v1/progress', requireAuthentication, async (_request, response, ne
       { $setOnInsert: { learnerId } },
       { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
     );
+    if (!progress) return databaseUnavailable(response);
     response.status(200).json(toProgressResponse(progress));
   } catch (error) {
     next(error);
@@ -249,6 +249,7 @@ app.put('/api/v1/progress', requireAuthentication, async (request, response, nex
       },
       { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
     );
+    if (!progress) return databaseUnavailable(response);
     response.status(200).json(toProgressResponse(progress));
   } catch (error) {
     next(error);
