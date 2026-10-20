@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express, { type ErrorRequestHandler } from 'express';
 import helmet from 'helmet';
+import { closeDatabase, connectDatabase, getDatabaseStatus } from './database.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -21,10 +22,13 @@ app.use(cors({
 app.use(express.json({ limit: '100kb' }));
 
 app.get('/api/v1/health', (_request, response) => {
-  response.status(200).json({
-    status: 'ok',
+  const database = getDatabaseStatus();
+  const databaseRequiredButUnavailable = database !== 'connected' && database !== 'not_configured';
+  response.status(databaseRequiredButUnavailable ? 503 : 200).json({
+    status: databaseRequiredButUnavailable ? 'degraded' : 'ok',
     service: 'hoc-tap-quest-api',
-    version: process.env.npm_package_version ?? '0.1.0',
+    version: process.env.npm_package_version ?? '0.2.0',
+    database,
   });
 });
 
@@ -53,7 +57,21 @@ const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _
   }
   response.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected server error occurred.' } });
 };
+
 app.use(errorHandler);
+
+async function shutdown(signal: string) {
+  console.log(`Received ${signal}; closing database connection.`);
+  await closeDatabase();
+  process.exit(0);
+}
+
+process.once('SIGINT', () => { void shutdown('SIGINT'); });
+process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
+
+// A missing or unavailable database must not prevent local frontend work or CI builds.
+// Health reports database availability separately; connection failures never expose the URI.
+void connectDatabase().catch(() => undefined);
 
 app.listen(port, () => {
   console.log(`HOC TAP QUEST API listening on port ${port}`);
