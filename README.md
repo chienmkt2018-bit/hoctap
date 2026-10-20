@@ -45,7 +45,7 @@ npm run preview
 | P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu, tổng kết; GitHub Actions thành công |
 | P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng vào tổng XP và cấp độ; chống nhận XP lặp khi làm lại cùng bài; Actions run #12 thành công |
 | P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ; Actions run #13 thành công |
-| P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, API contract OpenAPI, health endpoint; Actions run #14 thành công |\n| P3.2 | MongoDB và lưu tiến độ phía server | Đang kiểm tra CI | Đã thêm Mongoose, quản lý kết nối, model Progress và trạng thái DB trong health; chưa xác nhận build CI và chưa cấu hình Atlas thật |\n| P3.3 | Xác thực, phân quyền và bảo vệ API | Chưa bắt đầu | JWT, kiểm tra dữ liệu và kiểm thử bảo mật |
+| P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, API contract OpenAPI, health endpoint; Actions run #14 thành công |\n| P3.2 | MongoDB và lưu tiến độ phía server | CI thành công; chờ xác minh Atlas | Run #20–#23 thành công ở các commit mới nhất; chưa xác nhận kết nối MongoDB Atlas thật |\n| P3.3 | Xác thực, phân quyền và bảo vệ API | Chưa bắt đầu | JWT, kiểm tra dữ liệu và kiểm thử bảo mật |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
 | P5 | Kiểm thử và triển khai production | Chưa bắt đầu | Kiểm tra chức năng và triển khai |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
@@ -101,7 +101,8 @@ npm run preview
 - Đã thêm model `backend/src/models/Progress.ts` với `learnerId` duy nhất, XP, danh sách bài đã hoàn thành và trạng thái nhiệm vụ. Model chỉ là nền tảng dữ liệu; chưa mở endpoint ghi/đọc tiến độ cho đến khi xác thực và quyền sở hữu dữ liệu được làm ở P3.3.
 - `GET /api/v1/health` báo trạng thái kết nối cơ sở dữ liệu (`connected`, `connecting`, `disconnected` hoặc `not_configured`). Khi URI đã cấu hình nhưng DB chưa khả dụng, endpoint trả HTTP 503; không trả về URI hoặc thông tin xác thực.
 - Đã cập nhật `backend/.env.example` và hợp đồng `docs/openapi.yaml`. URI thật phải được thêm vào `.env` cục bộ hoặc Render Environment, tuyệt đối không commit lên GitHub.
-- **Giới hạn xác minh:** chưa có kết quả GitHub Actions được trả về cho các commit P3.2 tại thời điểm cập nhật này; vì vậy P3.2 chưa được đánh dấu hoàn thành. Cũng chưa có bằng chứng kết nối Atlas thật vì chưa cấu hình `MONGODB_URI` trong môi trường chạy.
+- **CI:** theo kết quả GitHub Actions được kiểm tra ngày 2026-10-20, các run #20–#23 thành công; các run #17–#19 ở những commit trung gian thất bại. Những kết quả mới hơn xác nhận các commit sửa tiếp theo build thành công.
+- **Giới hạn xác minh:** CI thành công không đồng nghĩa đã kết nối Atlas thật. Chưa có bằng chứng kết nối MongoDB Atlas vì chưa xác minh `MONGODB_URI` trong môi trường chạy.
 - Sau khi CI thành công và kết nối Atlas được kiểm tra trong môi trường triển khai, có thể chuyển P3.2 sang hoàn thành; endpoint tiến độ sẽ được triển khai cùng xác thực ở P3.3 để tránh lưu dữ liệu dưới danh tính giả mạo.
 ## Kiểm tra tự động
 
