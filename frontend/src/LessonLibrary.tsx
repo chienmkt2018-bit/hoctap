@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import QuizPanel from './QuizPanel';
 
 type LessonStatus = 'completed' | 'available' | 'locked';
 type Lesson = {
@@ -25,6 +26,7 @@ export default function LessonLibrary({ onNotice }: Props) {
   const [level, setLevel] = useState('Tất cả');
   const [status, setStatus] = useState('Tất cả');
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [quizStarted, setQuizStarted] = useState(false);
   const subjects = ['Tất cả', ...Array.from(new Set(lessons.map((lesson) => lesson.subject)))];
   const levels = ['Tất cả', ...Array.from(new Set(lessons.map((lesson) => lesson.level)))];
   const filteredLessons = useMemo(() => lessons.filter((lesson) =>
@@ -33,6 +35,7 @@ export default function LessonLibrary({ onNotice }: Props) {
     (status === 'Tất cả' || statusLabels[lesson.status] === status)
   ), [subject, level, status]);
   const selectedLesson = lessons.find((lesson) => lesson.id === selectedId) ?? null;
+  if (selectedId !== null && !selectedLesson) setSelectedId(null);
   const availableCount = lessons.filter((lesson) => lesson.status === 'available').length;
   const completedCount = lessons.filter((lesson) => lesson.status === 'completed').length;
 
@@ -44,10 +47,10 @@ export default function LessonLibrary({ onNotice }: Props) {
   return (
     <section className="lesson-library" aria-label="Thư viện bài học">
       <div className="lesson-library-heading">
-        <div><p className="section-kicker">LEARNING LIBRARY · P2.1</p><h2>{selectedLesson ? 'Chi tiết bài học' : 'Khám phá bài học'}</h2><p className="section-description">{selectedLesson ? 'Xem mục tiêu và nội dung dự kiến trước khi bắt đầu.' : 'Chọn chủ đề, cấp độ và trạng thái phù hợp với hành trình của bạn.'}</p></div>
-        {selectedLesson && <button className="text-button" type="button" onClick={() => setSelectedId(null)}>← Quay lại danh sách</button>}
+        <div><p className="section-kicker">LEARNING LIBRARY · P2.1</p><h2>{quizStarted ? 'Đang luyện tập' : selectedLesson ? 'Chi tiết bài học' : 'Khám phá bài học'}</h2><p className="section-description">{quizStarted ? 'Trả lời từng câu, kiểm tra và đọc giải thích trước khi tiếp tục.' : selectedLesson ? 'Xem mục tiêu và nội dung dự kiến trước khi bắt đầu.' : 'Chọn chủ đề, cấp độ và trạng thái phù hợp với hành trình của bạn.'}</p></div>
+        {selectedLesson && <button className="text-button" type="button" onClick={() => { if (quizStarted) setQuizStarted(false); else setSelectedId(null); }}>← {quizStarted ? 'Quay lại chi tiết bài học' : 'Quay lại danh sách'}</button>}
       </div>
-      {!selectedLesson ? <>
+      {quizStarted && selectedLesson ? <QuizPanel lessonId={selectedLesson.id} lessonTitle={selectedLesson.title} lessonXp={selectedLesson.xp} onBack={() => setQuizStarted(false)} /> : !selectedLesson ? <>
         <div className="lesson-summary-grid">
           <article><span className="lesson-summary-icon">▤</span><span><strong>{lessons.length}</strong><small>Tổng bài học mẫu</small></span></article>
           <article><span className="lesson-summary-icon">◈</span><span><strong>{availableCount}</strong><small>Có thể bắt đầu</small></span></article>
@@ -74,7 +77,7 @@ export default function LessonLibrary({ onNotice }: Props) {
           <section className="lesson-detail-block"><p className="section-kicker">LEARNING OBJECTIVES</p><h4>Sau bài học, bạn có thể</h4><ul>{selectedLesson.objectives.map((objective) => <li key={objective}><span>✓</span>{objective}</li>)}</ul></section>
           <section className="lesson-detail-block"><p className="section-kicker">LESSON OUTLINE</p><h4>Nội dung dự kiến</h4><ol>{selectedLesson.outline.map((item, index) => <li key={item}><span>{String(index + 1).padStart(2, '0')}</span>{item}</li>)}</ol></section>
         </div>
-        <div className="lesson-detail-footer"><p>Đây là phần giới thiệu bài học. Bài tập tương tác, chấm điểm và nhận XP theo kết quả sẽ được nối ở P2.2–P2.3.</p><button className="primary-button" type="button" onClick={() => onNotice('Đã mở phần giới thiệu bài học. Bước làm quiz và ghi nhận kết quả sẽ được triển khai ở P2.2.')}>Bắt đầu tìm hiểu <span>→</span></button></div>
+        <div className="lesson-detail-footer"><p>Bắt đầu quiz gồm các câu hỏi trắc nghiệm. Sau mỗi câu, hãy kiểm tra đáp án và đọc giải thích trước khi chuyển tiếp. XP theo kết quả sẽ được xử lý ở P2.3.</p><button className="primary-button" type="button" onClick={() => { setQuizStarted(true); onNotice(''); }}>Bắt đầu quiz <span>→</span></button></div>
       </div>}
     </section>
   );
