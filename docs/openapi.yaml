@@ -174,7 +174,7 @@ paths:
                   type: string
                   minLength: 16
                   maxLength: 128
-                  pattern: '^[a-zA-Z0-9_-]+$'
+                  pattern: '^[a-zA-Z0-9_-]{16,128}$'
                 answers:
                   type: array
                   minItems: 3
