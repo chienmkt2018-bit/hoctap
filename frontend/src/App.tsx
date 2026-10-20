@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import LessonLibrary from './LessonLibrary';
 import type { QuizResult } from './QuizPanel';
-import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, saveRemoteProgress, type ApiProgress, type AuthUser } from './auth';
+import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, type ApiProgress, type AuthUser } from './auth';
 
 type Quest = {
   id: number;
@@ -175,28 +175,6 @@ const navigation = [
 ];
 
 
-function mergeDailyActivity(remote: ApiProgress['dailyActivity'], local: DailyActivity): DailyActivity {
-  const today = getLocalDateKey();
-  const localToday = local.date === today && isValidDailyActivity(local) ? local : null;
-  const remoteToday = remote && remote.date === today && isValidDailyActivity(remote) ? remote : null;
-  if (!localToday && !remoteToday) return createDailyActivity(today);
-  if (!localToday) return {
-    date: today,
-    completedLessonIds: [...new Set(remoteToday!.completedLessonIds)],
-    highScoreLessonIds: [...new Set(remoteToday!.highScoreLessonIds)],
-  };
-  if (!remoteToday) return {
-    date: today,
-    completedLessonIds: [...new Set(localToday.completedLessonIds)],
-    highScoreLessonIds: [...new Set(localToday.highScoreLessonIds)],
-  };
-  return {
-    date: today,
-    completedLessonIds: [...new Set([...localToday.completedLessonIds, ...remoteToday.completedLessonIds])],
-    highScoreLessonIds: [...new Set([...localToday.highScoreLessonIds, ...remoteToday.highScoreLessonIds])],
-  };
-}
-
 function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boolean>): Quest[] {
   let allPreviousQuestsCompleted = true;
   return initialQuests.map((quest) => {
@@ -207,35 +185,39 @@ function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boole
   });
 }
 
-function mergeRemoteProgress(remote: ApiProgress, local: SavedProgress): SavedProgress {
-  const completedLessons = { ...local.completedLessons };
-  for (const lessonId of remote.completedLessonIds) completedLessons[lessonId] = true;
-
-  // Completion is derived from a recorded quiz result, not a client-supplied quest status.
+function mergeRemoteProgress(remote: ApiProgress): SavedProgress {
+  // For signed-in accounts, quiz attempts on the server are the sole source of truth.
+  // Do not resurrect stale local completion flags or client-written progress.
+  const completedLessons = Object.fromEntries(
+    remote.completedLessonIds.map((lessonId) => [lessonId, true]),
+  ) as Record<number, boolean>;
   const quests = deriveQuestsFromCompletedLessons(completedLessons);
-
-  const remoteBestXp = Object.fromEntries(
+  const quizBestXp = Object.fromEntries(
     Object.entries(remote.bestXpByLesson).map(([lessonId, xp]) => [Number(lessonId), xp]),
   );
-  const quizBestXp = { ...local.quizBestXp, ...remoteBestXp };
-
-  const learningDates = [...new Set([...local.learningDates, ...(remote.learningDates ?? [])])]
+  const learningDates = [...new Set(remote.learningDates ?? [])]
     .filter(isValidDateKey)
     .sort();
+  const today = getLocalDateKey();
+  const remoteDaily = remote.dailyActivity;
+  const dailyActivity = remoteDaily && remoteDaily.date === today && isValidDailyActivity(remoteDaily)
+    ? {
+        date: today,
+        completedLessonIds: [...new Set(remoteDaily.completedLessonIds)],
+        highScoreLessonIds: [...new Set(remoteDaily.highScoreLessonIds)],
+      }
+    : createDailyActivity(today);
 
-  return { ...local, quests, completedLessons, quizBestXp, learningDates, dailyActivity: mergeDailyActivity(remote.dailyActivity, local.dailyActivity) };
-}
-
-function toRemoteProgress(local: SavedProgress): Pick<ApiProgress, 'completedLessonIds' | 'questStatuses'> {
   return {
-    completedLessonIds: Object.entries(local.completedLessons)
-      .filter(([, completed]) => completed)
-      .map(([lessonId]) => Number(lessonId))
-      .filter((lessonId) => Number.isSafeInteger(lessonId) && lessonId > 0),
-    questStatuses: Object.fromEntries(deriveQuestsFromCompletedLessons(local.completedLessons).map((quest) => [`quest_${quest.id}`, quest.status])),
+    ...createEmptySavedProgress(),
+    quests,
+    completedLessons,
+    earnedQuizXp: remote.totalXp,
+    quizBestXp,
+    learningDates,
+    dailyActivity,
   };
 }
-
 function App() {
   const [activeNav, setActiveNav] = useState('overview');
   const [quests, setQuests] = useState(() => readSavedProgress()?.quests ?? initialQuests);
@@ -253,7 +235,6 @@ function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
-  const [syncReady, setSyncReady] = useState(false);
 
   useEffect(() => {
     try {
@@ -277,8 +258,7 @@ function App() {
     };
   }, []);
 
-  // Restore a session token, then merge server progress with local progress without
-  // discarding local-only XP/best-score data.
+  // Restore a session token and load progress from server-verified quiz attempts.
   useEffect(() => {
     const token = readAccessToken();
     if (!token) return;
@@ -288,10 +268,9 @@ function App() {
         const currentUser = await getCurrentUser(token);
         const remote = await getRemoteProgress(token);
         if (cancelled) return;
-        // Only merge server progress with this account's own local cache.
-        // Anonymous/guest progress must never be copied into an authenticated account.
-        const local = readSavedProgress(currentUser.id) ?? createEmptySavedProgress();
-        const merged = mergeRemoteProgress(remote, local);
+        // Authenticated progress comes only from server-verified quiz attempts.
+        // Guest and account-local caches are never used to grant completion.
+        const merged = mergeRemoteProgress(remote);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
         setServerTotalXp(remote.totalXp);
@@ -300,7 +279,6 @@ function App() {
         setDailyActivity(merged.dailyActivity);
         setLearningDates(merged.learningDates);
         setUser(currentUser);
-        setSyncReady(true);
       } catch (error) {
         if (!cancelled) {
           clearAccessToken();
@@ -313,19 +291,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debounce remote writes; localStorage remains the immediate local fallback.
-  useEffect(() => {
-    if (!user || !syncReady) return;
-    const token = readAccessToken();
-    if (!token) return;
-    const snapshot: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates };
-    const timeout = window.setTimeout(() => {
-      void saveRemoteProgress(token, toRemoteProgress(snapshot)).catch((error: unknown) => {
-        setNotice(error instanceof Error ? `Không đồng bộ được lên máy chủ: ${error.message} Tiến độ cục bộ vẫn được giữ.` : 'Không đồng bộ được lên máy chủ; tiến độ cục bộ vẫn được giữ.');
-      });
-    }, 500);
-    return () => window.clearTimeout(timeout);
-  }, [user, syncReady, quests, earnedQuizXp, quizBestXp, completedLessons]);
+
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -337,9 +303,8 @@ function App() {
       const token = readAccessToken();
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
-      // Load this account's own cache instead of merging the previous guest/account state.
-      const local = readSavedProgress(currentUser.id) ?? createEmptySavedProgress();
-      const merged = mergeRemoteProgress(remote, local);
+      // Load only server-verified quiz progress for this account.
+      const merged = mergeRemoteProgress(remote);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
       setServerTotalXp(remote.totalXp);
@@ -348,10 +313,9 @@ function App() {
       setDailyActivity(merged.dailyActivity);
       setLearningDates(merged.learningDates);
       setUser(currentUser);
-      setSyncReady(true);
       setAuthPassword('');
       setAuthOpen(false);
-      setNotice(`Đã ${authMode === 'register' ? 'tạo tài khoản và đăng nhập' : 'đăng nhập'} thành công. Tiến độ cục bộ và trên tài khoản đã được hợp nhất.`);
+      setNotice(`Đã ${authMode === 'register' ? 'tạo tài khoản và đăng nhập' : 'đăng nhập'} thành công. Tiến độ quiz đã xác minh trên máy chủ được tải vào tài khoản.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Không thể đăng nhập lúc này.');
     } finally {
@@ -370,7 +334,6 @@ function App() {
     setDailyActivity(guest.dailyActivity);
     setLearningDates(guest.learningDates);
     setUser(null);
-    setSyncReady(false);
     setServerTotalXp(null);
     setSelectedQuest(null);
     setAuthOpen(false);
@@ -558,7 +521,7 @@ function App() {
               </section>
 
               <section className="bottom-grid">
-                <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">DAILY QUESTS · P4.2</p><h2>Nhiệm vụ hôm nay</h2><p className="daily-date">Ngày {dailyActivity.date} · tiến độ tự ghi nhận từ quiz</p></div><span className="daily-count">{completedDailyQuestCount} / {dailyQuests.length}</span></div>{dailyQuests.map((quest) => <div className={`daily-row ${quest.done ? 'daily-row-done' : ''}`} key={quest.id}><span className="daily-icon">{quest.done ? '✓' : quest.icon}</span><div className="daily-copy"><strong>{quest.title}</strong><span>{quest.description}</span><div className="daily-track"><span style={{ width: `${quest.progress / quest.target * 100}%` }} /></div><small className="daily-progress-label">{quest.progress} / {quest.target}</small></div><span className={`daily-check ${quest.done ? 'is-visible' : ''}`}>{quest.done ? '✓' : '—'}</span></div>)}<p className="daily-footnote">Nhiệm vụ chỉ theo dõi tiến độ, không phát XP thưởng. XP vẫn do quy tắc quiz hiện tại quyết định; dữ liệu hôm nay được lưu cục bộ trên trình duyệt này.</p></article>
+                <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">DAILY QUESTS · P4.2</p><h2>Nhiệm vụ hôm nay</h2><p className="daily-date">Ngày {dailyActivity.date} · tiến độ tự ghi nhận từ quiz</p></div><span className="daily-count">{completedDailyQuestCount} / {dailyQuests.length}</span></div>{dailyQuests.map((quest) => <div className={`daily-row ${quest.done ? 'daily-row-done' : ''}`} key={quest.id}><span className="daily-icon">{quest.done ? '✓' : quest.icon}</span><div className="daily-copy"><strong>{quest.title}</strong><span>{quest.description}</span><div className="daily-track"><span style={{ width: `${quest.progress / quest.target * 100}%` }} /></div><small className="daily-progress-label">{quest.progress} / {quest.target}</small></div><span className={`daily-check ${quest.done ? 'is-visible' : ''}`}>{quest.done ? '✓' : '—'}</span></div>)}<p className="daily-footnote">Đây là checklist riêng trong ngày, không phải tiến độ chương. Nhiệm vụ không phát XP thưởng; kết quả quiz mới quyết định XP. Dữ liệu được lưu theo tài khoản khi đăng nhập hoặc trên trình duyệt ở chế độ khách.</p></article>
                 <article className="focus-card"><div className="focus-glow" /><p className="section-kicker">YOUR NEXT MILESTONE</p><div className="focus-art" aria-hidden="true">✧</div><h2>Mở khóa<br /><span>chân trời mới.</span></h2><p>Hoàn thành chặng tiếp theo để tiến gần hơn tới cấp độ 4.</p><button className="primary-button full-button" type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}>Tiếp tục hành trình <span>→</span></button><span className="focus-footer">MỌI BƯỚC TIẾN ĐỀU ĐÁNG GIÁ</span></article>
               </section>
             </>
