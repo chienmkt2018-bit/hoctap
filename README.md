@@ -43,7 +43,7 @@ npm run preview
 | P1.2 | Dashboard và Quest Map | Hoàn thành | Dashboard, XP, chuỗi ngày học, nhiệm vụ và bản đồ chặng |
 | P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết; GitHub Actions thành công |
 | P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu, tổng kết; GitHub Actions thành công |
-| P2.3 | Kết quả và XP theo kết quả học | Chưa bắt đầu | Không cộng XP chỉ bằng thao tác bấm hoàn thành |
+| P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng vào tổng XP và cấp độ; chống nhận XP lặp khi làm lại cùng bài; Actions run #12 thành công |
 | P2.4 | Lưu tiến độ học | Chưa bắt đầu | Trước mắt lưu trên trình duyệt |
 | P3 | Backend, API, MongoDB và bảo mật | Chưa bắt đầu | Sau Learning Core |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
@@ -66,6 +66,15 @@ npm run preview
 - Đã có bộ câu hỏi mẫu cho các bài Tư duy nền tảng, Tiếng Anh và Toán & Logic; các bài chưa có bộ riêng dùng bộ câu hỏi dự phòng.
 - Dữ liệu câu hỏi hiện nằm trong frontend, chưa lấy từ API/MongoDB. Điểm được tổng kết ở quiz nhưng chưa lưu lịch sử; XP chỉ hiển thị là mức dự kiến và chưa được cộng thực tế (dự kiến P2.3).
 - GitHub Actions run #9: build và type-check thành công cho commit `46d3875fc2dfe76402cf8628de8b6faaf3a68403`.
+
+## P2.3 — Kết quả và XP theo kết quả học
+
+- Tổng kết hiển thị số câu đúng, tỷ lệ chính xác và XP thực nhận của lần làm bài.
+- XP được tính theo công thức: `round(XP cơ bản của bài × số câu đúng / tổng số câu)`. Bài đạt 0 câu đúng nhận 0 XP; đạt toàn bộ câu hỏi nhận đủ XP cơ bản.
+- Mỗi bài chỉ nhận thưởng theo mức XP tương ứng với kết quả tốt nhất trong phiên ứng dụng hiện tại. Nếu làm lại đạt kết quả tốt hơn, chỉ nhận phần XP chênh lệch; kết quả bằng hoặc thấp hơn không cộng XP lần nữa.
+- Tổng XP trên Dashboard và thanh tiến độ cấp độ được cập nhật theo XP quiz đã nhận. XP nhiệm vụ hiện có vẫn hoạt động.
+- Trạng thái XP và kết quả tốt nhất hiện chỉ giữ trong bộ nhớ phiên ứng dụng; tải lại trang sẽ làm mất dữ liệu. Lưu bền vững thuộc P2.4.
+- GitHub Actions run #12: type-check và build thành công cho commit `e13f07dc5b1e9b885e7c58b3bbebb779ac5f1395`.
 
 ## Kiểm tra tự động
 
