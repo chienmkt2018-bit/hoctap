@@ -4,15 +4,16 @@ Nền tảng học tập theo phong cách trò chơi — React + TypeScript + Vi
 
 ## Công nghệ
 
-- React 19 + TypeScript
-- Vite 6
-- CSS responsive, hỗ trợ reduced motion
-- GitHub Actions kiểm tra TypeScript và build frontend
+- React 19 + TypeScript + Vite
+- Express 5 + TypeScript + MongoDB Atlas (Mongoose)
+- JWT bearer token, băm mật khẩu bằng bcryptjs, giới hạn tần suất đăng nhập
+- GitHub Actions kiểm tra TypeScript và build frontend/backend
 
 ## Yêu cầu
 
 - Node.js 20.19+ hoặc 22.12+
 - npm
+- MongoDB Atlas hoặc MongoDB tương thích để chạy các API dữ liệu
 
 ## Chạy trên Windows
 
@@ -41,73 +42,56 @@ npm run preview
 | P0 | Lập kế hoạch và kiến trúc | Hoàn thành | Đã xác định lộ trình P0–P6 |
 | P1.1 | Khởi tạo React + Vite + TypeScript và CI | Hoàn thành | Workflow Frontend build |
 | P1.2 | Dashboard và Quest Map | Hoàn thành | Dashboard, XP, chuỗi ngày học, nhiệm vụ và bản đồ chặng |
-| P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết; GitHub Actions thành công |
-| P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu, tổng kết; GitHub Actions thành công |
-| P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng vào tổng XP và cấp độ; chống nhận XP lặp khi làm lại cùng bài; Actions run #12 thành công |
-| P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ; Actions run #13 thành công |
-| P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, API contract OpenAPI, health endpoint; Actions run #14 thành công |\n| P3.2 | MongoDB và lưu tiến độ phía server | CI thành công; chờ xác minh Atlas | Run #20–#23 thành công ở các commit mới nhất; chưa xác nhận kết nối MongoDB Atlas thật |\n| P3.3 | Xác thực, phân quyền và bảo vệ API | Chưa bắt đầu | JWT, kiểm tra dữ liệu và kiểm thử bảo mật |
+| P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết |
+| P2.2 | Quiz tương tác | Hoàn thành | Chọn đáp án, kiểm tra, giải thích đúng/sai, chuyển câu và tổng kết |
+| P2.3 | Kết quả và XP theo kết quả học | Hoàn thành | Tính XP theo số câu đúng; cộng XP; chống nhận XP lặp khi làm lại cùng bài |
+| P2.4 | Lưu tiến độ học | Hoàn thành | localStorage lưu XP quiz, điểm tốt nhất, bài đã làm và trạng thái nhiệm vụ |
+| P3.1 | Thiết kế backend và API | Hoàn thành | Express + TypeScript, OpenAPI và health endpoint; Actions run #16 thành công |
+| P3.2 | Kết nối MongoDB Atlas | Hoàn thành xác minh kết nối | Render health endpoint trả `status: ok`, `database: connected` ngày 2026-10-20; chưa có API quiz server-authoritative |
+| P3.3 | Xác thực, phân quyền và bảo vệ tiến độ | Đang chờ CI | Đã viết trên nhánh `feat/p3-3-auth-progress`; chờ GitHub Actions và rà soát trước khi merge |
 | P4 | Gamification mở rộng | Chưa bắt đầu | Thành tựu và nhiệm vụ nâng cao |
-| P5 | Kiểm thử và triển khai production | Chưa bắt đầu | Kiểm tra chức năng và triển khai |
+| P5 | Kiểm thử và triển khai production | Đang triển khai từng phần | Backend hiện có trên Render; cần kiểm thử xác thực sau khi cấu hình JWT_SECRET |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
-
-## P2.1 — Thư viện bài học
-
-- 8 bài học mẫu thuộc các chủ đề Tư duy nền tảng, Tiếng Anh, Toán & Logic.
-- Lọc theo chủ đề, cấp độ và trạng thái.
-- Xem trang chi tiết gồm mô tả, mục tiêu học tập, dàn ý, thời lượng và XP dự kiến.
-- Bài khóa không thể mở; nút bắt đầu hiện chỉ là điểm nối giao diện. Quiz, chấm điểm và thưởng XP sẽ được làm ở P2.2–P2.3.
-- Dữ liệu hiện là dữ liệu mẫu phía frontend, chưa kết nối tài khoản hoặc cơ sở dữ liệu.
-
-## P2.2 — Quiz tương tác
-
-- Mở quiz từ trang chi tiết của bài học đang mở hoặc đã hoàn thành.
-- Luồng học: chọn một phương án → kiểm tra đáp án → xem trạng thái đúng/sai và giải thích → chuyển câu tiếp theo.
-- Có thanh tiến độ, khóa lựa chọn sau khi kiểm tra, màn hình tổng kết số câu đúng và nút làm lại.
-- Đã có bộ câu hỏi mẫu cho các bài Tư duy nền tảng, Tiếng Anh và Toán & Logic; các bài chưa có bộ riêng dùng bộ câu hỏi dự phòng.
-- Dữ liệu câu hỏi hiện nằm trong frontend, chưa lấy từ API/MongoDB. Điểm được tổng kết ở quiz nhưng chưa lưu lịch sử; XP chỉ hiển thị là mức dự kiến và chưa được cộng thực tế (dự kiến P2.3).
-- GitHub Actions run #9: build và type-check thành công cho commit `46d3875fc2dfe76402cf8628de8b6faaf3a68403`.
-
-## P2.3 — Kết quả và XP theo kết quả học
-
-- Tổng kết hiển thị số câu đúng, tỷ lệ chính xác và XP thực nhận của lần làm bài.
-- XP được tính theo công thức: `round(XP cơ bản của bài × số câu đúng / tổng số câu)`. Bài đạt 0 câu đúng nhận 0 XP; đạt toàn bộ câu hỏi nhận đủ XP cơ bản.
-- Mỗi bài chỉ nhận thưởng theo mức XP tương ứng với kết quả tốt nhất trong phiên ứng dụng hiện tại. Nếu làm lại đạt kết quả tốt hơn, chỉ nhận phần XP chênh lệch; kết quả bằng hoặc thấp hơn không cộng XP lần nữa.
-- Tổng XP trên Dashboard và thanh tiến độ cấp độ được cập nhật theo XP quiz đã nhận. XP nhiệm vụ hiện có vẫn hoạt động.
-- Trạng thái XP và kết quả tốt nhất hiện chỉ giữ trong bộ nhớ phiên ứng dụng; tải lại trang sẽ làm mất dữ liệu. Lưu bền vững thuộc P2.4.
-- GitHub Actions run #12: type-check và build thành công cho commit `e13f07dc5b1e9b885e7c58b3bbebb779ac5f1395`.
 
 ## P2.4 — Lưu tiến độ học
 
-- Lưu tự động trên trình duyệt bằng `localStorage` với khóa phiên bản `hoc-tap-quest-progress-v1`.
-- Sau khi tải lại hoặc mở lại website trong cùng trình duyệt, Dashboard khôi phục trạng thái nhiệm vụ, tổng XP quiz, XP tốt nhất theo từng bài và danh sách bài đã làm.
-- Thư viện bài học cập nhật nhãn **Đã hoàn thành** và bộ lọc theo trạng thái từ tiến độ đã lưu; quiz đạt 0 XP vẫn được ghi nhận là đã làm.
-- Dữ liệu được kiểm tra cơ bản khi đọc. Nếu JSON hỏng hoặc trình duyệt chặn lưu trữ, ứng dụng dùng trạng thái mặc định; thông báo sẽ xuất hiện nếu không thể ghi dữ liệu.
-- Đây là lưu cục bộ theo trình duyệt/thiết bị, chưa đồng bộ giữa thiết bị hoặc tài khoản và có thể mất nếu người dùng xóa dữ liệu website. Đồng bộ máy chủ thuộc giai đoạn P3.
-- GitHub Actions run #13: type-check và build thành công cho commit `8df96b76d60601434e4c4677b60bc3d8d944b01c`.
+- Lưu tự động trên trình duyệt bằng `localStorage` với khóa `hoc-tap-quest-progress-v1`.
+- Dashboard khôi phục nhiệm vụ, XP quiz, XP tốt nhất theo từng bài và danh sách bài đã làm sau khi tải lại trang.
+- Dữ liệu được kiểm tra cơ bản khi đọc. Nếu JSON hỏng hoặc trình duyệt chặn lưu trữ, ứng dụng dùng trạng thái mặc định.
+- Đây là lưu cục bộ theo trình duyệt/thiết bị, chưa tự đồng bộ tài khoản hoặc thiết bị. Frontend chưa bị thay đổi trong P3.3.
 
-## P3.1 — Thiết kế backend và API
+## P3.1 — Backend và hợp đồng API
 
-- Đã đọc lại frontend, cách lưu tiến độ P2.4 và workflow hiện tại trước khi bổ sung backend. Không thay đổi luồng học, quiz hoặc XP ở frontend.
-- Tạo `backend/src/server.ts` bằng Express + TypeScript: `GET /api/v1/health`, phản hồi JSON 404/400/500, Helmet, giới hạn JSON body 100 KB và CORS theo biến môi trường `CORS_ORIGIN`.
-- Tạo `backend/package.json`, `backend/tsconfig.json`, `backend/.gitignore` và `backend/.env.example`. Không thêm thông tin bí mật hoặc URI cơ sở dữ liệu vào mã nguồn.
-- Đặc tả `docs/openapi.yaml` xác định hợp đồng dự kiến cho health, danh sách bài học, tiến độ người học và nộp bài quiz. Các endpoint nghiệp vụ trong OpenAPI hiện là **thiết kế**, chưa được triển khai ở server.
-- Cập nhật GitHub Actions để kiểm tra TypeScript/build của cả frontend lẫn backend khi có thay đổi trong `frontend/**`, `backend/**` hoặc đặc tả OpenAPI.
-- GitHub Actions run #14 thành công cho commit `4fcd2004f7e30c1472165554e8bfc2e385906534`; cả hai job frontend và backend đều thành công.
-- Chưa kết nối MongoDB, chưa triển khai đăng nhập/JWT hoặc endpoint lưu tiến độ thật. Đây là các bước tiếp theo, không được xem là đã hoàn thành ở P3.1.
+- Express + TypeScript với `GET /api/v1/health`, Helmet, CORS theo `CORS_ORIGIN`, giới hạn JSON body 100 KB và phản hồi lỗi JSON.
+- Đặc tả OpenAPI nằm tại `docs/openapi.yaml`. Các endpoint `/lessons` và `/quizzes/{quizId}/attempts` vẫn là thiết kế, chưa được triển khai.
+- GitHub Actions build/type-check frontend và backend khi có thay đổi trong thư mục tương ứng hoặc OpenAPI.
 
-## P3.2 — Kết nối MongoDB
+## P3.2 — Kết nối MongoDB Atlas
 
-- Đã thêm Mongoose và `backend/src/database.ts` để kết nối khi có biến môi trường `MONGODB_URI`; API vẫn có thể khởi động khi biến này chưa được cấu hình để không chặn phát triển frontend và CI.
-- Đã thêm model `backend/src/models/Progress.ts` với `learnerId` duy nhất, XP, danh sách bài đã hoàn thành và trạng thái nhiệm vụ. Model chỉ là nền tảng dữ liệu; chưa mở endpoint ghi/đọc tiến độ cho đến khi xác thực và quyền sở hữu dữ liệu được làm ở P3.3.
-- `GET /api/v1/health` báo trạng thái kết nối cơ sở dữ liệu (`connected`, `connecting`, `disconnected` hoặc `not_configured`). Khi URI đã cấu hình nhưng DB chưa khả dụng, endpoint trả HTTP 503; không trả về URI hoặc thông tin xác thực.
-- Đã cập nhật `backend/.env.example` và hợp đồng `docs/openapi.yaml`. URI thật phải được thêm vào `.env` cục bộ hoặc Render Environment, tuyệt đối không commit lên GitHub.
-- **CI:** theo kết quả GitHub Actions được kiểm tra ngày 2026-10-20, các run #20–#23 thành công; các run #17–#19 ở những commit trung gian thất bại. Những kết quả mới hơn xác nhận các commit sửa tiếp theo build thành công.
-- **Giới hạn xác minh:** CI thành công không đồng nghĩa đã kết nối Atlas thật. Chưa có bằng chứng kết nối MongoDB Atlas vì chưa xác minh `MONGODB_URI` trong môi trường chạy.
-- Sau khi CI thành công và kết nối Atlas được kiểm tra trong môi trường triển khai, có thể chuyển P3.2 sang hoàn thành; endpoint tiến độ sẽ được triển khai cùng xác thực ở P3.3 để tránh lưu dữ liệu dưới danh tính giả mạo.
+- Mongoose được cấu hình qua biến môi trường `MONGODB_URI`; model `Progress` lưu tiến độ theo một `learnerId` duy nhất.
+- `GET /api/v1/health` phản ánh trạng thái database và không tiết lộ URI hoặc thông tin xác thực.
+- **Xác minh production:** Render log báo `Connected to MongoDB.` và endpoint health trả `{"status":"ok","service":"hoc-tap-quest-api","version":"0.2.0","database":"connected"}` ngày 2026-10-20.
+- URI MongoDB thật chỉ được lưu trong Render Environment hoặc tệp `.env` cục bộ; tuyệt đối không commit lên GitHub.
+
+## P3.3 — Xác thực và bảo vệ tiến độ (đang chờ CI)
+
+- `POST /api/v1/auth/register`: tạo tài khoản bằng email và mật khẩu; mật khẩu được băm bằng bcryptjs, không lưu dạng văn bản thuần.
+- `POST /api/v1/auth/login`: kiểm tra thông tin đăng nhập và cấp JWT bearer token có thời hạn 1 giờ.
+- `GET /api/v1/auth/me`: trả thông tin tài khoản của token hợp lệ.
+- `GET /api/v1/progress` và `PUT /api/v1/progress`: chỉ thao tác tiến độ của người dùng được xác định từ token đã xác minh; client không thể chọn `learnerId` khác.
+- Xác thực có giới hạn tần suất 10 lần/15 phút trên mỗi IP. Token được kiểm tra issuer, audience và thời hạn.
+- API cập nhật tiến độ chỉ nhận danh sách bài hoàn thành và trạng thái nhiệm vụ; không nhận `totalXp` hoặc `bestXpByLesson` từ client. XP có thẩm quyền cần được tính bởi endpoint nộp quiz phía server trong bước tiếp theo.
+- Cần thêm biến môi trường `JWT_SECRET` (tối thiểu 32 byte ngẫu nhiên) trên Render trước khi dùng đăng ký/đăng nhập. Tạo giá trị an toàn bằng lệnh:
+  ```powershell
+  node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+  ```
+  Dán kết quả trực tiếp vào Render → Environment; không gửi token/secret vào chat hoặc commit vào repository.
+- P3.3 chưa được đánh dấu hoàn thành cho đến khi GitHub Actions thành công và các endpoint được kiểm tra trong môi trường triển khai.
+
 ## Kiểm tra tự động
 
-Workflow chạy `npm run build` (TypeScript + Vite) khi có thay đổi trong `frontend/**`. Theo dõi tại [GitHub Actions](https://github.com/chienmkt2018-bit/hoctap/actions).
+Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/hoctap/actions).
 
 ## Bảo mật
 
-Không lưu thông tin đăng nhập, token hoặc bí mật trong mã nguồn.
+Không lưu thông tin đăng nhập, token, JWT secret hoặc URI cơ sở dữ liệu thật trong mã nguồn.
