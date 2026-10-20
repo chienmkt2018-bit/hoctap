@@ -56,7 +56,8 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P3.5 | API chấm quiz và XP phía máy chủ | Đã hợp nhất; CI thành công; Health production đã xác minh; endpoint quiz chưa kiểm thử riêng | PR #4 đã merge; Actions run #40 thành công; Render Health từng trả `status: ok`, `database: connected` ngày 2026-10-20. Chưa xác minh POST attempts trên production. |
 | P3.6 | Nối giao diện quiz với API server | Đã hợp nhất; Actions #47 thành công; production chưa xác minh | PR #8 tích hợp gửi đáp án khi đăng nhập, hiển thị loading/lỗi, giữ chế độ local khi chưa đăng nhập và dùng XP từ phản hồi máy chủ; cần kiểm thử end-to-end sau deploy |
 | P4 | Gamification mở rộng | Đang triển khai | Triển khai theo từng PR, không cộng thưởng ngoài hệ XP phía máy chủ |
-| P4.1 | Thành tựu dựa trên tiến độ | Đang chờ CI/PR | 6 thành tựu suy ra từ bài học, quiz có XP và tổng XP quiz; không thêm API hay schema mới |
+| P4.1 | Thành tựu dựa trên tiến độ | Hoàn thành trong PR #11; CI #53 thành công | 6 thành tựu suy ra từ tiến độ thực; không thêm API hay schema mới |
+| P4.2 | Nhiệm vụ hằng ngày | Đang triển khai | 3 nhiệm vụ suy ra từ quiz hoàn thành hôm nay; không phát XP thưởng; dữ liệu ngày lưu cục bộ |
 | P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
@@ -97,3 +98,11 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - Khi chưa đăng nhập, quiz tiếp tục dùng chế độ cục bộ.
 - Nếu gửi thất bại, giao diện hiển thị lỗi và cho phép gửi lại cùng `attemptId`; nếu token bị từ chối, không âm thầm chuyển lượt đó sang chấm cục bộ.
 - **Chưa xác minh production:** chưa có bằng chứng trong lượt làm việc này rằng Render đã triển khai phiên bản frontend mới hoặc luồng quiz đã được thử thành công trên trình duyệt. Cần kiểm tra deploy, CORS, MongoDB transaction, gửi quiz khi đăng nhập, replay cùng attemptId và chế độ local khi đăng xuất.
+
+
+## P4.2 — Nhiệm vụ hằng ngày (đang triển khai)
+
+- Nhiệm vụ dựa trên kết quả quiz thực tế: hoàn thành một quiz, luyện tập ở hai bài khác nhau và đạt ít nhất 80% ở một quiz trong ngày.
+- Tiến độ nhiệm vụ được ghi trong khóa localStorage hiện có `hoc-tap-quest-progress-v1`; dữ liệu tiến độ cũ được giữ và bổ sung trường mới khi lưu lần tiếp theo.
+- Bản MVP không cộng XP thưởng từ nhiệm vụ; XP tiếp tục theo quy tắc chấm quiz hiện tại, tránh cộng trùng.
+- Tiến độ nhiệm vụ hằng ngày hiện chỉ đồng bộ trên cùng trình duyệt/thiết bị, chưa đồng bộ giữa thiết bị hoặc tài khoản.
