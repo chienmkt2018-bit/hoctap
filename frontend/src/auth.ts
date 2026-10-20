@@ -95,3 +95,28 @@ export async function saveRemoteProgress(
   }, token);
   return result.progress;
 }
+
+
+export type QuizAttemptAnswer = { questionId: string; selectedOptionId: string };
+
+export type ServerQuizAttemptResult = {
+  attemptId: string;
+  correctCount: number;
+  totalQuestions: number;
+  percentage: number;
+  xpAwarded: number;
+  totalXp: number;
+  replayed: boolean;
+};
+
+export async function submitQuizAttempt(
+  token: string,
+  quizId: number,
+  attemptId: string,
+  answers: QuizAttemptAnswer[],
+): Promise<ServerQuizAttemptResult> {
+  return request<ServerQuizAttemptResult>(`/api/v1/quizzes/${quizId}/attempts`, {
+    method: 'POST',
+    body: JSON.stringify({ attemptId, answers }),
+  }, token);
+}

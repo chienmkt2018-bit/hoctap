@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { readAccessToken, submitQuizAttempt } from './auth';
 
 type Question = {
   prompt: string;
@@ -14,6 +15,8 @@ export type QuizResult = {
   totalQuestions: number;
   percentage: number;
   calculatedXp: number;
+  serverAwardedXp?: number;
+  serverTotalXp?: number;
 };
 
 type Props = {
@@ -61,24 +64,67 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
   const [correctCount, setCorrectCount] = useState(0);
   const [finished, setFinished] = useState(false);
   const [awardedXp, setAwardedXp] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [serverScored, setServerScored] = useState(false);
   const completionHandled = useRef(false);
+  const attemptIdRef = useRef<string | null>(null);
+  const answersRef = useRef<Record<string, number>>({});
+  const serverSubmissionRequired = useRef(false);
 
   const question = questions[questionIndex];
 
   function checkAnswer() {
     if (selectedOption === null || isChecked) return;
+    answersRef.current[`q${questionIndex + 1}`] = selectedOption;
     if (selectedOption === question.answer) setCorrectCount((count) => count + 1);
     setIsChecked(true);
   }
 
-  function finishQuiz() {
-    if (completionHandled.current) return;
-    completionHandled.current = true;
+  async function finishQuiz() {
+    if (completionHandled.current || isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmitError('');
     const percentage = Math.round((correctCount / questions.length) * 100);
     const calculatedXp = Math.round((lessonXp * correctCount) / questions.length);
-    const awarded = onQuizComplete({ lessonId, lessonTitle, correctCount, totalQuestions: questions.length, percentage, calculatedXp });
-    setAwardedXp(awarded);
-    setFinished(true);
+    const localResult: QuizResult = { lessonId, lessonTitle, correctCount, totalQuestions: questions.length, percentage, calculatedXp };
+
+    try {
+      const token = readAccessToken();
+      if (token) serverSubmissionRequired.current = true;
+      if (serverSubmissionRequired.current && !token) {
+        throw new Error('Phiên đăng nhập không còn hợp lệ. Hãy đăng nhập lại rồi gửi lại kết quả; XP chưa được ghi nhận ở chế độ cục bộ.');
+      }
+      if (token) {
+        const attemptId = attemptIdRef.current ?? crypto.randomUUID().replace(/-/g, '');
+        attemptIdRef.current = attemptId;
+        const answers = questions.map((_, index) => ({
+          questionId: `q${index + 1}`,
+          selectedOptionId: String(answersRef.current[`q${index + 1}`] ?? 0),
+        }));
+        const serverResult = await submitQuizAttempt(token, lessonId, attemptId, answers);
+        setCorrectCount(serverResult.correctCount);
+        const awarded = onQuizComplete({
+          ...localResult,
+          correctCount: serverResult.correctCount,
+          percentage: serverResult.percentage,
+          calculatedXp: serverResult.xpAwarded,
+          serverAwardedXp: serverResult.replayed ? 0 : serverResult.xpAwarded,
+          serverTotalXp: serverResult.totalXp,
+        });
+        setAwardedXp(awarded);
+        setServerScored(true);
+      } else {
+        setAwardedXp(onQuizComplete(localResult));
+        setServerScored(false);
+      }
+      completionHandled.current = true;
+      setFinished(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Không thể gửi kết quả quiz. Hãy thử lại.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function nextQuestion() {
@@ -98,6 +144,11 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
     setIsChecked(false);
     setCorrectCount(0);
     setAwardedXp(0);
+    setSubmitError('');
+    setServerScored(false);
+    attemptIdRef.current = null;
+    answersRef.current = {};
+    serverSubmissionRequired.current = false;
     completionHandled.current = false;
     setFinished(false);
   }
@@ -111,7 +162,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
         <h3>{percentage >= 80 ? 'Làm tốt lắm!' : percentage >= 50 ? 'Bạn đang tiến bộ!' : 'Hãy thử lại nhé!'}</h3>
         <p className="quiz-result-copy">Bạn trả lời đúng <strong>{correctCount}/{questions.length}</strong> câu trong bài “{lessonTitle}”. Hãy xem lại phần giải thích để củng cố kiến thức.</p>
         <div className="quiz-result-stats"><div><span>Đúng</span><strong>{correctCount}/{questions.length}</strong></div><div><span>Độ chính xác</span><strong>{percentage}%</strong></div><div><span>XP nhận lần này</span><strong>+{awardedXp}</strong></div></div>
-        <p className="quiz-note">XP được tính theo số câu đúng. Mỗi bài chỉ thưởng theo mức điểm cao nhất đã đạt trong phiên hiện tại; làm lại với kết quả bằng hoặc thấp hơn không cộng XP trùng. Điểm và XP chưa được lưu sau khi tải lại trang.</p>
+        <p className="quiz-note">{serverScored ? 'Kết quả và XP đã được máy chủ xác nhận, lưu vào tài khoản. Gửi lại cùng một lượt làm không cộng XP lần hai.' : 'Chế độ cục bộ: XP được tính theo số câu đúng và lưu trên trình duyệt. Đăng nhập để lưu kết quả quiz vào tài khoản.'}</p>
         <div className="quiz-actions"><button className="secondary-button" type="button" onClick={onBack}>← Quay lại bài học</button><button className="primary-button" type="button" onClick={retryQuiz}>Làm lại quiz <span>↻</span></button></div>
       </section>
     );
@@ -132,9 +183,10 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
         })}
       </div>
       {isChecked && <div className={`quiz-feedback ${selectedOption === question.answer ? 'feedback-correct' : 'feedback-wrong'}`} role="status"><strong>{selectedOption === question.answer ? 'Chính xác!' : 'Chưa chính xác.'}</strong><p>{question.explanation}</p></div>}
+      {submitError && <div className="quiz-feedback feedback-wrong" role="alert"><strong>Chưa lưu được kết quả.</strong><p>{submitError} Tiến độ cục bộ vẫn được giữ; hãy gửi lại để máy chủ ghi nhận XP.</p></div>}
       <div className="quiz-actions">
         <button className="secondary-button" type="button" onClick={onBack}>← Quay lại bài học</button>
-        {!isChecked ? <button className="primary-button" type="button" disabled={selectedOption === null} onClick={checkAnswer}>Kiểm tra đáp án <span>✓</span></button> : <button className="primary-button" type="button" onClick={nextQuestion}>{questionIndex === questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'} <span>→</span></button>}
+        {!isChecked ? <button className="primary-button" type="button" disabled={selectedOption === null} onClick={checkAnswer}>Kiểm tra đáp án <span>✓</span></button> : <button className="primary-button" type="button" disabled={isSubmitting} onClick={questionIndex === questions.length - 1 ? finishQuiz : nextQuestion}>{isSubmitting ? 'Đang lưu kết quả…' : submitError && questionIndex === questions.length - 1 ? 'Gửi lại kết quả' : questionIndex === questions.length - 1 ? 'Xem kết quả' : 'Câu tiếp theo'} <span>→</span></button>}
       </div>
     </section>
   );
