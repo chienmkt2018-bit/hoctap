@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import LessonLibrary from './LessonLibrary';
+import type { QuizResult } from './QuizPanel';
 
 type Quest = {
   id: number;
@@ -30,10 +31,28 @@ function App() {
   const [quests, setQuests] = useState(initialQuests);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [notice, setNotice] = useState('');
+  const [earnedQuizXp, setEarnedQuizXp] = useState(0);
+  const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>({});
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
-  const xp = 240 + completedCount * 30;
+  const xp = 680 + Math.max(0, completedCount - 1) * 30 + earnedQuizXp;
+  const level = 3 + Math.floor(xp / 1000) - Math.floor(680 / 1000);
+  const levelProgress = xp % 1000;
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
+
+  function handleQuizComplete(result: QuizResult): number {
+    const previousBest = quizBestXp[result.lessonId] ?? 0;
+    const newBest = Math.max(previousBest, result.calculatedXp);
+    const awarded = newBest - previousBest;
+    if (awarded > 0) {
+      setQuizBestXp((current) => ({ ...current, [result.lessonId]: newBest }));
+      setEarnedQuizXp((current) => current + awarded);
+      setNotice(`Hoàn thành quiz “${result.lessonTitle}”: ${result.correctCount}/${result.totalQuestions} câu đúng (${result.percentage}%). Bạn nhận thêm ${awarded} XP${previousBest > 0 ? ' nhờ cải thiện kết quả tốt nhất' : ''}.`);
+    } else {
+      setNotice(`Kết quả quiz “${result.lessonTitle}”: ${result.correctCount}/${result.totalQuestions} câu đúng (${result.percentage}%). Bạn đã nhận mức XP tương ứng với kết quả tốt nhất của bài này, nên lần này không cộng thêm XP.`);
+    }
+    return awarded;
+  }
 
   function startQuest(quest: Quest) {
     if (quest.status === 'locked') {
@@ -104,8 +123,8 @@ function App() {
               <p className="intro-copy">{activeNav === 'map' ? 'Chọn một điểm trên bản đồ và tiếp tục hành trình chinh phục kiến thức.' : activeNav === 'lessons' ? 'Khám phá bài học theo chủ đề, cấp độ và trạng thái của hành trình.' : activeNav === 'practice' ? 'Rèn luyện mỗi ngày để biến kiến thức thành kỹ năng.' : activeNav === 'achievements' ? 'Mỗi cột mốc là bằng chứng cho nỗ lực của bạn.' : 'Một bước nhỏ hôm nay, một phiên bản giỏi hơn vào ngày mai.'}</p>
             </div>
             <div className="level-card">
-              <div className="level-orb"><span>03</span><small>LVL</small></div>
-              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>Người khai phá</strong><div className="progress-track"><span style={{ width: '68%' }} /></div><small>680 / 1.000 XP đến cấp 4</small></div>
+              <div className="level-orb"><span>{String(level).padStart(2, '0')}</span><small>LVL</small></div>
+              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="progress-track"><span style={{ width: `${levelProgress / 10}%` }} /></div><small>{levelProgress.toLocaleString('vi-VN')} / 1.000 XP đến cấp {level + 1}</small></div>
             </div>
           </div>
 
@@ -153,7 +172,7 @@ function App() {
             </>
           )}
 
-          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} />}
+          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} onQuizComplete={handleQuizComplete} />}
 
           {activeNav === 'map' && (
             <section className="alternate-panel"><div className="section-heading"><div><p className="section-kicker">CHAPTER SELECT</p><h2>Chọn chặng tiếp theo</h2><p className="section-description">Nhấn vào nhiệm vụ đang mở hoặc đã hoàn thành để xem chi tiết.</p></div></div><div className="alternate-quests">{quests.map((quest) => <button type="button" key={quest.id} className="alternate-quest" onClick={() => startQuest(quest)}><span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span><span className="alternate-quest-copy"><strong>{quest.title}</strong><small>{quest.subtitle}</small></span><span className="daily-reward">+{quest.xp} XP</span><span className="alternate-status">{quest.status === 'done' ? 'ĐÃ XONG' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span></button>)}</div></section>
@@ -161,7 +180,7 @@ function App() {
           {activeNav === 'practice' && <section className="alternate-panel"><p className="section-kicker">PRACTICE HUB</p><h2>Chọn cách bạn muốn luyện tập</h2><div className="practice-grid"><button type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}><span>✧</span><strong>Luyện tập nhanh</strong><small>Ôn lại kiến thức trong vài phút</small></button><button type="button" onClick={() => setNotice('Chế độ thử thách sẽ được phát triển ở P2 — Learning Core.')}><span>⚡</span><strong>Thử thách kiến thức</strong><small>Kiểm tra mức độ ghi nhớ</small></button><button type="button" onClick={() => setNotice('Lịch sử học tập sẽ được kết nối với dữ liệu thực ở giai đoạn backend.')}><span>◷</span><strong>Lịch sử học tập</strong><small>Theo dõi những gì bạn đã học</small></button></div></section>}
           {activeNav === 'achievements' && <section className="alternate-panel"><p className="section-kicker">YOUR COLLECTION</p><h2>Thành tựu của nhà thám hiểm</h2><div className="achievement-grid"><article><span>✦</span><strong>Bước đầu tiên</strong><small>Hoàn thành nhiệm vụ đầu tiên</small><em>ĐÃ MỞ KHÓA</em></article><article><span>♨</span><strong>Giữ lửa</strong><small>Học 5 ngày liên tiếp</small><em>ĐÃ MỞ KHÓA</em></article><article className="achievement-locked"><span>♛</span><strong>Bậc thầy tri thức</strong><small>Hoàn thành toàn bộ chương 1</small><em>CHƯA MỞ KHÓA</em></article></div></section>}
 
-          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> P2.1 · LESSON LIBRARY</span></footer>
+          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> P2.3 · RESULTS & XP</span></footer>
         </div>
       </section>
     </main>
