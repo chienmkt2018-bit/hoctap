@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import LessonLibrary from './LessonLibrary';
 import type { QuizResult } from './QuizPanel';
 import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, saveRemoteProgress, type ApiProgress, type AuthUser } from './auth';
@@ -164,7 +164,7 @@ function App() {
     return () => window.clearTimeout(timeout);
   }, [user, syncReady, quests, earnedQuizXp, quizBestXp, completedLessons]);
 
-  async function handleAuthSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (authBusy) return;
     setAuthBusy(true);
