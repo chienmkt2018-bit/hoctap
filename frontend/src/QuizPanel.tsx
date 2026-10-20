@@ -103,6 +103,7 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
           selectedOptionId: String(answersRef.current[`q${index + 1}`] ?? 0),
         }));
         const serverResult = await submitQuizAttempt(token, lessonId, attemptId, answers);
+        setCorrectCount(serverResult.correctCount);
         const awarded = onQuizComplete({
           ...localResult,
           correctCount: serverResult.correctCount,
