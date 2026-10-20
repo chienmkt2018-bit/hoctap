@@ -110,7 +110,7 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - Tiến độ nhiệm vụ hằng ngày hiện chỉ đồng bộ trên cùng trình duyệt/thiết bị, chưa đồng bộ giữa thiết bị hoặc tài khoản.
 
 
-## P4.3 — Chuỗi ngày học thực tế (đang triển khai)
+## P4.3 — Chuỗi ngày học thực tế (đã hợp nhất)
 
 - Một ngày chỉ được ghi nhận khi người học hoàn thành và nhận được kết quả quiz; mở ứng dụng hoặc xem bài học không làm tăng chuỗi.
 - Chuỗi hiện tại được tính từ các ngày có bằng chứng quiz liên tiếp. Nếu hôm nay chưa học, chuỗi vẫn được giữ nếu hôm qua có hoạt động; mất nhịp khi bỏ qua cả hôm nay lẫn hôm qua.
@@ -119,3 +119,10 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - Với tài khoản đã đăng nhập, API chỉ thêm ngày khi một lần quiz được chấm/lưu thành công trong transaction MongoDB; ngày được tính từ thời điểm máy chủ và múi giờ trình duyệt gửi kèm, không nhận danh sách ngày do client tự khai báo.
 - `GET /api/v1/progress` trả `learningDates`; frontend hợp nhất ngày tài khoản với lịch sử cục bộ để giữ dữ liệu hiện có. Những ngày quiz ở chế độ khách vẫn chỉ tồn tại trên thiết bị đó và không được tự động đẩy lên tài khoản.
 - Không tạo dữ liệu lịch sử giả cho các ngày trước khi tính năng đồng bộ được triển khai. Các ngày cũ chỉ xuất hiện trên tài khoản nếu đã có bằng chứng server-side.
+
+## P4.4 — Đồng bộ chuỗi ngày học theo tài khoản (đang triển khai)
+
+- Lịch sử ngày học phía tài khoản chỉ được thêm trong cùng transaction lưu quiz đã xác thực; cùng một ngày chỉ xuất hiện một lần dù người học hoàn thành nhiều quiz.
+- API không nhận danh sách ngày học từ trình duyệt; client chỉ gửi độ lệch múi giờ hợp lệ để máy chủ xác định ngày lịch địa phương tại thời điểm nhận quiz.
+- `GET /api/v1/progress` trả lịch sử `learningDates`, cho phép streak tài khoản hiển thị trên thiết bị khác sau khi đăng nhập.
+- Dữ liệu quiz ở chế độ khách không được tự động tải lên tài khoản; không tạo ngày lịch sử giả và không cộng XP thưởng cho streak.
