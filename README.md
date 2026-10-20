@@ -41,7 +41,7 @@ npm run preview
 | P0 | Lập kế hoạch và kiến trúc | Hoàn thành | Đã xác định lộ trình P0–P6 |
 | P1.1 | Khởi tạo React + Vite + TypeScript và CI | Hoàn thành | Workflow Frontend build |
 | P1.2 | Dashboard và Quest Map | Hoàn thành | Dashboard, XP, chuỗi ngày học, nhiệm vụ và bản đồ chặng |
-| P2.1 | Danh sách và chi tiết bài học | Đã triển khai, chờ CI xác nhận | Bộ lọc chủ đề/cấp độ/trạng thái; bài học có trạng thái hoàn thành, có thể học, khóa |
+| P2.1 | Danh sách và chi tiết bài học | Hoàn thành | 8 bài mẫu; bộ lọc chủ đề/cấp độ/trạng thái; trang chi tiết; GitHub Actions thành công |
 | P2.2 | Quiz tương tác | Chưa bắt đầu | Chấm đáp án và giải thích |
 | P2.3 | Kết quả và XP theo kết quả học | Chưa bắt đầu | Không cộng XP chỉ bằng thao tác bấm hoàn thành |
 | P2.4 | Lưu tiến độ học | Chưa bắt đầu | Trước mắt lưu trên trình duyệt |
