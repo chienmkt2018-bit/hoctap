@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
   title: HOC TAP QUEST API
-  version: 1.0.0
+  version: 1.1.0
   description: API contract for learner accounts, lesson progress, quiz results, and XP.
 servers:
   - url: http://localhost:3000/api/v1
     description: Local development
-  - url: https://YOUR_RENDER_SERVICE.onrender.com/api/v1
-    description: Replace with the deployed Render service URL
+  - url: https://hoctap-6oeu.onrender.com/api/v1
+    description: Render deployment
 tags:
   - name: System
+  - name: Authentication
   - name: Progress
   - name: Lessons
   - name: Quiz
@@ -17,11 +18,10 @@ paths:
   /health:
     get:
       tags: [System]
-      summary: Check API availability
+      summary: Check API and database availability
       responses:
         '200':
           description: API is available; database is connected or not configured
-
           content:
             application/json:
               schema:
@@ -44,6 +44,83 @@ paths:
                   service: { type: string, const: hoc-tap-quest-api }
                   version: { type: string }
                   database: { type: string, enum: [disconnected, connecting] }
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a learner account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 10, maxLength: 128, description: Maximum 72 UTF-8 bytes. }
+      responses:
+        '201':
+          description: Account created and access token issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409':
+          description: Email is already registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Authenticate with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 1, maxLength: 128 }
+      responses:
+        '200':
+          description: Access token issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401':
+          description: Email or password is incorrect
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          description: Too many authentication attempts
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get the authenticated learner account
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Authenticated learner
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user]
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /progress:
     get:
       tags: [Progress]
@@ -58,10 +135,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProgressResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
     put:
       tags: [Progress]
-      summary: Save the authenticated learner's progress
-      description: Server calculates authoritative XP from validated quiz results; clients must not submit an arbitrary XP balance.
+      summary: Save lesson completion and quest statuses for the authenticated learner
+      description: The learner ID is derived from the verified token. Clients cannot submit totalXp or bestXpByLesson; authoritative XP is reserved for server-validated quiz attempts.
       security:
         - bearerAuth: []
       requestBody:
@@ -79,10 +157,11 @@ paths:
                 $ref: '#/components/schemas/ProgressResponse'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /lessons:
     get:
       tags: [Lessons]
-      summary: List published lessons
+      summary: List published lessons (planned; not implemented yet)
       responses:
         '200':
           description: Lesson list
@@ -98,7 +177,7 @@ paths:
   /quizzes/{quizId}/attempts:
     post:
       tags: [Quiz]
-      summary: Submit a quiz attempt
+      summary: Submit a quiz attempt (planned; not implemented yet)
       security:
         - bearerAuth: []
       parameters:
@@ -145,6 +224,20 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    AuthResponse:
+      type: object
+      required: [token, tokenType, expiresIn, user]
+      properties:
+        token: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, const: 3600 }
+        user: { $ref: '#/components/schemas/User' }
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
     ProgressResponse:
       type: object
       required: [progress]
@@ -169,13 +262,16 @@ components:
     ProgressUpdate:
       type: object
       required: [completedLessonIds, questStatuses]
+      additionalProperties: false
       properties:
         completedLessonIds:
           type: array
+          maxItems: 500
           uniqueItems: true
           items: { type: integer, minimum: 1 }
         questStatuses:
           type: object
+          maxProperties: 100
           additionalProperties:
             type: string
             enum: [done, active, locked]
@@ -207,6 +303,11 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
       description: Authentication required or token invalid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ServiceUnavailable:
+      description: Database or authentication configuration unavailable
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
