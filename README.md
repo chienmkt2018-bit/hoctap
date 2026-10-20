@@ -120,6 +120,13 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - `GET /api/v1/progress` trả `learningDates`; frontend hợp nhất ngày tài khoản với lịch sử cục bộ để giữ dữ liệu hiện có. Những ngày quiz ở chế độ khách vẫn chỉ tồn tại trên thiết bị đó và không được tự động đẩy lên tài khoản.
 - Không tạo dữ liệu lịch sử giả cho các ngày trước khi tính năng đồng bộ được triển khai. Các ngày cũ chỉ xuất hiện trên tài khoản nếu đã có bằng chứng server-side.
 
+## Sửa lỗi — Nhiệm vụ hàng ngày bị reset khi đăng nhập lại
+
+- Trạng thái nhiệm vụ ngày hiện tại được lưu cùng tiến độ tài khoản trong MongoDB khi máy chủ chấm và lưu quiz thành công.
+- Khi tải tiến độ hoặc đăng nhập, frontend hợp nhất hoạt động trong ngày từ tài khoản với dữ liệu cục bộ của cùng ngày; không hợp nhất dữ liệu khác ngày.
+- Hoạt động quiz ở chế độ khách vẫn lưu cục bộ và không được tự xác nhận thành dữ liệu máy chủ.
+- Nhiệm vụ ngày tự bắt đầu lại khi ngày địa phương đổi; không xóa XP, bài học đã hoàn thành hoặc lịch sử streak.
+
 ## P4.4 — Đồng bộ chuỗi ngày học theo tài khoản (đang triển khai)
 
 - Lịch sử ngày học phía tài khoản chỉ được thêm trong cùng transaction lưu quiz đã xác thực; cùng một ngày chỉ xuất hiện một lần dù người học hoàn thành nhiều quiz.
