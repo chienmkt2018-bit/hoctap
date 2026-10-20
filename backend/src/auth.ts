@@ -39,7 +39,8 @@ export const requireAuthentication: RequestHandler = (request, response, next) =
 
   const authorization = request.get('authorization');
   const match = authorization?.match(/^Bearer\s+([^\s]+)$/i);
-  if (!match) {
+  const token = match?.[1];
+  if (!token) {
     response.status(401).json({
       error: { code: 'UNAUTHORIZED', message: 'A valid bearer token is required.' },
     });
@@ -47,7 +48,7 @@ export const requireAuthentication: RequestHandler = (request, response, next) =
   }
 
   try {
-    const decoded = jwt.verify(match[1], secret, {
+    const decoded = jwt.verify(token, secret, {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     }) as JwtPayload;
