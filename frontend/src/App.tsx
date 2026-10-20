@@ -162,6 +162,20 @@ function App() {
     }
   }, [quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity]);
 
+  // Roll the daily checklist over when the local date changes while the tab remains open.
+  useEffect(() => {
+    const refreshDailyActivity = () => {
+      const today = getLocalDateKey();
+      setDailyActivity((current) => current.date === today ? current : createDailyActivity(today));
+    };
+    window.addEventListener('focus', refreshDailyActivity);
+    document.addEventListener('visibilitychange', refreshDailyActivity);
+    return () => {
+      window.removeEventListener('focus', refreshDailyActivity);
+      document.removeEventListener('visibilitychange', refreshDailyActivity);
+    };
+  }, []);
+
   // Restore a session token, then merge server progress with local progress without
   // discarding local-only XP/best-score data.
   useEffect(() => {
