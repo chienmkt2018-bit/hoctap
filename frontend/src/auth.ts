@@ -1,9 +1,12 @@
 export type AuthUser = { id: string; email: string };
 
+export type ApiDailyActivity = { date: string; completedLessonIds: number[]; highScoreLessonIds: number[] };
+
 export type ApiProgress = {
   totalXp: number;
   completedLessonIds: number[];
   learningDates: string[];
+  dailyActivity: ApiDailyActivity | null;
   bestXpByLesson: Record<string, number>;
   questStatuses: Record<string, 'done' | 'active' | 'locked'>;
   updatedAt: string;
