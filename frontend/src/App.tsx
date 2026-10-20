@@ -130,7 +130,7 @@ function App() {
         const currentUser = await getCurrentUser(token);
         const remote = await getRemoteProgress(token);
         if (cancelled) return;
-        const local = readSavedProgress() ?? { quests, earnedQuizXp, quizBestXp, completedLessons };
+        const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons };
         const merged = mergeRemoteProgress(remote, local);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
@@ -174,7 +174,7 @@ function App() {
       const token = readAccessToken();
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
-      const local = readSavedProgress() ?? { quests, earnedQuizXp, quizBestXp, completedLessons };
+      const local: SavedProgress = { quests, earnedQuizXp, quizBestXp, completedLessons };
       const merged = mergeRemoteProgress(remote, local);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
