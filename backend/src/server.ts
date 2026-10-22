@@ -292,8 +292,9 @@ export { app };
 
 // Importing the Express app in tests must not start a listener or connect to an
 // environment-provided database. Only execute startup when this file is the entry point.
-const isDirectExecution = Boolean(process.argv[1]) &&
-  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+const entryPoint = process.argv[1];
+const isDirectExecution = typeof entryPoint === 'string' &&
+  import.meta.url === pathToFileURL(resolve(entryPoint)).href;
 
 if (isDirectExecution) {
   async function shutdown(signal: string) {
