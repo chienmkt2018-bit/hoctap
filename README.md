@@ -60,7 +60,7 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P4.2 | Nhiệm vụ hằng ngày | Đã hợp nhất trong PR #12; CI thành công | 3 nhiệm vụ suy ra từ quiz thực tế; không phát XP thưởng; tiến độ lưu cục bộ |
 | P4.3 | Chuỗi ngày học thực tế | Đã hợp nhất trong PR #13; CI thành công | Chỉ ghi ngày khi hoàn thành quiz; không còn số ngày giả lập; ban đầu lưu cục bộ |
 | P4.4 | Đồng bộ chuỗi ngày học theo tài khoản | Đang triển khai | Ngày học được ghi bởi API khi quiz có xác thực hoàn tất; GET progress trả lịch sử theo tài khoản |
-| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
+| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Unit test và integration test API quiz trên MongoDB cô lập đã qua CI; luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
 ## Lưu trữ và tài khoản
@@ -80,7 +80,28 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 
 ## Kiểm tra tự động
 
-Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/hoctap/actions). CI build/type-check không thay thế kiểm thử API hoặc kiểm thử trình duyệt production.
+Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/hoctap/actions). CI kiểm tra unit test, integration test API, OpenAPI và build/type-check frontend/backend. Kết quả CI không thay thế kiểm thử end-to-end trên trình duyệt production.
+
+### Chạy test backend trên Windows
+
+Mở PowerShell tại thư mục repository:
+
+```powershell
+cd backend
+npm install
+npm test
+```
+
+Lệnh `npm test` chạy unit test logic idempotency và integration test API quiz. Integration test khởi tạo MongoDB replica set tạm thời bằng `mongodb-memory-server`, khởi động Express app trên cổng ngẫu nhiên và dọn database/server sau khi chạy. Không cần trỏ test vào MongoDB Atlas; không đặt URI production trong môi trường test.
+
+Integration test xác minh:
+- Không có JWT thì API quiz từ chối yêu cầu.
+- Attempt đầu tiên ghi attempt và XP vào database test.
+- Gửi lại cùng tài khoản, quiz, `attemptId` và đáp án sẽ replay mà không cộng XP lần hai.
+- Dùng lại `attemptId` với đáp án hoặc quiz khác trả HTTP 409 và không thay đổi XP đã lưu.
+- Hai người học có attempt và tiến độ tách biệt.
+
+Test phụ thuộc khả năng tải/chạy MongoDB binary tương thích với môi trường CI. Nếu không tải được binary hoặc replica set không khởi động, test phải được xem là thất bại, không phải PASS. Không dùng database production để thay thế database test cô lập.
 
 ## P3.5 — API chấm quiz phía máy chủ
 
@@ -133,3 +154,12 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - API không nhận danh sách ngày học từ trình duyệt; client chỉ gửi độ lệch múi giờ hợp lệ để máy chủ xác định ngày lịch địa phương tại thời điểm nhận quiz.
 - `GET /api/v1/progress` trả lịch sử `learningDates`, cho phép streak tài khoản hiển thị trên thiết bị khác sau khi đăng nhập.
 - Dữ liệu quiz ở chế độ khách không được tự động tải lên tài khoản; không tạo ngày lịch sử giả và không cộng XP thưởng cho streak.
+
+
+## P5.3.1 — Kiểm thử idempotency API quiz (nhánh kiểm thử)
+
+- Nhánh kiểm thử: [`test/p5-3-1-idempotency`](https://github.com/chienmkt2018-bit/hoctap/tree/test/p5-3-1-idempotency).
+- Integration test: [`backend/tests/quiz.integration.test.ts`](https://github.com/chienmkt2018-bit/hoctap/blob/test/p5-3-1-idempotency/backend/tests/quiz.integration.test.ts).
+- CI đã xác minh: [GitHub Actions run](https://github.com/chienmkt2018-bit/hoctap/actions/runs/39825385645) — 12 test PASS, 0 FAIL; OpenAPI lint và build/type-check frontend/backend thành công.
+- Đây là bằng chứng kiểm thử trong CI với MongoDB cô lập. Chưa chứng minh hành vi trên Render/production, kiểm thử tải đồng thời lớn hoặc khả năng phục hồi khi database gặp sự cố.
+- Thay đổi vẫn ở nhánh kiểm thử; chưa được xem là đã hợp nhất vào `main` hoặc triển khai production.
