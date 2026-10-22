@@ -2,6 +2,8 @@ import cors from 'cors';
 import express, { type ErrorRequestHandler } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import helmet from 'helmet';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { closeDatabase, connectDatabase, getDatabaseStatus } from './database.js';
 import { createAccessToken, getJwtSecret, hashPassword, requireAuthentication, verifyPassword } from './auth.js';
 import { ProgressModel } from './models/Progress.js';
@@ -286,18 +288,27 @@ const errorHandler: ErrorRequestHandler = (error: unknown, _request, response, _
 
 app.use(errorHandler);
 
-async function shutdown(signal: string) {
-  console.log(`Received ${signal}; closing database connection.`);
-  await closeDatabase();
-  process.exit(0);
+export { app };
+
+// Importing the Express app in tests must not start a listener or connect to an
+// environment-provided database. Only execute startup when this file is the entry point.
+const isDirectExecution = Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+
+if (isDirectExecution) {
+  async function shutdown(signal: string) {
+    console.log(`Received ${signal}; closing database connection.`);
+    await closeDatabase();
+    process.exit(0);
+  }
+
+  process.once('SIGINT', () => { void shutdown('SIGINT'); });
+  process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
+
+  // A missing or unavailable database must not prevent local frontend work or CI builds.
+  void connectDatabase().catch(() => undefined);
+
+  app.listen(port, () => {
+    console.log(`HOC TAP QUEST API listening on port ${port}`);
+  });
 }
-
-process.once('SIGINT', () => { void shutdown('SIGINT'); });
-process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
-
-// A missing or unavailable database must not prevent local frontend work or CI builds.
-void connectDatabase().catch(() => undefined);
-
-app.listen(port, () => {
-  console.log(`HOC TAP QUEST API listening on port ${port}`);
-});
