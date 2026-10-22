@@ -1,13 +1,11 @@
-import { createHash } from 'node:crypto';
 import { Router, type Response } from 'express';
 import { ProgressModel } from './models/Progress.js';
 import { QuizAttemptModel } from './models/QuizAttempt.js';
 import { getDatabaseStatus } from './database.js';
 import { requireAuthentication } from './auth.js';
+import { decideExistingAttemptAction, fingerprintAttempt, type SubmittedAnswer } from './idempotency.js';
 
 const router = Router();
-
-type SubmittedAnswer = { questionId: string; selectedOptionId: string };
 
 // Correct option indexes stay on the server. These values match the current sample quiz bank.
 const quizAnswerIndexes: Record<number, number[]> = {
@@ -56,15 +54,6 @@ function resultFromAttempt(attempt: StoredAttempt, replayed: boolean): AttemptRe
     totalXp: attempt.totalXpAfter,
     replayed,
   };
-}
-
-function fingerprintAttempt(lessonId: number, answers: SubmittedAnswer[]): string {
-  const canonicalAnswers = [...answers]
-    .sort((left, right) => left.questionId.localeCompare(right.questionId))
-    .map(({ questionId, selectedOptionId }) => [questionId, selectedOptionId]);
-  return createHash('sha256')
-    .update(JSON.stringify({ lessonId, answers: canonicalAnswers }))
-    .digest('hex');
 }
 
 function idempotencyConflict(response: Response): void {
@@ -163,7 +152,7 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       }).session(session);
       if (existing) {
         // Older records do not have a fingerprint; keep their retry behavior intact.
-        if (existing.requestFingerprint && existing.requestFingerprint !== requestFingerprint) {
+        if (decideExistingAttemptAction(existing.requestFingerprint, requestFingerprint) === 'conflict') {
           conflictHolder.value = true;
           return;
         }
@@ -238,8 +227,8 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
         const requestFingerprint = answers && Number.isSafeInteger(lessonId)
           ? fingerprintAttempt(lessonId, answers)
           : null;
-        if (existing.requestFingerprint && requestFingerprint &&
-            existing.requestFingerprint !== requestFingerprint) {
+        if (requestFingerprint &&
+            decideExistingAttemptAction(existing.requestFingerprint, requestFingerprint) === 'conflict') {
           idempotencyConflict(response);
           return;
         }
