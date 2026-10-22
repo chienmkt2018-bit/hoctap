@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Router, type Response } from 'express';
 import { ProgressModel } from './models/Progress.js';
 import { QuizAttemptModel } from './models/QuizAttempt.js';
@@ -35,14 +36,17 @@ type AttemptResult = {
   replayed: boolean;
 };
 
-function resultFromAttempt(attempt: {
+type StoredAttempt = {
   idempotencyKey: string;
+  requestFingerprint?: string | null;
   correctCount: number;
   totalQuestions: number;
   percentage: number;
   xpAwarded: number;
   totalXpAfter: number;
-}, replayed: boolean): AttemptResult {
+};
+
+function resultFromAttempt(attempt: StoredAttempt, replayed: boolean): AttemptResult {
   return {
     attemptId: attempt.idempotencyKey,
     correctCount: attempt.correctCount,
@@ -52,6 +56,24 @@ function resultFromAttempt(attempt: {
     totalXp: attempt.totalXpAfter,
     replayed,
   };
+}
+
+function fingerprintAttempt(lessonId: number, answers: SubmittedAnswer[]): string {
+  const canonicalAnswers = [...answers]
+    .sort((left, right) => left.questionId.localeCompare(right.questionId))
+    .map(({ questionId, selectedOptionId }) => [questionId, selectedOptionId]);
+  return createHash('sha256')
+    .update(JSON.stringify({ lessonId, answers: canonicalAnswers }))
+    .digest('hex');
+}
+
+function idempotencyConflict(response: Response): void {
+  response.status(409).json({
+    error: {
+      code: 'IDEMPOTENCY_KEY_REUSED',
+      message: 'This attemptId was already used for a different quiz submission. Start a new attempt.',
+    },
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -117,11 +139,13 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     }
 
     const learnerId = response.locals.userId as string;
+    const attemptId = body.attemptId as string;
+    const answers = body.answers as SubmittedAnswer[];
+    const requestFingerprint = fingerprintAttempt(lessonId, answers);
     // JavaScript's getTimezoneOffset is UTC minus local time. The offset only selects
     // the user's calendar date; the activity timestamp is always server-generated.
     const timezoneOffsetMinutes = (body.timezoneOffsetMinutes as number | undefined) ?? 0;
     const learningDate = new Date(Date.now() - timezoneOffsetMinutes * 60_000).toISOString().slice(0, 10);
-    const answers = body.answers as SubmittedAnswer[];
     const correctCount = correctIndexes.reduce((count, correctIndex, index) => {
       const answer = answers.find((item) => item.questionId === `q${index + 1}`);
       return count + (Number(answer?.selectedOptionId) === correctIndex ? 1 : 0);
@@ -130,13 +154,19 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     const percentage = Math.round((correctCount / totalQuestions) * 100);
     const calculatedXp = Math.round((lessonXp[lessonId] * correctCount) / totalQuestions);
     const resultHolder: { value: AttemptResult | null } = { value: null };
+    const conflictHolder = { value: false };
 
     await session.withTransaction(async () => {
       const existing = await QuizAttemptModel.findOne({
         learnerId,
-        idempotencyKey: body.attemptId as string,
+        idempotencyKey: attemptId,
       }).session(session);
       if (existing) {
+        // Older records do not have a fingerprint; keep their retry behavior intact.
+        if (existing.requestFingerprint && existing.requestFingerprint !== requestFingerprint) {
+          conflictHolder.value = true;
+          return;
+        }
         resultHolder.value = resultFromAttempt(existing, true);
         return;
       }
@@ -169,7 +199,8 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
 
       const [attempt] = await QuizAttemptModel.create([{
         learnerId,
-        idempotencyKey: body.attemptId,
+        idempotencyKey: attemptId,
+        requestFingerprint,
         lessonId,
         correctCount,
         totalQuestions,
@@ -182,17 +213,36 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       resultHolder.value = resultFromAttempt(attempt, false);
     });
 
+    if (conflictHolder.value) {
+      idempotencyConflict(response);
+      return;
+    }
     const result = resultHolder.value;
     if (!result) throw new Error('Quiz attempt did not produce a result.');
     response.status(result.replayed ? 200 : 201).json(result);
   } catch (error) {
     if (isRecord(error) && error.code === 11000) {
-      const body = request.body as { attemptId?: string } | undefined;
+      const body: unknown = request.body;
+      const attemptId = isRecord(body) && typeof body.attemptId === 'string'
+        ? body.attemptId
+        : undefined;
       const existing = await QuizAttemptModel.findOne({
         learnerId: response.locals.userId,
-        idempotencyKey: body?.attemptId,
+        idempotencyKey: attemptId,
       });
       if (existing) {
+        const answers = isRecord(body) && isSubmittedAnswerArray(body.answers, 3)
+          ? body.answers
+          : null;
+        const lessonId = Number(request.params.quizId);
+        const requestFingerprint = answers && Number.isSafeInteger(lessonId)
+          ? fingerprintAttempt(lessonId, answers)
+          : null;
+        if (existing.requestFingerprint && requestFingerprint &&
+            existing.requestFingerprint !== requestFingerprint) {
+          idempotencyConflict(response);
+          return;
+        }
         response.status(200).json(resultFromAttempt(existing, true));
         return;
       }

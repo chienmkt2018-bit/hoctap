@@ -4,6 +4,9 @@ import type { InferSchemaType, Model } from 'mongoose';
 const quizAttemptSchema = new mongoose.Schema({
   learnerId: { type: String, required: true, trim: true, maxlength: 128 },
   idempotencyKey: { type: String, required: true, trim: true, minlength: 16, maxlength: 128 },
+  // Bind an idempotency key to the original quiz and answers. Optional for
+  // backward compatibility with attempts written before this field existed.
+  requestFingerprint: { type: String, required: false, minlength: 64, maxlength: 64 },
   lessonId: { type: Number, required: true, min: 1, max: 500 },
   correctCount: { type: Number, required: true, min: 0, max: 100 },
   totalQuestions: { type: Number, required: true, min: 1, max: 100 },
