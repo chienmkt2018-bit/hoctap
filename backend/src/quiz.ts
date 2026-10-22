@@ -38,7 +38,7 @@ type AttemptResult = {
 
 type StoredAttempt = {
   idempotencyKey: string;
-  requestFingerprint?: string;
+  requestFingerprint?: string | null;
   correctCount: number;
   totalQuestions: number;
   percentage: number;
@@ -222,10 +222,13 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     response.status(result.replayed ? 200 : 201).json(result);
   } catch (error) {
     if (isRecord(error) && error.code === 11000) {
-      const body = request.body as { attemptId?: string } | undefined;
+      const body: unknown = request.body;
+      const attemptId = isRecord(body) && typeof body.attemptId === 'string'
+        ? body.attemptId
+        : undefined;
       const existing = await QuizAttemptModel.findOne({
         learnerId: response.locals.userId,
-        idempotencyKey: body?.attemptId,
+        idempotencyKey: attemptId,
       });
       if (existing) {
         const answers = isRecord(body) && isSubmittedAnswerArray(body.answers, 3)
