@@ -2,7 +2,9 @@ name: Frontend and backend build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "fix/**"
     paths:
       - "frontend/**"
       - "backend/**"

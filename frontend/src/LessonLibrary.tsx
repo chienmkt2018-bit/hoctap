@@ -27,7 +27,25 @@ export default function LessonLibrary({ onNotice, onQuizComplete, completedLesso
   const [status, setStatus] = useState('Tất cả');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [quizStarted, setQuizStarted] = useState(false);
-  const displayLessons = useMemo(() => lessons.map((lesson) => completedLessonIds.includes(lesson.id) ? { ...lesson, status: 'completed' as const } : lesson), [completedLessonIds]);
+  const displayLessons = useMemo(() => {
+    const completedIds = new Set(completedLessonIds);
+    const chapterLessonIds = [1, 2, 3, 4];
+    const nextUnlockedChapterLessonId = chapterLessonIds.find((lessonId) => !completedIds.has(lessonId));
+
+    return lessons.map((lesson) => {
+      if (completedIds.has(lesson.id)) return { ...lesson, status: 'completed' as const };
+
+      // Keep Chapter 01 in sync with the sequential prerequisite rules used by Quest Map.
+      if (chapterLessonIds.includes(lesson.id)) {
+        return {
+          ...lesson,
+          status: lesson.id === nextUnlockedChapterLessonId ? 'available' as const : 'locked' as const,
+        };
+      }
+
+      return lesson;
+    });
+  }, [completedLessonIds]);
   const subjects = ['Tất cả', ...Array.from(new Set(lessons.map((lesson) => lesson.subject)))];
   const levels = ['Tất cả', ...Array.from(new Set(lessons.map((lesson) => lesson.level)))];
   const filteredLessons = useMemo(() => displayLessons.filter((lesson) =>
