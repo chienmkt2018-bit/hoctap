@@ -188,6 +188,20 @@ function NavigationIcon({ name }: { name: NavigationIconName }) {
 }
 
 
+type UIIconName = 'flame' | 'gem' | 'bell' | 'sparkles' | 'trophy' | 'target';
+
+function UIIcon({ name, size = 20 }: { name: UIIconName; size?: number }) {
+  const paths: Record<UIIconName, string> = {
+    flame: 'M12 22c4.2 0 7-2.9 7-6.8 0-2.8-1.5-4.8-4.1-7.2.1 2.2-.6 3.4-1.8 4.1C13.4 8.2 11.5 5 8.1 2 8.4 6.7 5 9.4 5 14.4 5 18.8 7.8 22 12 22z M12 22c-1.8-1.1-2.6-2.6-2.4-4.3.2-1.2 1-2.2 2.1-3.2 1.3 1.2 2.2 2.5 2.2 4 0 1.4-.7 2.7-1.9 3.5z',
+    gem: 'M6 3h12l4 6-10 12L2 9z M2 9h20 M6 3l4 6 2 12 2-12 4-6',
+    bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9 M10 21h4',
+    sparkles: 'm12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 15l1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1z',
+    trophy: 'M8 21h8 M12 17v4 M7 4h10v5a5 5 0 0 1-10 0z M7 6H4v2a4 4 0 0 0 4 4 M17 6h3v2a4 4 0 0 1-4 4',
+    target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z M12 12h.01',
+  };
+  return <svg className="ui-icon" viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
+}
+
 function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boolean>): Quest[] {
   let allPreviousQuestsCompleted = true;
   return initialQuests.map((quest) => {
@@ -477,10 +491,9 @@ function App() {
           <p>Học 15 phút mỗi ngày tốt hơn học dồn một lần.</p>
           <span className="tip-decoration" aria-hidden="true">✧</span>
         </section>
-        <div className="profile-row">
-          <div className="avatar">C</div>
-          <div className="profile-copy"><strong>Nhà thám hiểm</strong><span>Thành viên cấp {String(level).padStart(2, '0')}</span></div>
-          <span className="profile-menu" aria-hidden="true">···</span>
+        <div className="profile-row" aria-label={`Thành viên cấp ${String(level).padStart(2, '0')}`}>
+          <div className="avatar" aria-hidden="true"><UIIcon name="target" size={20} /></div>
+          <div className="profile-copy"><span>THÀNH VIÊN CẤP {String(level).padStart(2, '0')}</span></div>
         </div>
       </aside>
 
@@ -488,9 +501,9 @@ function App() {
         <header className="topbar">
           <div className="breadcrumb"><span>HOC TAP QUEST</span><span className="breadcrumb-slash">/</span><strong>{activeTitle}</strong></div>
           <div className="topbar-right">
-            <div className="streak-chip" title="Chuỗi ngày tính từ các ngày có hoàn thành quiz"><span>♨</span><strong>{learningStreak}</strong><span className="chip-caption">NGÀY</span></div>
-            <div className="currency-chip"><span className="gem">◆</span><strong>120</strong><span className="chip-caption">GEMS</span></div>
-            <button className="icon-button" type="button" aria-label="Thông báo" onClick={() => setNotice('Bạn đã xem thông báo mới nhất.')}>♧<span className="notification-dot" /></button>
+            <div className="streak-chip" title="Chuỗi ngày tính từ các ngày có hoàn thành quiz"><UIIcon name="flame" /><strong>{learningStreak}</strong><span className="chip-caption">NGÀY</span></div>
+            <div className="currency-chip"><span className="gem"><UIIcon name="gem" size={20} /></span><strong>120</strong><span className="chip-caption">GEMS</span></div>
+            <button className="icon-button" type="button" aria-label="Thông báo" onClick={() => setNotice('Bạn đã xem thông báo mới nhất.')}><UIIcon name="bell" /><span className="notification-dot" /></button>
             {user ? <div className="account-menu-wrap" ref={accountMenuRef}>
               <button className="account-trigger" type="button" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}><span className="account-avatar" aria-hidden="true">N</span><span className="account-trigger-label">Nhà thám hiểm</span><span className="account-chevron" aria-hidden="true">⌄</span></button>
               {accountMenuOpen && <div className="account-dropdown" role="menu"><span className="account-dropdown-label">ĐANG ĐĂNG NHẬP</span><span className="account-dropdown-email">{user.email}</span><button className="account-logout" type="button" role="menuitem" onClick={() => { setAccountMenuOpen(false); handleLogout(); }}>Đăng xuất</button></div>}
@@ -517,7 +530,7 @@ function App() {
             </div>
             <div className="level-card">
               <div className="level-orb"><span>{String(level).padStart(2, '0')}</span><small>LVL</small></div>
-              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="progress-track"><span style={{ width: `${levelProgress / 10}%` }} /></div><small>{levelProgress.toLocaleString('vi-VN')} / 1.000 XP đến cấp {level + 1}</small></div>
+              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="level-progress-row"><div className="progress-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={1000} aria-valuenow={levelProgress}><span style={{ width: `${levelProgress / 10}%` }} /></div><strong className="level-progress-percent">{Math.round(levelProgress / 10)}%</strong></div><small>{levelProgress.toLocaleString('vi-VN')} / 1.000 XP đến cấp {level + 1}</small></div>
             </div>
           </div>
 
@@ -527,7 +540,7 @@ function App() {
             <section className="lesson-panel" aria-live="polite">
               <div className="lesson-symbol">{selectedQuest.icon}</div>
               <div className="lesson-body"><span className="section-kicker">NHIỆM VỤ ĐANG CHỌN · +{selectedQuest.xp} XP</span><h2>{selectedQuest.title}</h2><p>{selectedQuest.subtitle}. Sẵn sàng bắt đầu phiên học ngắn của bạn?</p></div>
-              <button className="primary-button" type="button" onClick={() => { setActiveNav('lessons'); setSelectedQuest(null); setNotice('Hãy mở bài học tương ứng và hoàn thành quiz để ghi nhận nhiệm vụ.'); }}>Mở thư viện bài học <span>↗</span></button>
+              <button className="primary-button" type="button" onClick={() => { setActiveNav('lessons'); setSelectedQuest(null); setNotice('Chọn bài học tương ứng trong thư viện để bắt đầu quiz.'); }}>Mở bài học tương ứng <span>↗</span></button>
               <button className="close-button" type="button" aria-label="Đóng nhiệm vụ" onClick={() => setSelectedQuest(null)}>×</button>
             </section>
           )}
@@ -535,12 +548,12 @@ function App() {
           {activeNav === 'overview' && (
             <>
               <section className="stats-grid" aria-label="Thống kê học tập">
-                <article className="stat-card"><div className="stat-top"><span className="stat-icon purple-icon">✧</span><span className="stat-trend">+12% ↗</span></div><span className="stat-label">TỔNG KINH NGHIỆM</span><div className="stat-value">{xp.toLocaleString('vi-VN')} <small>XP</small></div><div className="stat-foot">Bạn đang tiến bộ mỗi ngày</div></article>
-                <article className="stat-card"><div className="stat-top"><span className="stat-icon orange-icon">♨</span><span className="stat-note">THEO QUIZ THỰC TẾ</span></div><span className="stat-label">CHUỖI NGÀY HỌC</span><div className="stat-value">{learningStreak} <small>ngày</small></div><div className="mini-week" aria-label="Ngày học trong tuần hiện tại" title="Chuỗi chỉ tính ngày liên tiếp có quiz hoàn thành.">{currentWeek.map((day) => <span key={day.dateKey} title={`${day.dateKey}: ${day.learned ? 'có quiz hoàn thành' : 'chưa có quiz hoàn thành'}`} className={day.learned ? 'day-done' : day.today ? 'day-today' : ''}>{day.label}</span>)}</div><div className="stat-foot">{learningDates.length === 0 ? 'Hoàn thành quiz để bắt đầu chuỗi ngày học.' : 'Chuỗi chỉ tính ngày có quiz hoàn thành liên tiếp.'}</div></article>
-                <article className="stat-card"><div className="stat-top"><span className="stat-icon cyan-icon">◈</span><span className="stat-note">HÔM NAY</span></div><span className="stat-label">NHIỆM VỤ CHƯƠNG</span><div className="stat-value">{completedCount}<small> / {quests.length}</small></div><div className="stat-progress"><span style={{ width: `${completedCount / quests.length * 100}%` }} /></div><div className="stat-foot">{Math.round(completedCount / quests.length * 100)}% hành trình hiện tại</div></article>
+                <article className="stat-card"><div className="stat-top"><span className="stat-icon purple-icon"><UIIcon name="sparkles" /></span><span className="stat-trend">+12% ↗</span></div><span className="stat-label">TỔNG KINH NGHIỆM</span><div className="stat-value">{xp.toLocaleString('vi-VN')} <small>XP</small></div><div className="stat-foot">Bạn đang tiến bộ mỗi ngày</div></article>
+                <article className="stat-card"><div className="stat-top"><span className="stat-icon orange-icon"><UIIcon name="flame" /></span><span className="stat-note">THEO QUIZ THỰC TẾ</span></div><span className="stat-label">CHUỖI NGÀY HỌC</span><div className="stat-value">{learningStreak} <small>ngày</small></div><div className="mini-week" aria-label="Ngày học trong tuần hiện tại" title="Chuỗi chỉ tính ngày liên tiếp có quiz hoàn thành.">{currentWeek.map((day) => <span key={day.dateKey} title={`${day.dateKey}: ${day.learned ? 'có quiz hoàn thành' : 'chưa có quiz hoàn thành'}`} className={day.learned ? 'day-done' : day.today ? 'day-today' : ''}>{day.label}{day.today && !day.learned && <span className="today-opportunity-dot" aria-label="Hôm nay vẫn còn cơ hội học" />}</span>)}</div><div className="stat-foot">{learningDates.length === 0 ? 'Hoàn thành quiz để bắt đầu chuỗi ngày học.' : 'Chuỗi chỉ tính ngày có quiz hoàn thành liên tiếp.'}</div></article>
+                <article className="stat-card"><div className="stat-top"><span className="stat-icon cyan-icon"><UIIcon name="trophy" /></span><span className="stat-note">HÔM NAY</span></div><span className="stat-label">NHIỆM VỤ CHƯƠNG</span><div className="stat-value">{completedCount}<small> / {quests.length}</small></div><div className="stat-progress"><span style={{ width: `${completedCount / quests.length * 100}%` }} /></div><div className="stat-foot">{Math.round(completedCount / quests.length * 100)}% hành trình hiện tại</div></article>
               </section>
 
-              <article className="focus-card focus-card-featured"><div className="focus-glow" /><p className="section-kicker">YOUR NEXT MILESTONE</p><div className="focus-art" aria-hidden="true">✧</div><h2>Mở khóa<br /><span>chân trời mới.</span></h2><p>Hoàn thành chặng tiếp theo để tiến gần hơn tới cấp độ {level + 1}.</p><button className="primary-button full-button" type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}>Tiếp tục hành trình <span>→</span></button><span className="focus-footer">MỌI BƯỚC TIẾN ĐỀU ĐÁNG GIÁ</span></article>
+              <article className="focus-card focus-card-featured"><div className="focus-glow" /><p className="section-kicker">CỘT MỐC TIẾP THEO</p><div className="focus-art" aria-hidden="true"><UIIcon name="target" size={34} /></div><h2>Hành trình<br /><span>đang tiến triển.</span></h2><p>{quests.find((quest) => quest.status === 'active') ? `Chặng đang mở: ${quests.find((quest) => quest.status === 'active')?.title}.` : 'Hoàn thành quiz để tiếp tục mở khóa các chặng tiếp theo.'} Mục tiêu kế tiếp là cấp độ {level + 1}.</p><span className="focus-footer">MỌI BƯỚC TIẾN ĐỀU ĐÁNG GIÁ</span></article>
 
               <section className="quest-map-section" id="map">
                 <div className="section-heading"><div><p className="section-kicker">THE LEARNING ODYSSEY</p><h2>Bản đồ nhiệm vụ <span className="heading-spark">✦</span></h2><p className="section-description">Mỗi chặng mở ra một kỹ năng mới.</p></div><button className="text-button" type="button" onClick={() => setActiveNav('map')}>Xem bản đồ đầy đủ <span>↗</span></button></div>
@@ -561,8 +574,10 @@ function App() {
               </section>
 
               <section className="bottom-grid">
-                <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">THỬ THÁCH HẰNG NGÀY</p><h2>Thử thách hằng ngày</h2><p className="daily-date">Ngày {dailyActivity.date} · tiến độ tự ghi nhận từ quiz</p></div><span className="daily-count">{completedDailyQuestCount} / {dailyQuests.length}</span></div>{dailyQuests.map((quest) => <div className={`daily-row ${quest.done ? 'daily-row-done' : ''}`} key={quest.id}><span className="daily-icon">{quest.done ? '✓' : quest.icon}</span><div className="daily-copy"><strong>{quest.title}</strong><span>{quest.description}</span><div className="daily-track"><span style={{ width: `${quest.progress / quest.target * 100}%` }} /></div><small className="daily-progress-label">{quest.progress} / {quest.target}</small></div><span className={`daily-check ${quest.done ? 'is-visible' : ''}`}>{quest.done ? '✓' : '—'}</span></div>)}<p className="daily-footnote">Tiến độ này chỉ tính thử thách trong ngày, độc lập với nhiệm vụ chương. Không có XP thưởng; kết quả quiz mới quyết định XP. Dữ liệu được lưu theo tài khoản khi đăng nhập hoặc trên trình duyệt ở chế độ khách.</p></article>
-                
+                <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">THỬ THÁCH HẰNG NGÀY</p><h2>Thử thách hằng ngày</h2><p className="daily-date">Ngày {dailyActivity.date} · tiến độ tự ghi nhận từ quiz</p></div><span className="daily-count">{completedDailyQuestCount} / {dailyQuests.length}</span></div>
+                  {completedDailyQuestCount === 0 && <div className="daily-empty-state" role="status"><UIIcon name="sparkles" size={20} /><div><strong>Hôm nay chưa bắt đầu</strong><span>Làm 1 quiz để mở đầu ngày mới. Tiến độ sẽ tự cập nhật sau khi hoàn thành.</span></div></div>}
+                  <div className="daily-quests-grid">{dailyQuests.map((quest) => <div className={`daily-row ${quest.done ? 'daily-row-done' : ''}`} key={quest.id}><span className="daily-icon">{quest.done ? '✓' : quest.icon}</span><div className="daily-copy"><strong>{quest.title}</strong><span>{quest.description}</span><div className="daily-track"><span style={{ width: `${quest.progress / quest.target * 100}%` }} /></div><small className="daily-progress-label">{quest.progress} / {quest.target}</small></div><span className={`daily-check ${quest.done ? 'is-visible' : ''}`}>{quest.done ? '✓' : '—'}</span></div>)}</div>
+                  <p className="daily-footnote">Tiến độ này chỉ tính thử thách trong ngày, độc lập với nhiệm vụ chương. Không có XP thưởng; kết quả quiz mới quyết định XP. Dữ liệu được lưu theo tài khoản khi đăng nhập hoặc trên trình duyệt ở chế độ khách.</p></article>
               </section>
             </>
           )}
