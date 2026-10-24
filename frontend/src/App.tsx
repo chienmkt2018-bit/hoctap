@@ -564,7 +564,7 @@ function App() {
                     {quests.map((quest, index) => (
                       <button key={quest.id} className={`quest-node-wrap node-${index + 1}`} type="button" onClick={() => startQuest(quest)} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở' : 'đang khóa'}`}>
                         <span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span>
-                        <span className="node-caption">{quest.status === 'done' ? 'HOÀN THÀNH' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span>
+                        <span className="node-caption">{quest.status === 'done' ? 'HOÀN THÀNH' : quest.id === 4 && quest.status === 'active' ? 'ĐÁNH TRÙM CHƯƠNG · BẮT ĐẦU NGAY' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span>
                         <strong>{quest.title}</strong><small>+{quest.xp} XP</small>
                       </button>
                     ))}
