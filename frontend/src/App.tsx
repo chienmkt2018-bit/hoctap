@@ -430,19 +430,31 @@ function App() {
     const updatedCompletedLessons = { ...completedLessons, [result.lessonId]: true };
     setCompletedLessons(updatedCompletedLessons);
     setQuests(deriveQuestsFromCompletedLessons(updatedCompletedLessons));
-    const today = getLocalDateKey(user?.timezone);
-    setDailyActivity((current) => {
-      const activity = current.date === today ? current : createDailyActivity(today);
-      const completedLessonIds = [...new Set([...activity.completedLessonIds, result.lessonId])];
-      const highScoreLessonIds = result.percentage >= 80
-        ? [...new Set([...activity.highScoreLessonIds, result.lessonId])]
-        : activity.highScoreLessonIds;
-      return { date: today, completedLessonIds, highScoreLessonIds };
-    });
-    // A streak day is earned only by a completed quiz result, never by opening the app.
-    setLearningDates((current) => current.includes(today)
-      ? current
-      : [...current, today].sort());
+    if (user) {
+      // The server is authoritative for account learning dates and daily activity.
+      const token = readAccessToken();
+      if (token) {
+        void getRemoteProgress(token).then((remote) => {
+          const verified = mergeRemoteProgress(remote, user.timezone);
+          setDailyActivity(verified.dailyActivity);
+          setLearningDates(verified.learningDates);
+        }).catch(() => undefined);
+      }
+    } else {
+      // Guest progress has no server record, so use the device's local calendar date.
+      const today = getLocalDateKey();
+      setDailyActivity((current) => {
+        const activity = current.date === today ? current : createDailyActivity(today);
+        const completedLessonIds = [...new Set([...activity.completedLessonIds, result.lessonId])];
+        const highScoreLessonIds = result.percentage >= 80
+          ? [...new Set([...activity.highScoreLessonIds, result.lessonId])]
+          : activity.highScoreLessonIds;
+        return { date: today, completedLessonIds, highScoreLessonIds };
+      });
+      setLearningDates((current) => current.includes(today)
+        ? current
+        : [...current, today].sort());
+    }
     if (result.serverAwardedXp !== undefined) {
       const awarded = result.serverAwardedXp;
       setQuizBestXp((current) => ({
