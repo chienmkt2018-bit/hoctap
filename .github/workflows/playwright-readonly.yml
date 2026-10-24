@@ -1,0 +1,55 @@
+name: Playwright production read-only
+
+on:
+  push:
+    branches:
+      - "test/playwright-readonly-production"
+    paths:
+      - "frontend/**"
+      - ".github/workflows/playwright-readonly.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/playwright-readonly.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-readonly:
+    name: Chromium read-only checks against production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: "true"
+      PLAYWRIGHT_BASE_URL: https://hoctap-frontend.onrender.com
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install frontend dependencies
+        run: npm install
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Verify frontend build
+        run: npm run build
+      - name: Run read-only production checks
+        run: npm run test:e2e:readonly
+      - name: Upload Playwright report and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-readonly-results
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
