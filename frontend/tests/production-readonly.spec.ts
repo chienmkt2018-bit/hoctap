@@ -61,7 +61,7 @@ test.describe('HOC TAP QUEST production — read-only checks', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Bản đồ nhiệm vụ' }).click();
 
-    const map = page.getByRole('region').filter({ has: page.getByRole('heading', { name: 'Chọn chặng tiếp theo' }) });
+    const map = page.locator('.alternate-panel').filter({ has: page.getByRole('heading', { name: 'Chọn chặng tiếp theo' }) });
     await expect(map).toBeVisible();
     await expect(map.getByRole('button', { name: /Khởi động tư duy/ })).toBeVisible();
     await expect(map.getByRole('button', { name: /Mở khóa kiến thức/ })).toBeVisible();
