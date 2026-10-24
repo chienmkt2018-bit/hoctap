@@ -4,6 +4,8 @@ import { ProgressModel } from './models/Progress.js';
 import { QuizAttemptModel } from './models/QuizAttempt.js';
 import { getDatabaseStatus } from './database.js';
 import { requireAuthentication } from './auth.js';
+import { DEFAULT_TIME_ZONE, getLearningDate } from './learningDate.js';
+import { UserModel } from './models/User.js';
 
 const router = Router();
 
@@ -142,10 +144,14 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     const attemptId = body.attemptId as string;
     const answers = body.answers as SubmittedAnswer[];
     const requestFingerprint = fingerprintAttempt(lessonId, answers);
-    // JavaScript's getTimezoneOffset is UTC minus local time. The offset only selects
-    // the user's calendar date; the activity timestamp is always server-generated.
-    const timezoneOffsetMinutes = (body.timezoneOffsetMinutes as number | undefined) ?? 0;
-    const learningDate = new Date(Date.now() - timezoneOffsetMinutes * 60_000).toISOString().slice(0, 10);
+    // Saved account timezone is authoritative. A legacy client offset is accepted for
+    // compatibility but deliberately ignored; clients cannot choose the activity date.
+    const learner = await UserModel.findById(learnerId).select('timezone');
+    if (!learner) {
+      response.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'The account for this token no longer exists.' } });
+      return;
+    }
+    const learningDate = getLearningDate(learner.timezone || DEFAULT_TIME_ZONE, new Date());
     const correctCount = correctIndexes.reduce((count, correctIndex, index) => {
       const answer = answers.find((item) => item.questionId === `q${index + 1}`);
       return count + (Number(answer?.selectedOptionId) === correctIndex ? 1 : 0);
