@@ -505,3 +505,5 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-
     height: 220px;
   }
 }
+
+/* XP values are rendered from the authenticated quiz response, never from badge taps. */
