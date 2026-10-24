@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">HOC TAP QUEST</title>
+  <defs>
+    <linearGradient id="quest-gradient" x1="8" y1="8" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a855f7"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="#0b0b16"/>
+  <path d="M32 7 52 15v15c0 13-8.5 22-20 27C20.5 52 12 43 12 30V15L32 7Z" fill="none" stroke="url(#quest-gradient)" stroke-width="3.5" stroke-linejoin="round"/>
+  <path d="M35 15 21 35h10l-2 14 14-21H33l2-13Z" fill="url(#quest-gradient)" stroke="#e9e7ff" stroke-width="1" stroke-linejoin="round"/>
+</svg>
