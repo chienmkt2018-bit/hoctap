@@ -37,7 +37,7 @@ test.describe('HOC TAP QUEST production — read-only checks', () => {
 
     const library = page.getByRole('region', { name: 'Thư viện bài học' });
     await library.getByLabel('Trạng thái').selectOption({ label: 'Chưa mở khóa' });
-    await expect(library.getByText('Chưa mở khóa').first()).toBeVisible();
+    await expect(library.locator('.lesson-status.status-locked').first()).toHaveText('Chưa mở khóa');
     await expect(library.getByRole('button', { name: 'Đang khóa' }).first()).toBeVisible();
     await expect(library.getByRole('heading', { name: 'Khám phá bài học' })).toBeVisible();
   });
