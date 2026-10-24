@@ -2,6 +2,14 @@
 
 Nền tảng học tập theo phong cách trò chơi — React + TypeScript + Vite, giao diện responsive nền tối với điểm nhấn tím–cyan.
 
+## Trạng thái dự án (cập nhật 2026-10-25)
+
+- **Nhánh chính:** `main`.
+- **Favicon HOC TAP QUEST:** đã hợp nhất qua [PR #24](https://github.com/chienmkt2018-bit/hoctap/pull/24), merge commit `6ad193b63bb183c527bdf5b3229b464c76690f66`. Thay đổi thêm `frontend/public/favicon.svg` và liên kết favicon trong `frontend/index.html`.
+- **CI sau merge:** [GitHub Actions run #94](https://github.com/chienmkt2018-bit/hoctap/actions/runs/40116072778) đã hoàn tất thành công; hai job Frontend và Backend type-check/build đều `success`.
+- **Kiểm tra giao diện:** người dùng xác nhận đã kiểm tra và thấy OK. Đây là xác nhận thủ công của người dùng, không phải báo cáo kiểm thử trình duyệt tự động.
+- **Giới hạn xác minh:** CI build/type-check không thay thế kiểm thử end-to-end. Chưa coi luồng quiz trên production là đã xác minh chỉ dựa trên CI; trạng thái triển khai Render cần kiểm tra riêng.
+
 ## Công nghệ
 
 - React 19 + TypeScript + Vite
@@ -55,12 +63,12 @@ Cần Node.js 20.19+ hoặc 22.12+, npm và MongoDB tương thích để chạy 
 | P3.4 | Đăng nhập frontend và đồng bộ tiến độ | Đã hợp nhất; CI #35 được xác nhận thành công | CORS và luồng trình duyệt production vẫn cần kiểm thử thủ công |
 | P3.5 | API chấm quiz và XP phía máy chủ | Đã hợp nhất; CI thành công; Health production đã xác minh; endpoint quiz chưa kiểm thử riêng | PR #4 đã merge; Actions run #40 thành công; Render Health từng trả `status: ok`, `database: connected` ngày 2026-10-20. Chưa xác minh POST attempts trên production. |
 | P3.6 | Nối giao diện quiz với API server | Đã hợp nhất; Actions #47 thành công; production chưa xác minh | PR #8 tích hợp gửi đáp án khi đăng nhập, hiển thị loading/lỗi, giữ chế độ local khi chưa đăng nhập và dùng XP từ phản hồi máy chủ; cần kiểm thử end-to-end sau deploy |
-| P4 | Gamification mở rộng | Đang triển khai | Triển khai theo từng PR, không cộng thưởng ngoài hệ XP phía máy chủ |
+| P4 | Gamification mở rộng | Đang triển khai | Theo dõi riêng trạng thái từng mục P4; không cộng thưởng ngoài hệ XP phía máy chủ |
 | P4.1 | Thành tựu dựa trên tiến độ | Hoàn thành trong PR #11; CI #53 thành công | 6 thành tựu suy ra từ tiến độ thực; không thêm API hay schema mới |
 | P4.2 | Nhiệm vụ hằng ngày | Đã hợp nhất trong PR #12; CI thành công | 3 nhiệm vụ suy ra từ quiz thực tế; không phát XP thưởng; tiến độ lưu cục bộ |
 | P4.3 | Chuỗi ngày học thực tế | Đã hợp nhất trong PR #13; CI thành công | Chỉ ghi ngày khi hoàn thành quiz; không còn số ngày giả lập; ban đầu lưu cục bộ |
-| P4.4 | Đồng bộ chuỗi ngày học theo tài khoản | Đang triển khai | Ngày học được ghi bởi API khi quiz có xác thực hoàn tất; GET progress trả lịch sử theo tài khoản |
-| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | Health và kết nối MongoDB đã xác minh ngày 2026-10-20; API quiz và luồng quiz trên trình duyệt production vẫn chưa được kiểm thử end-to-end |
+| P4.4 | Đồng bộ chuỗi ngày học theo tài khoản | Đang triển khai / cần tiếp tục xác minh | API ghi ngày học khi quiz có xác thực hoàn tất; GET progress trả lịch sử theo tài khoản. Không xem CI build là bằng chứng đồng bộ đa thiết bị đã hoạt động end-to-end. |
+| P5 | Kiểm thử và triển khai production | Một phần đã xác minh | CI #94 sau merge favicon: Frontend và Backend type-check/build đều thành công ngày 2026-10-24; người dùng xác nhận giao diện OK. API quiz và luồng quiz trên trình duyệt production vẫn chưa được xác minh end-to-end trong bằng chứng hiện có; trạng thái deploy Render cần kiểm tra riêng. |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Sau khi nền tảng ổn định |
 
 ## Lưu trữ và tài khoản
