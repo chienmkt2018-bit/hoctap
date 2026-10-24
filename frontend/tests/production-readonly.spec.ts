@@ -1,16 +1,47 @@
-import { expect, test } from '@playwright/test';
+import { expect, test as base } from '@playwright/test';
+
+type ProductionDiagnostics = {
+  javascriptErrors: string[];
+  resourceErrors: string[];
+};
+
+const test = base.extend<{ diagnostics: ProductionDiagnostics }>({
+  diagnostics: async ({ page }, use) => {
+    const diagnostics: ProductionDiagnostics = {
+      javascriptErrors: [],
+      resourceErrors: [],
+    };
+    const staticResourceTypes = new Set(['document', 'font', 'image', 'script', 'stylesheet']);
+
+    page.on('pageerror', (error) => diagnostics.javascriptErrors.push(error.message));
+    page.on('requestfailed', (request) => {
+      if (staticResourceTypes.has(request.resourceType())) {
+        diagnostics.resourceErrors.push(`${request.resourceType()} ${request.url()} — ${request.failure()?.errorText ?? 'request failed'}`);
+      }
+    });
+    page.on('response', (response) => {
+      const request = response.request();
+      if (staticResourceTypes.has(request.resourceType()) && response.status() >= 400) {
+        diagnostics.resourceErrors.push(`${request.resourceType()} ${response.url()} — HTTP ${response.status()}`);
+      }
+    });
+
+    await use(diagnostics);
+  },
+});
+
+test.afterEach(async ({ diagnostics }) => {
+  expect(diagnostics.javascriptErrors, 'uncaught JavaScript errors').toEqual([]);
+  expect(diagnostics.resourceErrors, 'failed static resource requests').toEqual([]);
+});
 
 test.describe('HOC TAP QUEST production — read-only checks', () => {
   test('homepage loads and primary navigation is available', async ({ page }) => {
-    const pageErrors: string[] = [];
-    page.on('pageerror', (error) => pageErrors.push(error.message));
-
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await expect(page).toHaveTitle(/HOC TAP QUEST/i);
     await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Bài học' })).toBeVisible();
     await expect(page.getByRole('heading', { name: /nhà thám hiểm/i }).first()).toBeVisible();
-    expect(pageErrors, 'uncaught browser exceptions').toEqual([]);
   });
 
   test('lesson library and read-only lesson details are reachable without starting a quiz', async ({ page }) => {
