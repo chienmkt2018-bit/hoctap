@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import LessonLibrary from './LessonLibrary';
-import RewardBadge from './RewardBadge';
 import type { QuizResult } from './QuizPanel';
 import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, type ApiProgress, type AuthUser } from './auth';
 
@@ -226,7 +225,6 @@ function App() {
   const [notice, setNotice] = useState('');
   const [earnedQuizXp, setEarnedQuizXp] = useState(() => readSavedProgress()?.earnedQuizXp ?? 0);
   const [serverTotalXp, setServerTotalXp] = useState<number | null>(null);
-  const [lastServerReward, setLastServerReward] = useState<{ awardedXp: number; totalXp: number } | null>(null);
   const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
   const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
   const [dailyActivity, setDailyActivity] = useState<DailyActivity>(() => readSavedProgress()?.dailyActivity ?? createDailyActivity());
@@ -337,7 +335,6 @@ function App() {
     setLearningDates(guest.learningDates);
     setUser(null);
     setServerTotalXp(null);
-    setLastServerReward(null);
     setSelectedQuest(null);
     setAuthOpen(false);
     setNotice('Đã đăng xuất. Tiến độ của tài khoản đã được tách riêng; dữ liệu khách vẫn được giữ.');
@@ -390,7 +387,6 @@ function App() {
       : [...current, getLocalDateKey()].sort());
     if (result.serverAwardedXp !== undefined) {
       const awarded = result.serverAwardedXp;
-      setLastServerReward({ awardedXp: awarded, totalXp: result.serverTotalXp ?? 0 });
       setQuizBestXp((current) => ({
         ...current,
         [result.lessonId]: Math.max(current[result.lessonId] ?? 0, result.calculatedXp),
@@ -488,7 +484,6 @@ function App() {
           </div>
 
           {notice && <div className="notice" role="status"><span>✦</span>{notice}<button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo">×</button></div>}
-          {user && lastServerReward && <RewardBadge awardedXp={lastServerReward.awardedXp} totalXp={lastServerReward.totalXp} />}
 
           {selectedQuest && (
             <section className="lesson-panel" aria-live="polite">
