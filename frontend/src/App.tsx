@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import LessonLibrary from './LessonLibrary';
 import type { QuizResult } from './QuizPanel';
 import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, type ApiProgress, type AuthUser } from './auth';
@@ -167,12 +167,25 @@ function readSavedProgress(userId: string | null = null): SavedProgress | null {
 }
 
 const navigation = [
-  { id: 'overview', icon: '◫', label: 'Tổng quan' },
-  { id: 'map', icon: '⌘', label: 'Bản đồ nhiệm vụ' },
-  { id: 'lessons', icon: '▤', label: 'Bài học' }, 
-  { id: 'practice', icon: '✧', label: 'Luyện tập' },
-  { id: 'achievements', icon: '♛', label: 'Thành tựu' },
-];
+  { id: 'overview', icon: 'overview', label: 'Tổng quan' },
+  { id: 'map', icon: 'map', label: 'Bản đồ nhiệm vụ' },
+  { id: 'lessons', icon: 'lessons', label: 'Bài học' },
+  { id: 'practice', icon: 'practice', label: 'Luyện tập' },
+  { id: 'achievements', icon: 'achievements', label: 'Thành tựu' },
+] as const;
+
+type NavigationIconName = (typeof navigation)[number]['icon'];
+
+function NavigationIcon({ name }: { name: NavigationIconName }) {
+  const paths: Record<NavigationIconName, string> = {
+    overview: 'M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z',
+    map: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15',
+    lessons: 'M5 3h10l4 4v14H5z M14 3v5h5 M8 12h8 M8 16h8',
+    practice: 'M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z',
+    achievements: 'M8 4h8v4a4 4 0 0 1-8 0z M8 6H4v2a4 4 0 0 0 4 4 M16 6h4v2a4 4 0 0 1-4 4 M12 12v5 M8 21h8 M9 17h6',
+  };
+  return <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
+}
 
 
 function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boolean>): Quest[] {
@@ -235,6 +248,28 @@ function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authBusy, setAuthBusy] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeoutId = window.setTimeout(() => setNotice(''), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const closeWhenOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) setAccountMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setAccountMenuOpen(false); };
+    document.addEventListener('pointerdown', closeWhenOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeWhenOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [accountMenuOpen]);
 
   useEffect(() => {
     try {
@@ -429,7 +464,7 @@ function App() {
         <nav className="nav-list" aria-label="Điều hướng chính">
           {navigation.map((item) => (
             <button key={item.id} className={`nav-item ${activeNav === item.id ? 'is-active' : ''}`} onClick={() => { setActiveNav(item.id); setSelectedQuest(null); }} type="button">
-              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="nav-icon"><NavigationIcon name={item.icon} /></span>
               <span>{item.label}</span>
               {item.id === 'map' && <span className="nav-badge">NEW</span>}
             </button>
@@ -456,7 +491,10 @@ function App() {
             <div className="streak-chip" title="Chuỗi ngày tính từ các ngày có hoàn thành quiz"><span>♨</span><strong>{learningStreak}</strong><span className="chip-caption">NGÀY</span></div>
             <div className="currency-chip"><span className="gem">◆</span><strong>120</strong><span className="chip-caption">GEMS</span></div>
             <button className="icon-button" type="button" aria-label="Thông báo" onClick={() => setNotice('Bạn đã xem thông báo mới nhất.')}>♧<span className="notification-dot" /></button>
-            {user ? <div className="account-chip" title={user.email}><span className="account-dot" /><span className="account-email">{user.email}</span><button type="button" onClick={handleLogout}>Đăng xuất</button></div> : <button className="auth-trigger" type="button" onClick={() => { setAuthOpen((open) => !open); setNotice(''); }}>{authOpen ? 'Đóng' : 'Đăng nhập'}</button>}
+            {user ? <div className="account-menu-wrap" ref={accountMenuRef}>
+              <button className="account-trigger" type="button" aria-haspopup="menu" aria-expanded={accountMenuOpen} onClick={() => setAccountMenuOpen((open) => !open)}><span className="account-avatar" aria-hidden="true">N</span><span className="account-trigger-label">Nhà thám hiểm</span><span className="account-chevron" aria-hidden="true">⌄</span></button>
+              {accountMenuOpen && <div className="account-dropdown" role="menu"><span className="account-dropdown-label">ĐANG ĐĂNG NHẬP</span><span className="account-dropdown-email">{user.email}</span><button className="account-logout" type="button" role="menuitem" onClick={() => { setAccountMenuOpen(false); handleLogout(); }}>Đăng xuất</button></div>}
+            </div> : <button className="auth-trigger" type="button" onClick={() => { setAuthOpen((open) => !open); setNotice(''); }}>{authOpen ? 'Đóng' : 'Đăng nhập'}</button>}
           </div>
         </header>
 
