@@ -6,6 +6,9 @@ import { getDatabaseStatus } from './database.js';
 import { requireAuthentication } from './auth.js';
 import { DEFAULT_TIME_ZONE, getLearningDate } from './learningDate.js';
 import { UserModel } from './models/User.js';
+import { calculateQuizXp, type QuizDifficulty } from './xp.js';
+import { RewardLedgerModel } from './models/RewardLedger.js';
+import { grantRewardsOnce } from './rewards.js';
 
 const router = Router();
 
@@ -23,9 +26,10 @@ const quizAnswerIndexes: Record<number, number[]> = {
   8: [0, 1, 2],
 };
 
-const lessonXp: Record<number, number> = {
-  1: 30, 2: 40, 3: 50, 4: 100,
-  5: 35, 6: 55, 7: 40, 8: 75,
+// Keep difficulty aligned with the lesson catalog; score and XP are still computed server-side.
+const lessonDifficulty: Record<number, QuizDifficulty> = {
+  1: 'easy', 2: 'easy', 3: 'medium', 4: 'hard',
+  5: 'easy', 6: 'medium', 7: 'easy', 8: 'hard',
 };
 
 type AttemptResult = {
@@ -34,6 +38,7 @@ type AttemptResult = {
   totalQuestions: number;
   percentage: number;
   xpAwarded: number;
+  bonusXpAwarded: number;
   totalXp: number;
   replayed: boolean;
 };
@@ -45,6 +50,7 @@ type StoredAttempt = {
   totalQuestions: number;
   percentage: number;
   xpAwarded: number;
+  bonusXpAwarded?: number;
   totalXpAfter: number;
 };
 
@@ -55,6 +61,7 @@ function resultFromAttempt(attempt: StoredAttempt, replayed: boolean): AttemptRe
     totalQuestions: attempt.totalQuestions,
     percentage: attempt.percentage,
     xpAwarded: attempt.xpAwarded,
+    bonusXpAwarded: attempt.bonusXpAwarded ?? 0,
     totalXp: attempt.totalXpAfter,
     replayed,
   };
@@ -111,10 +118,12 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       databaseUnavailable(response);
       return;
     }
+    // Explicitly wait for MongoDB to create the ledger's unique indexes before granting rewards.
+    await RewardLedgerModel.init();
 
     const lessonId = Number(request.params.quizId);
     const correctIndexes = quizAnswerIndexes[lessonId];
-    if (!Number.isSafeInteger(lessonId) || !correctIndexes || !lessonXp[lessonId]) {
+    if (!Number.isSafeInteger(lessonId) || !correctIndexes || !lessonDifficulty[lessonId]) {
       response.status(404).json({
         error: { code: 'QUIZ_NOT_FOUND', message: 'This quiz is not available.' },
       });
@@ -158,7 +167,6 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     }, 0);
     const totalQuestions = correctIndexes.length;
     const percentage = Math.round((correctCount / totalQuestions) * 100);
-    const calculatedXp = Math.round((lessonXp[lessonId] * correctCount) / totalQuestions);
     const resultHolder: { value: AttemptResult | null } = { value: null };
     const conflictHolder = { value: false };
 
@@ -185,9 +193,13 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       if (!progress) throw new Error('Could not initialize learner progress.');
 
       const lessonKey = String(lessonId);
+      const isFirstValidCompletion = !progress.completedLessonIds.includes(lessonId);
       const previousBest = progress.bestXpByLesson.get(lessonKey) ?? 0;
-      const xpAwarded = Math.max(0, calculatedXp - previousBest);
-      progress.totalXp += xpAwarded;
+      const difficulty = lessonDifficulty[lessonId];
+      if (!difficulty) throw new Error('Quiz difficulty configuration is missing.');
+      const calculatedXp = calculateQuizXp(difficulty, percentage, isFirstValidCompletion);
+      const quizXpAwarded = Math.max(0, calculatedXp - previousBest);
+      progress.totalXp += quizXpAwarded;
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
       progress.completedLessonIds = [...new Set([...progress.completedLessonIds, lessonId])];
       progress.learningDates = [...new Set([...(progress.learningDates ?? []), learningDate])].sort();
@@ -201,6 +213,17 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
           ? [...new Set([...currentDailyActivity.highScoreLessonIds, lessonId])]
           : [...new Set(currentDailyActivity.highScoreLessonIds)],
       };
+
+      // Write the shared progress document before ledger inserts so competing transactions
+      // conflict on the learner record and retry before attempting the same unique reward key.
+      await progress.save({ session });
+      const bonusXpAwarded = await grantRewardsOnce(learnerId, {
+        learningDates: progress.learningDates,
+        completedLessonIds: progress.completedLessonIds,
+        dailyActivity: progress.dailyActivity,
+      }, learningDate, session);
+
+      progress.totalXp += bonusXpAwarded;
       await progress.save({ session });
 
       const [attempt] = await QuizAttemptModel.create([{
@@ -212,7 +235,8 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
         totalQuestions,
         percentage,
         calculatedXp,
-        xpAwarded,
+        xpAwarded: quizXpAwarded + bonusXpAwarded,
+        bonusXpAwarded,
         totalXpAfter: progress.totalXp,
       }], { session });
       if (!attempt) throw new Error('Could not save quiz attempt.');

@@ -141,3 +141,15 @@ Theo dõi workflow tại [GitHub Actions](https://github.com/chienmkt2018-bit/ho
 - API không nhận danh sách ngày học từ trình duyệt; client chỉ gửi độ lệch múi giờ hợp lệ để máy chủ xác định ngày lịch địa phương tại thời điểm nhận quiz.
 - `GET /api/v1/progress` trả lịch sử `learningDates`, cho phép streak tài khoản hiển thị trên thiết bị khác sau khi đăng nhập.
 - Dữ liệu quiz ở chế độ khách không được tự động tải lên tài khoản; không tạo ngày lịch sử giả và không cộng XP thưởng cho streak.
+
+
+## XP v1.0 — quy tắc đề xuất trong nhánh feature/xp-balance-v1.0
+
+- XP cần để lên cấp tiếp theo: `round(100 × level^1.5)`; XP tổng cũ được giữ nguyên, cấp độ được suy ra lại từ tổng XP.
+- XP quiz được tính phía server từ độ khó, tỷ lệ đúng và hệ số 1,2 cho lần hoàn thành hợp lệ đầu tiên; các lần tiếp theo dùng hệ số 1,0.
+- XP quiz được lưu theo điểm tốt nhất mỗi bài: chỉ phần XP vượt mức tốt nhất đã ghi nhận mới được cộng.
+- Thưởng sự kiện: streak 7/30 ngày +100 XP, hoàn thành chương 1 +200 XP, đủ nhiệm vụ ngày (ít nhất hai bài khác nhau và một kết quả từ 80% trở lên trong cùng ngày) +50 XP.
+- `RewardLedger` dùng unique index theo tài khoản và khóa sự kiện; ghi sổ, cập nhật tổng XP và lưu quiz được thực hiện trong cùng MongoDB transaction.
+- Không có migration cộng thưởng hồi tố. Các phần thưởng chỉ được xét khi server nhận một quiz hợp lệ mới.
+- Các giá trị XP hiển thị trên thẻ bài học là mức tối đa theo độ khó và lần hoàn thành đầu tiên; XP thực tế phụ thuộc kết quả.
+- Chạy kiểm thử backend: `npm test` trong thư mục `backend`. Integration test với MongoDB replica set và kiểm thử production vẫn cần chạy riêng trước khi phát hành.

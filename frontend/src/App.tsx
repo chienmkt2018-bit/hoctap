@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import LessonLibrary from './LessonLibrary';
 import type { QuizResult } from './QuizPanel';
+import { getLevelProgress } from './xp';
 import { authenticate, clearAccessToken, getCurrentUser, getRemoteProgress, readAccessToken, type ApiProgress, type AuthUser } from './auth';
 
 type Quest = {
@@ -13,10 +14,10 @@ type Quest = {
 };
 
 const initialQuests: Quest[] = [
-  { id: 1, title: 'Khởi động tư duy', subtitle: 'Bài học nền tảng · 5 phút', xp: 30, status: 'active', icon: '✦' },
-  { id: 2, title: 'Mở khóa kiến thức', subtitle: 'Khái niệm cốt lõi · 8 phút', xp: 40, status: 'locked', icon: '◈' },
-  { id: 3, title: 'Thử thách nhanh', subtitle: '5 câu hỏi · 4 phút', xp: 50, status: 'locked', icon: '⚡' },
-  { id: 4, title: 'Trùm chương', subtitle: 'Kiểm tra tổng hợp · 10 phút', xp: 100, status: 'locked', icon: '♜' },
+  { id: 1, title: 'Khởi động tư duy', subtitle: 'Bài học nền tảng · 5 phút', xp: 18, status: 'active', icon: '✦' },
+  { id: 2, title: 'Mở khóa kiến thức', subtitle: 'Khái niệm cốt lõi · 8 phút', xp: 18, status: 'locked', icon: '◈' },
+  { id: 3, title: 'Thử thách nhanh', subtitle: '5 câu hỏi · 4 phút', xp: 36, status: 'locked', icon: '⚡' },
+  { id: 4, title: 'Trùm chương', subtitle: 'Kiểm tra tổng hợp · 10 phút', xp: 63, status: 'locked', icon: '♜' },
 ];
 
 const progressStorageKey = 'hoc-tap-quest-progress-v1';
@@ -399,8 +400,10 @@ function App() {
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
   const xp = serverTotalXp ?? earnedQuizXp;
-  const level = 1 + Math.floor(xp / 1000);
-  const levelProgress = xp % 1000;
+  const levelState = getLevelProgress(xp);
+  const level = levelState.level;
+  const levelProgress = levelState.xpIntoCurrentLevel;
+  const levelXpRequired = levelState.xpForNextLevel;
 
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
   const supportedLessonIds = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -463,7 +466,11 @@ function App() {
       }));
       setEarnedQuizXp((current) => current + awarded);
       setServerTotalXp(result.serverTotalXp ?? null);
-      setNotice(`Máy chủ đã lưu quiz “${result.lessonTitle}”: ${result.correctCount}/${result.totalQuestions} câu đúng (${result.percentage}%). XP cộng thêm: ${awarded}; tổng XP tài khoản: ${(result.serverTotalXp ?? 0).toLocaleString('vi-VN')}.`);
+      const previousLevel = getLevelProgress(serverTotalXp ?? earnedQuizXp).level;
+      const nextLevel = getLevelProgress(result.serverTotalXp ?? 0).level;
+      const levelUpNotice = nextLevel > previousLevel ? ` Lên cấp ${nextLevel}!` : '';
+      const bonusNotice = (result.serverBonusXpAwarded ?? 0) > 0 ? ` Trong đó có ${result.serverBonusXpAwarded} XP thưởng bổ sung.` : '';
+      setNotice(`Máy chủ đã lưu quiz “${result.lessonTitle}”: ${result.correctCount}/${result.totalQuestions} câu đúng (${result.percentage}%). XP cộng thêm: ${awarded}.${bonusNotice} Tổng XP tài khoản: ${(result.serverTotalXp ?? 0).toLocaleString('vi-VN')}.${levelUpNotice}`);
       return awarded;
     }
     const previousBest = quizBestXp[result.lessonId] ?? 0;
@@ -551,7 +558,7 @@ function App() {
             </div>
             <div className="level-card">
               <div className="level-orb"><span>{String(level).padStart(2, '0')}</span><small>LVL</small></div>
-              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="level-progress-row"><div className="progress-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={1000} aria-valuenow={levelProgress}><span style={{ width: `${levelProgress / 10}%` }} /></div><strong className="level-progress-percent">{Math.round(levelProgress / 10)}%</strong></div><small>{levelProgress.toLocaleString('vi-VN')} / 1.000 XP đến cấp {level + 1}</small></div>
+              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="level-progress-row"><div className="progress-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={levelXpRequired} aria-valuenow={levelProgress}><span style={{ width: `${levelProgress / levelXpRequired * 100}%` }} /></div><strong className="level-progress-percent">{Math.round(levelProgress / levelXpRequired * 100)}%</strong></div><small>{levelProgress.toLocaleString('vi-VN')} / {levelXpRequired.toLocaleString('vi-VN')} XP đến cấp {level + 1}</small></div>
             </div>
           </div>
 
@@ -586,7 +593,7 @@ function App() {
                       <button key={quest.id} className={`quest-node-wrap node-${index + 1}`} type="button" onClick={() => startQuest(quest)} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở' : 'đang khóa'}`}>
                         <span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span>
                         <span className="node-caption">{quest.status === 'done' ? 'HOÀN THÀNH' : quest.id === 4 && quest.status === 'active' ? 'ĐÁNH TRÙM CHƯƠNG · BẮT ĐẦU NGAY' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span>
-                        <strong>{quest.title}</strong><small>+{quest.xp} XP</small>
+                        <strong>{quest.title}</strong><small>Tối đa +{quest.xp} XP</small>
                       </button>
                     ))}
                   </div>
@@ -598,15 +605,15 @@ function App() {
                 <article className="daily-card"><div className="section-heading compact"><div><p className="section-kicker">THỬ THÁCH HẰNG NGÀY</p><h2>Thử thách hằng ngày</h2><p className="daily-date">Ngày {dailyActivity.date} · tiến độ tự ghi nhận từ quiz</p></div><span className="daily-count">{completedDailyQuestCount} / {dailyQuests.length}</span></div>
                   {completedDailyQuestCount === 0 && <div className="daily-empty-state" role="status"><UIIcon name="sparkles" size={20} /><div><strong>Hôm nay chưa bắt đầu</strong><span>Làm 1 quiz để mở đầu ngày mới. Tiến độ sẽ tự cập nhật sau khi hoàn thành.</span></div></div>}
                   <div className="daily-quests-grid">{dailyQuests.map((quest) => <div className={`daily-row ${quest.done ? 'daily-row-done' : ''}`} key={quest.id}><span className="daily-icon">{quest.done ? '✓' : quest.icon}</span><div className="daily-copy"><strong>{quest.title}</strong><span>{quest.description}</span><div className="daily-track"><span style={{ width: `${quest.progress / quest.target * 100}%` }} /></div><small className="daily-progress-label">{quest.progress} / {quest.target}</small></div><span className={`daily-check ${quest.done ? 'is-visible' : ''}`}>{quest.done ? '✓' : '—'}</span></div>)}</div>
-                  <p className="daily-footnote">Tiến độ này chỉ tính thử thách trong ngày, độc lập với nhiệm vụ chương. Không có XP thưởng; kết quả quiz mới quyết định XP. Dữ liệu được lưu theo tài khoản khi đăng nhập hoặc trên trình duyệt ở chế độ khách.</p></article>
+                  <p className="daily-footnote">Tiến độ nhiệm vụ được tính từ quiz hợp lệ trong ngày. Tài khoản nhận +50 XP một lần khi server xác minh đủ 3/3 nhiệm vụ; chế độ khách chỉ lưu tiến độ cục bộ và không nhận thưởng server.</p></article>
               </section>
             </>
           )}
 
-          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} onQuizComplete={handleQuizComplete} completedLessonIds={Object.keys(completedLessons).map(Number)} />}
+          {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} onQuizComplete={handleQuizComplete} completedLessonIds={Object.keys(completedLessons).filter((id) => completedLessons[Number(id)]).map(Number)} />}
 
           {activeNav === 'map' && (
-            <section className="alternate-panel"><div className="section-heading"><div><p className="section-kicker">CHAPTER SELECT</p><h2>Chọn chặng tiếp theo</h2><p className="section-description">Nhấn vào nhiệm vụ đang mở hoặc đã hoàn thành để xem chi tiết.</p></div></div><div className="alternate-quests">{quests.map((quest) => <button type="button" key={quest.id} className="alternate-quest" onClick={() => startQuest(quest)}><span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span><span className="alternate-quest-copy"><strong>{quest.title}</strong><small>{quest.subtitle}</small></span><span className="daily-reward">+{quest.xp} XP</span><span className="alternate-status">{quest.status === 'done' ? 'ĐÃ XONG' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span></button>)}</div></section>
+            <section className="alternate-panel"><div className="section-heading"><div><p className="section-kicker">CHAPTER SELECT</p><h2>Chọn chặng tiếp theo</h2><p className="section-description">Nhấn vào nhiệm vụ đang mở hoặc đã hoàn thành để xem chi tiết.</p></div></div><div className="alternate-quests">{quests.map((quest) => <button type="button" key={quest.id} className="alternate-quest" onClick={() => startQuest(quest)}><span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span><span className="alternate-quest-copy"><strong>{quest.title}</strong><small>{quest.subtitle}</small></span><span className="daily-reward">Tối đa +{quest.xp} XP</span><span className="alternate-status">{quest.status === 'done' ? 'ĐÃ XONG' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span></button>)}</div></section>
           )}
           {activeNav === 'practice' && <section className="alternate-panel"><p className="section-kicker">PRACTICE HUB</p><h2>Chọn cách bạn muốn luyện tập</h2><div className="practice-grid"><button type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}><span>✧</span><strong>Luyện tập nhanh</strong><small>Ôn lại kiến thức trong vài phút</small></button><button type="button" onClick={() => setNotice('Chế độ thử thách sẽ được phát triển ở P2 — Learning Core.')}><span>⚡</span><strong>Thử thách kiến thức</strong><small>Kiểm tra mức độ ghi nhớ</small></button><button type="button" onClick={() => setNotice('Lịch sử học tập sẽ được kết nối với dữ liệu thực ở giai đoạn backend.')}><span>◷</span><strong>Lịch sử học tập</strong><small>Theo dõi những gì bạn đã học</small></button></div></section>}
           {activeNav === 'achievements' && <section className="alternate-panel"><p className="section-kicker">YOUR COLLECTION · P4.1</p><div className="achievement-heading"><div><h2>Thành tựu của nhà thám hiểm</h2><p className="section-description">Thành tựu được mở khóa tự động theo tiến độ quiz đã lưu; không có nút nhận thưởng nên không thể cộng XP trùng.</p></div><span className="achievement-counter">{unlockedAchievementCount}/{achievements.length} ĐÃ MỞ</span></div><div className="achievement-grid">{achievements.map((achievement) => <article key={achievement.id} className={`achievement-card ${achievement.unlocked ? 'achievement-unlocked' : 'achievement-locked'}`} aria-label={`${achievement.title}: ${achievement.unlocked ? 'đã mở khóa' : 'chưa mở khóa'}`}><span aria-hidden="true">{achievement.unlocked ? achievement.icon : '◇'}</span><strong>{achievement.title}</strong><small>{achievement.description}</small><div className="achievement-progress"><span>{achievement.progress}</span><span className={achievement.unlocked ? 'achievement-state is-unlocked' : 'achievement-state'}>{achievement.unlocked ? '✓ ĐÃ MỞ KHÓA' : 'ĐANG TIẾN TỚI'}</span></div></article>)}</div></section>}

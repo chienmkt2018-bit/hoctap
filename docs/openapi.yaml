@@ -290,13 +290,14 @@ components:
         selectedOptionId: { type: string, enum: ['0', '1', '2'] }
     QuizAttemptResult:
       type: object
-      required: [attemptId, correctCount, totalQuestions, percentage, xpAwarded, totalXp, replayed]
+      required: [attemptId, correctCount, totalQuestions, percentage, xpAwarded, bonusXpAwarded, totalXp, replayed]
       properties:
         attemptId: { type: string }
         correctCount: { type: integer, minimum: 0, maximum: 3 }
         totalQuestions: { type: integer, const: 3 }
         percentage: { type: integer, minimum: 0, maximum: 100 }
         xpAwarded: { type: integer, minimum: 0 }
+        bonusXpAwarded: { type: integer, minimum: 0 }
         totalXp: { type: integer, minimum: 0 }
         replayed: { type: boolean }
     ErrorResponse:

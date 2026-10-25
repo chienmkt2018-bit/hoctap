@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { readAccessToken, submitQuizAttempt } from './auth';
+import { calculateDisplayQuizXp, type QuizDifficulty } from './xp';
 
 type Question = {
   prompt: string;
@@ -16,13 +17,14 @@ export type QuizResult = {
   percentage: number;
   calculatedXp: number;
   serverAwardedXp?: number;
+  serverBonusXpAwarded?: number;
   serverTotalXp?: number;
 };
 
 type Props = {
   lessonId: number;
   lessonTitle: string;
-  lessonXp: number;
+  isFirstValidCompletion: boolean;
   onBack: () => void;
   onQuizComplete: (result: QuizResult) => number;
 };
@@ -56,7 +58,7 @@ const fallbackQuestions: Question[] = [
   { prompt: 'Sau khi trả lời một câu hỏi, cách nào giúp tiến bộ?', options: ['Không xem phản hồi', 'Luôn giữ nguyên suy đoán', 'Đọc giải thích và rút kinh nghiệm'], answer: 2, explanation: 'Phản hồi cho biết lý do đúng hoặc sai, giúp điều chỉnh cách hiểu trước câu tiếp theo.' },
 ];
 
-export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQuizComplete }: Props) {
+export default function QuizPanel({ lessonId, lessonTitle, isFirstValidCompletion, onBack, onQuizComplete }: Props) {
   const questions = questionBank[lessonId] ?? fallbackQuestions;
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -86,7 +88,8 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
     setIsSubmitting(true);
     setSubmitError('');
     const percentage = Math.round((correctCount / questions.length) * 100);
-    const calculatedXp = Math.round((lessonXp * correctCount) / questions.length);
+    const difficulty: QuizDifficulty = [4, 8].includes(lessonId) ? 'hard' : [3, 6].includes(lessonId) ? 'medium' : 'easy';
+    const calculatedXp = calculateDisplayQuizXp(difficulty, percentage, isFirstValidCompletion);
     const localResult: QuizResult = { lessonId, lessonTitle, correctCount, totalQuestions: questions.length, percentage, calculatedXp };
 
     try {
@@ -108,8 +111,9 @@ export default function QuizPanel({ lessonId, lessonTitle, lessonXp, onBack, onQ
           ...localResult,
           correctCount: serverResult.correctCount,
           percentage: serverResult.percentage,
-          calculatedXp: Math.round((lessonXp * serverResult.correctCount) / serverResult.totalQuestions),
+          calculatedXp: calculateDisplayQuizXp(difficulty, serverResult.percentage, isFirstValidCompletion),
           serverAwardedXp: serverResult.replayed ? 0 : serverResult.xpAwarded,
+          serverBonusXpAwarded: serverResult.replayed ? 0 : serverResult.bonusXpAwarded,
           serverTotalXp: serverResult.totalXp,
         });
         setAwardedXp(awarded);

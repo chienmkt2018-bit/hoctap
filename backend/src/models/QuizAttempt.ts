@@ -13,6 +13,7 @@ const quizAttemptSchema = new mongoose.Schema({
   percentage: { type: Number, required: true, min: 0, max: 100 },
   calculatedXp: { type: Number, required: true, min: 0 },
   xpAwarded: { type: Number, required: true, min: 0 },
+  bonusXpAwarded: { type: Number, required: true, default: 0, min: 0 },
   totalXpAfter: { type: Number, required: true, min: 0 },
 }, {
   timestamps: true,

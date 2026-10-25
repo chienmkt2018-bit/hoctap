@@ -53,7 +53,21 @@ jobs:
           node-version: 22
       - name: Install backend dependencies
         run: npm install
-      - name: Run backend unit tests
+      - name: Start isolated MongoDB replica set
+        run: |
+          docker run -d --name mongo-test -p 27017:27017 mongo:7 --replSet rs0 --bind_ip_all
+          for attempt in $(seq 1 30); do
+            if docker exec mongo-test mongosh --quiet --eval 'db.adminCommand({ping:1}).ok' | grep -q 1; then break; fi
+            sleep 2
+          done
+          docker exec mongo-test mongosh --quiet --eval 'rs.initiate({_id:"rs0",members:[{_id:0,host:"localhost:27017"}]})'
+          for attempt in $(seq 1 30); do
+            if docker exec mongo-test mongosh --quiet --eval 'rs.status().ok' | grep -q 1; then break; fi
+            sleep 2
+          done
+      - name: Run backend unit and integration tests
+        env:
+          MONGODB_TEST_URI: mongodb://localhost:27017/hoctap_xp_test?replicaSet=rs0
         run: npm test
       - name: Validate OpenAPI contract
         run: npx --yes @redocly/cli lint ../docs/openapi.yaml --extends=minimal
