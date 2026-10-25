@@ -399,8 +399,10 @@ function App() {
 
   const completedCount = quests.filter((quest) => quest.status === 'done').length;
   const xp = serverTotalXp ?? earnedQuizXp;
-  const level = 1 + Math.floor(xp / 1000);
-  const levelProgress = xp % 1000;
+  const levelState = getLevelProgress(xp);
+  const level = levelState.level;
+  const levelProgress = levelState.xpIntoCurrentLevel;
+  const levelXpRequired = levelState.xpForNextLevel;
 
   const activeTitle = navigation.find((item) => item.id === activeNav)?.label ?? 'Tổng quan';
   const supportedLessonIds = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -551,7 +553,7 @@ function App() {
             </div>
             <div className="level-card">
               <div className="level-orb"><span>{String(level).padStart(2, '0')}</span><small>LVL</small></div>
-              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="level-progress-row"><div className="progress-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={1000} aria-valuenow={levelProgress}><span style={{ width: `${levelProgress / 10}%` }} /></div><strong className="level-progress-percent">{Math.round(levelProgress / 10)}%</strong></div><small>{levelProgress.toLocaleString('vi-VN')} / 1.000 XP đến cấp {level + 1}</small></div>
+              <div className="level-details"><span className="level-label">CẤP ĐỘ HIỆN TẠI</span><strong>{level >= 4 ? 'Người chinh phục' : 'Người khai phá'}</strong><div className="level-progress-row"><div className="progress-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={levelXpRequired} aria-valuenow={levelProgress}><span style={{ width: `${levelProgress / levelXpRequired * 100}%` }} /></div><strong className="level-progress-percent">{Math.round(levelProgress / levelXpRequired * 100)}%</strong></div><small>{levelProgress.toLocaleString('vi-VN')} / {levelXpRequired.toLocaleString('vi-VN')} XP đến cấp {level + 1}</small></div>
             </div>
           </div>
 
