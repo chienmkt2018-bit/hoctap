@@ -1,15 +1,25 @@
 name: Playwright read-only staging E2E
 
 on:
+  # Run on application/workflow changes in the isolated test branch or staging branch.
   push:
     branches:
       - "test/playwright-readonly-staging"
+      - "staging"
     paths:
       - ".github/workflows/playwright-staging-readonly.yml"
+      - "frontend/**"
+      - "backend/**"
+  # Validate changes proposed for main, not just changes to this workflow file.
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/playwright-staging-readonly.yml"
+      - "frontend/**"
+      - "backend/**"
+  # Daily smoke check; GitHub schedules run from the default branch after merge.
+  schedule:
+    - cron: "17 2 * * *"
   workflow_dispatch:
 
 permissions:
