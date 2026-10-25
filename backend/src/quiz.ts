@@ -6,6 +6,7 @@ import { getDatabaseStatus } from './database.js';
 import { requireAuthentication } from './auth.js';
 import { DEFAULT_TIME_ZONE, getLearningDate } from './learningDate.js';
 import { UserModel } from './models/User.js';
+import { calculateQuizXp, type QuizDifficulty } from './xp.js';
 
 const router = Router();
 
@@ -23,9 +24,10 @@ const quizAnswerIndexes: Record<number, number[]> = {
   8: [0, 1, 2],
 };
 
-const lessonXp: Record<number, number> = {
-  1: 30, 2: 40, 3: 50, 4: 100,
-  5: 35, 6: 55, 7: 40, 8: 75,
+// Keep difficulty aligned with the lesson catalog; score and XP are still computed server-side.
+const lessonDifficulty: Record<number, QuizDifficulty> = {
+  1: 'easy', 2: 'easy', 3: 'medium', 4: 'hard',
+  5: 'easy', 6: 'medium', 7: 'easy', 8: 'hard',
 };
 
 type AttemptResult = {
@@ -114,7 +116,7 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
 
     const lessonId = Number(request.params.quizId);
     const correctIndexes = quizAnswerIndexes[lessonId];
-    if (!Number.isSafeInteger(lessonId) || !correctIndexes || !lessonXp[lessonId]) {
+    if (!Number.isSafeInteger(lessonId) || !correctIndexes || !lessonDifficulty[lessonId]) {
       response.status(404).json({
         error: { code: 'QUIZ_NOT_FOUND', message: 'This quiz is not available.' },
       });
@@ -158,7 +160,6 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
     }, 0);
     const totalQuestions = correctIndexes.length;
     const percentage = Math.round((correctCount / totalQuestions) * 100);
-    const calculatedXp = Math.round((lessonXp[lessonId] * correctCount) / totalQuestions);
     const resultHolder: { value: AttemptResult | null } = { value: null };
     const conflictHolder = { value: false };
 
@@ -186,6 +187,7 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
 
       const lessonKey = String(lessonId);
       const previousBest = progress.bestXpByLesson.get(lessonKey) ?? 0;
+      const calculatedXp = calculateQuizXp(lessonDifficulty[lessonId], percentage, previousBest === 0);
       const xpAwarded = Math.max(0, calculatedXp - previousBest);
       progress.totalXp += xpAwarded;
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
