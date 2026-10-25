@@ -1,3 +1,6 @@
+import type { ClientSession } from 'mongoose';
+import { RewardLedgerModel } from './models/RewardLedger.js';
+
 export type RewardSourceType = 'streak' | 'chapter' | 'daily_quest';
 
 export type RewardCandidate = {
@@ -78,4 +81,31 @@ export function getRewardCandidates(
   }
 
   return rewards;
+}
+
+/** Write eligible bonus events in the caller's MongoDB transaction. */
+export async function grantRewardsOnce(
+  learnerId: string,
+  progress: RewardProgressSnapshot,
+  learningDate: string,
+  session: ClientSession,
+): Promise<number> {
+  let awardedXp = 0;
+  for (const reward of getRewardCandidates(progress, learningDate)) {
+    const existing = await RewardLedgerModel.findOne({
+      learnerId,
+      idempotencyKey: reward.idempotencyKey,
+    }).session(session);
+    if (existing) continue;
+
+    await RewardLedgerModel.create([{
+      learnerId,
+      sourceType: reward.sourceType,
+      sourceId: reward.sourceId,
+      idempotencyKey: reward.idempotencyKey,
+      xpAmount: reward.xpAmount,
+    }], { session });
+    awardedXp += reward.xpAmount;
+  }
+  return awardedXp;
 }
