@@ -118,6 +118,8 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       databaseUnavailable(response);
       return;
     }
+    // Explicitly wait for MongoDB to create the ledger's unique indexes before granting rewards.
+    await RewardLedgerModel.init();
 
     const lessonId = Number(request.params.quizId);
     const correctIndexes = quizAnswerIndexes[lessonId];
