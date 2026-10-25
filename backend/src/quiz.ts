@@ -7,6 +7,8 @@ import { requireAuthentication } from './auth.js';
 import { DEFAULT_TIME_ZONE, getLearningDate } from './learningDate.js';
 import { UserModel } from './models/User.js';
 import { calculateQuizXp, type QuizDifficulty } from './xp.js';
+import { RewardLedgerModel } from './models/RewardLedger.js';
+import { getRewardCandidates } from './rewards.js';
 
 const router = Router();
 
@@ -36,6 +38,7 @@ type AttemptResult = {
   totalQuestions: number;
   percentage: number;
   xpAwarded: number;
+  bonusXpAwarded: number;
   totalXp: number;
   replayed: boolean;
 };
@@ -47,6 +50,7 @@ type StoredAttempt = {
   totalQuestions: number;
   percentage: number;
   xpAwarded: number;
+  bonusXpAwarded?: number;
   totalXpAfter: number;
 };
 
@@ -57,6 +61,7 @@ function resultFromAttempt(attempt: StoredAttempt, replayed: boolean): AttemptRe
     totalQuestions: attempt.totalQuestions,
     percentage: attempt.percentage,
     xpAwarded: attempt.xpAwarded,
+    bonusXpAwarded: attempt.bonusXpAwarded ?? 0,
     totalXp: attempt.totalXpAfter,
     replayed,
   };
@@ -188,8 +193,8 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       const lessonKey = String(lessonId);
       const previousBest = progress.bestXpByLesson.get(lessonKey) ?? 0;
       const calculatedXp = calculateQuizXp(lessonDifficulty[lessonId], percentage, previousBest === 0);
-      const xpAwarded = Math.max(0, calculatedXp - previousBest);
-      progress.totalXp += xpAwarded;
+      const quizXpAwarded = Math.max(0, calculatedXp - previousBest);
+      progress.totalXp += quizXpAwarded;
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
       progress.completedLessonIds = [...new Set([...progress.completedLessonIds, lessonId])];
       progress.learningDates = [...new Set([...(progress.learningDates ?? []), learningDate])].sort();
@@ -203,6 +208,31 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
           ? [...new Set([...currentDailyActivity.highScoreLessonIds, lessonId])]
           : [...new Set(currentDailyActivity.highScoreLessonIds)],
       };
+
+      let bonusXpAwarded = 0;
+      const rewardCandidates = getRewardCandidates({
+        learningDates: progress.learningDates,
+        completedLessonIds: progress.completedLessonIds,
+        dailyActivity: progress.dailyActivity,
+      }, learningDate);
+      for (const reward of rewardCandidates) {
+        const alreadyGranted = await RewardLedgerModel.findOne({
+          learnerId,
+          idempotencyKey: reward.idempotencyKey,
+        }).session(session);
+        if (alreadyGranted) continue;
+
+        await RewardLedgerModel.create([{
+          learnerId,
+          sourceType: reward.sourceType,
+          sourceId: reward.sourceId,
+          idempotencyKey: reward.idempotencyKey,
+          xpAmount: reward.xpAmount,
+        }], { session });
+        bonusXpAwarded += reward.xpAmount;
+      }
+
+      progress.totalXp += bonusXpAwarded;
       await progress.save({ session });
 
       const [attempt] = await QuizAttemptModel.create([{
@@ -214,7 +244,8 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
         totalQuestions,
         percentage,
         calculatedXp,
-        xpAwarded,
+        xpAwarded: quizXpAwarded + bonusXpAwarded,
+        bonusXpAwarded,
         totalXpAfter: progress.totalXp,
       }], { session });
       if (!attempt) throw new Error('Could not save quiz attempt.');
