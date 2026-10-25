@@ -69,7 +69,7 @@ export default function LessonLibrary({ onNotice, onQuizComplete, completedLesso
         <div><p className="section-kicker">LEARNING LIBRARY · P2.1</p><h2>{quizStarted ? 'Đang luyện tập' : selectedLesson ? 'Chi tiết bài học' : 'Khám phá bài học'}</h2><p className="section-description">{quizStarted ? 'Trả lời từng câu, kiểm tra và đọc giải thích trước khi tiếp tục.' : selectedLesson ? 'Xem mục tiêu và nội dung dự kiến trước khi bắt đầu.' : 'Chọn chủ đề, cấp độ và trạng thái phù hợp với hành trình của bạn.'}</p></div>
         {selectedLesson && <button className="text-button" type="button" onClick={() => { if (quizStarted) setQuizStarted(false); else setSelectedId(null); }}>← {quizStarted ? 'Quay lại chi tiết bài học' : 'Quay lại danh sách'}</button>}
       </div>
-      {quizStarted && selectedLesson ? <QuizPanel lessonId={selectedLesson.id} lessonTitle={selectedLesson.title} lessonXp={selectedLesson.xp} onBack={() => setQuizStarted(false)} onQuizComplete={onQuizComplete} /> : !selectedLesson ? <>
+      {quizStarted && selectedLesson ? <QuizPanel lessonId={selectedLesson.id} lessonTitle={selectedLesson.title} isFirstValidCompletion={!completedLessonIds.includes(selectedLesson.id)} onBack={() => setQuizStarted(false)} onQuizComplete={onQuizComplete} /> : !selectedLesson ? <>
         <div className="lesson-summary-grid">
           <article><span className="lesson-summary-icon">▤</span><span><strong>{lessons.length}</strong><small>Tổng bài học mẫu</small></span></article>
           <article><span className="lesson-summary-icon">◈</span><span><strong>{availableCount}</strong><small>Có thể bắt đầu</small></span></article>
