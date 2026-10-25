@@ -7,6 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import mongoose from 'mongoose';
 import test from 'node:test';
+import { request as playwrightRequest, type APIRequestContext } from 'playwright';
+import { QuizAttemptModel } from '../src/models/QuizAttempt.js';
+import { UserModel } from '../src/models/User.js';
 
 const configuredTestUri = process.env.MONGODB_TEST_URI;
 const enabled = Boolean(configuredTestUri);
@@ -44,23 +47,24 @@ type ApiResponse = {
 };
 
 async function requestJson(
+  api: APIRequestContext,
   baseUrl: string,
   path: string,
   options: { method?: string; token?: string; body?: unknown } = {},
 ): Promise<ApiResponse> {
-  const response = await fetch(new URL(path, baseUrl), {
+  const response = await api.fetch(new URL(path, baseUrl).toString(), {
     method: options.method ?? 'GET',
     headers: {
-      ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
       ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
     },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    ...(options.body === undefined ? {} : { data: options.body }),
   });
   return { status: response.status, body: await response.json() as Record<string, any> };
 }
 
 async function waitForApi(
   child: ChildProcess,
+  api: APIRequestContext,
   baseUrl: string,
   output: () => string,
 ): Promise<void> {
@@ -69,7 +73,7 @@ async function waitForApi(
       throw new Error(`Test API process exited before becoming ready. Output: ${output().slice(-3000)}`);
     }
     try {
-      const health = await requestJson(baseUrl, '/api/v1/health');
+      const health = await requestJson(api, baseUrl, '/api/v1/health');
       if (health.status === 200 && health.body.database === 'connected') return;
     } catch {
       // The local server may not have bound its port yet.
@@ -120,11 +124,12 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
   });
 
   let processOutput = '';
+  const api = await playwrightRequest.newContext();
   child.stdout?.on('data', (chunk: Buffer) => { processOutput += chunk.toString(); });
   child.stderr?.on('data', (chunk: Buffer) => { processOutput += chunk.toString(); });
 
   try {
-    await waitForApi(child, baseUrl, () => processOutput);
+    await waitForApi(child, api, baseUrl, () => processOutput);
 
     const attemptId = `quiz-test-${randomUUID()}`;
     const validAnswers = [
@@ -133,16 +138,17 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
       { questionId: 'q3', selectedOptionId: '2' },
     ];
 
-    const unauthenticated = await requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
+    const unauthenticated = await requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
       method: 'POST',
       body: { attemptId, answers: validAnswers },
     });
     assert.equal(unauthenticated.status, 401, 'Quiz attempts must require authentication.');
 
-    const registered = await requestJson(baseUrl, '/api/v1/auth/register', {
+    const registeredEmail = `quiz-api-${randomUUID()}@example.test`;
+    const registered = await requestJson(api, baseUrl, '/api/v1/auth/register', {
       method: 'POST',
       body: {
-        email: `quiz-api-${randomUUID()}@example.test`,
+        email: registeredEmail,
         password: 'OnlyForTests_12345',
         timezone: 'Asia/Ho_Chi_Minh',
       },
@@ -151,14 +157,14 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     assert.equal(typeof registered.body.token, 'string');
     const token = registered.body.token as string;
 
-    const forgedScore = await requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
+    const forgedScore = await requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
       method: 'POST',
       token,
       body: { attemptId: `forged-${randomUUID()}`, answers: validAnswers, xp: 99999, score: 100 },
     });
     assert.equal(forgedScore.status, 400, 'Client-supplied XP/score fields must not be accepted.');
 
-    const first = await requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
+    const first = await requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
       method: 'POST',
       token,
       body: { attemptId, answers: validAnswers },
@@ -171,7 +177,7 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     assert.equal(first.body.totalXp, 18);
     assert.equal(first.body.replayed, false);
 
-    const replay = await requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
+    const replay = await requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
       method: 'POST',
       token,
       body: { attemptId, answers: validAnswers },
@@ -181,7 +187,7 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     assert.equal(replay.body.xpAwarded, first.body.xpAwarded);
     assert.equal(replay.body.totalXp, first.body.totalXp);
 
-    const changedPayload = await requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
+    const changedPayload = await requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
       method: 'POST',
       token,
       body: {
@@ -197,30 +203,45 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     assert.equal(changedPayload.body.error?.code, 'IDEMPOTENCY_KEY_REUSED');
 
     const concurrentAttemptId = `quiz-race-${randomUUID()}`;
-    const concurrentResults = await Promise.all([
-      requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
-        method: 'POST', token, body: { attemptId: concurrentAttemptId, answers: validAnswers },
-      }),
-      requestJson(baseUrl, '/api/v1/quizzes/1/attempts', {
-        method: 'POST', token, body: { attemptId: concurrentAttemptId, answers: validAnswers },
-      }),
-    ]);
+    const concurrentRequestCount = 10;
+    const concurrentResults = await Promise.all(
+      Array.from({ length: concurrentRequestCount }, () =>
+        requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
+          method: 'POST', token, body: { attemptId: concurrentAttemptId, answers: validAnswers },
+        }),
+      ),
+    );
     assert.deepEqual(
       concurrentResults.map((result) => result.status).sort((a, b) => a - b),
-      [200, 201],
-      'Concurrent retries should create one attempt and replay the same result once.',
+      [...Array(concurrentRequestCount - 1).fill(200), 201],
+      'Ten concurrent retries should create one attempt and replay the same result for the other nine.',
     );
     assert.equal(concurrentResults.filter((result) => result.body.replayed === false).length, 1);
-    assert.equal(concurrentResults.filter((result) => result.body.replayed === true).length, 1);
+    assert.equal(concurrentResults.filter((result) => result.body.replayed === true).length, concurrentRequestCount - 1);
     assert.ok(concurrentResults.every((result) => result.body.totalXp === 18));
 
-    const progress = await requestJson(baseUrl, '/api/v1/progress', { token });
+    const progress = await requestJson(api, baseUrl, '/api/v1/progress', { token });
     assert.equal(progress.status, 200);
     assert.equal(progress.body.progress.totalXp, 18, 'Retries must not add XP twice.');
     assert.deepEqual(progress.body.progress.completedLessonIds, [1]);
     assert.equal(progress.body.progress.bestXpByLesson['1'], 18);
+
+    // Verify the database invariant directly: one attempt record for this learner/key.
+    await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
+    try {
+      const testUser = await UserModel.findOne({ email: registeredEmail }).select('_id');
+      assert.ok(testUser, 'The isolated test account should exist in the test database.');
+      const attemptCount = await QuizAttemptModel.countDocuments({
+        learnerId: String(testUser._id),
+        idempotencyKey: concurrentAttemptId,
+      });
+      assert.equal(attemptCount, 1, 'Concurrent retries must persist exactly one quiz attempt.');
+    } finally {
+      await mongoose.disconnect();
+    }
   } finally {
     await stopApi(child);
+    await api.dispose();
     await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
     try {
       await mongoose.connection.db!.dropDatabase();
