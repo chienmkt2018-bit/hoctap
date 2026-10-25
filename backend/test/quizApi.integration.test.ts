@@ -60,7 +60,7 @@ async function requestJson(
         ...(options.body === undefined ? {} : { data: options.body }),
       })
     : await api.get(url, { headers });
-  return { status: response.status, body: await response.json() as Record<string, any> };
+  return { status: response.status(), body: await response.json() as Record<string, any> };
 }
 
 async function waitForApi(
