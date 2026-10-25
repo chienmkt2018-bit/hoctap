@@ -124,15 +124,64 @@ jobs:
                   `title="${title.slice(0, 100)}", visibleTextLength=${bodyText.length}`
                 );
 
-                const links = page.locator('a:visible');
-                const linkCount = await links.count();
+                const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
+                const lessonNav = nav.getByRole('button', { name: 'Bài học', exact: true });
+                const navCount = await nav.getByRole('button').count();
                 record(
-                  'STG-UI-03 navigation/link controls render',
-                  linkCount > 0,
-                  `visible links=${linkCount}; no links were clicked`
+                  'STG-UI-03 primary navigation renders',
+                  navCount > 0 && await lessonNav.isVisible().catch(() => false),
+                  `visible navigation buttons=${navCount}; lesson navigation visible=${await lessonNav.isVisible().catch(() => false)}`
                 );
 
                 await page.screenshot({ path: 'artifacts/staging-home.png', fullPage: true });
+
+                // Read-only interaction checks: no quiz answers, submissions, or account actions.
+                let lessonsOpened = false;
+                try {
+                  await lessonNav.click();
+                  const library = page.getByRole('region', { name: 'Thư viện bài học' });
+                  await library.waitFor({ state: 'visible', timeout: 10000 });
+                  const lessonHeading = library.getByRole('heading', { name: 'Khám phá bài học', exact: true });
+                  await lessonHeading.waitFor({ state: 'visible', timeout: 10000 });
+                  const firstAvailableCard = library.locator('.lesson-card-available').filter({ has: page.getByRole('heading', { name: 'Khởi động tư duy', exact: true }) }).first();
+                  const detailButton = firstAvailableCard.getByRole('button', { name: /Xem chi tiết/ });
+                  await detailButton.click();
+                  await library.getByRole('heading', { name: 'Chi tiết bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  await library.getByRole('heading', { name: 'Khởi động tư duy', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  lessonsOpened = true;
+                  record(
+                    'STG-LESSON-01 navigate and open available lesson',
+                    true,
+                    'Clicked Bài học; lesson library and Khởi động tư duy detail rendered; quiz was not started'
+                  );
+                  await library.getByRole('button', { name: /Quay lại danh sách/ }).click();
+                  await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                } catch (error) {
+                  record('STG-LESSON-01 navigate and open available lesson', false, String(error).slice(0, 1000));
+                }
+
+                if (lessonsOpened) {
+                  try {
+                    const library = page.getByRole('region', { name: 'Thư viện bài học' });
+                    const lockedCard = library.locator('.lesson-card-locked').filter({ has: page.getByRole('heading', { name: 'Thử thách nhanh', exact: true }) }).first();
+                    const lockedButton = lockedCard.getByRole('button', { name: /Đang khóa/ });
+                    const lockedCardVisible = await lockedCard.isVisible();
+                    const lockedButtonVisible = await lockedButton.isVisible();
+                    await lockedButton.click();
+                    const lockNotice = page.getByRole('status').filter({ hasText: 'Bài học này đang khóa' });
+                    await lockNotice.waitFor({ state: 'visible', timeout: 5000 });
+                    const detailStillClosed = await library.getByRole('heading', { name: 'Chi tiết bài học', exact: true }).count() === 0;
+                    record(
+                      'STG-LESSON-02 locked lesson remains inaccessible',
+                      lockedCardVisible && lockedButtonVisible && detailStillClosed,
+                      `locked card visible=${lockedCardVisible}; locked action visible=${lockedButtonVisible}; detail remained closed=${detailStillClosed}; lock notice shown=true`
+                    );
+                  } catch (error) {
+                    record('STG-LESSON-02 locked lesson remains inaccessible', false, String(error).slice(0, 1000));
+                  }
+                } else {
+                  record('STG-LESSON-02 locked lesson remains inaccessible', false, 'Skipped because lesson navigation/detail test did not pass');
+                }
               } catch (error) {
                 record('STG-UI-02/03 page content and navigation', false, String(error));
               }
