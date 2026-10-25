@@ -191,8 +191,9 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       if (!progress) throw new Error('Could not initialize learner progress.');
 
       const lessonKey = String(lessonId);
+      const isFirstValidCompletion = !progress.completedLessonIds.includes(lessonId);
       const previousBest = progress.bestXpByLesson.get(lessonKey) ?? 0;
-      const calculatedXp = calculateQuizXp(lessonDifficulty[lessonId], percentage, previousBest === 0);
+      const calculatedXp = calculateQuizXp(lessonDifficulty[lessonId], percentage, isFirstValidCompletion);
       const quizXpAwarded = Math.max(0, calculatedXp - previousBest);
       progress.totalXp += quizXpAwarded;
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
