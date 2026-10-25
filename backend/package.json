@@ -25,6 +25,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.15.30",
     "tsx": "^4.20.3",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "playwright": "^1.56.1"
   }
 }
