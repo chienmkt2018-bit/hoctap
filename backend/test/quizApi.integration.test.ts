@@ -52,13 +52,14 @@ async function requestJson(
   path: string,
   options: { method?: string; token?: string; body?: unknown } = {},
 ): Promise<ApiResponse> {
-  const response = await api.fetch(new URL(path, baseUrl).toString(), {
-    method: options.method ?? 'GET',
-    headers: {
-      ...(options.token ? { authorization: `Bearer ${options.token}` } : {}),
-    },
-    ...(options.body === undefined ? {} : { data: options.body }),
-  });
+  const url = new URL(path, baseUrl).toString();
+  const headers = options.token ? { authorization: `Bearer ${options.token}` } : {};
+  const response = options.method === 'POST'
+    ? await api.post(url, {
+        headers,
+        ...(options.body === undefined ? {} : { data: options.body }),
+      })
+    : await api.get(url, { headers });
   return { status: response.status, body: await response.json() as Record<string, any> };
 }
 
@@ -68,19 +69,21 @@ async function waitForApi(
   baseUrl: string,
   output: () => string,
 ): Promise<void> {
+  let lastHealth = 'No response received yet.';
   for (let attempt = 0; attempt < 75; attempt += 1) {
     if (child.exitCode !== null) {
-      throw new Error(`Test API process exited before becoming ready. Output: ${output().slice(-3000)}`);
+      throw new Error(`Test API process exited before becoming ready. Health: ${lastHealth}. Output: ${output().slice(-3000)}`);
     }
     try {
       const health = await requestJson(api, baseUrl, '/api/v1/health');
+      lastHealth = `HTTP ${health.status}, database=${String(health.body.database)}`;
       if (health.status === 200 && health.body.database === 'connected') return;
-    } catch {
-      // The local server may not have bound its port yet.
+    } catch (error) {
+      lastHealth = error instanceof Error ? error.message : String(error);
     }
     await delay(200);
   }
-  throw new Error(`Test API did not become ready with the isolated database. Output: ${output().slice(-3000)}`);
+  throw new Error(`Test API did not become ready with the isolated database. Last health check: ${lastHealth}. Output: ${output().slice(-3000)}`);
 }
 
 async function stopApi(child: ChildProcess): Promise<void> {
