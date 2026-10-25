@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { after, before, test } from 'node:test';
 import { ProgressModel } from '../src/models/Progress.js';
 import { RewardLedgerModel } from '../src/models/RewardLedger.js';
+import { grantRewardsOnce } from '../src/rewards.js';
 
 const testUri = process.env.MONGODB_TEST_URI;
 const enabled = Boolean(testUri);
@@ -62,4 +63,50 @@ test('transaction rollback does not leave a reward without its progress update',
 
   assert.equal(await ProgressModel.countDocuments({ learnerId }), 0);
   assert.equal(await RewardLedgerModel.countDocuments({ learnerId }), 0);
+});
+
+test('concurrent transactions award the same daily event only once', { skip: !enabled }, async () => {
+  const learnerId = 'concurrent-reward-test-learner';
+  const learningDate = '2026-10-25';
+  await ProgressModel.create([{
+    learnerId,
+    totalXp: 0,
+    learningDates: [learningDate],
+    completedLessonIds: [1, 2],
+    dailyActivity: {
+      date: learningDate,
+      completedLessonIds: [1, 2],
+      highScoreLessonIds: [2],
+    },
+  }]);
+
+  async function grantInTransaction() {
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const progress = await ProgressModel.findOne({ learnerId }).session(session);
+        if (!progress) throw new Error('Progress fixture is missing.');
+        // Touch the same learner document before inserting the unique ledger event.
+        await progress.save({ session });
+        const bonus = await grantRewardsOnce(learnerId, {
+          learningDates: [...progress.learningDates],
+          completedLessonIds: [...progress.completedLessonIds],
+          dailyActivity: progress.dailyActivity ? {
+            date: progress.dailyActivity.date,
+            completedLessonIds: [...progress.dailyActivity.completedLessonIds],
+            highScoreLessonIds: [...progress.dailyActivity.highScoreLessonIds],
+          } : null,
+        }, learningDate, session);
+        progress.totalXp += bonus;
+        await progress.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  await Promise.all([grantInTransaction(), grantInTransaction()]);
+  const progress = await ProgressModel.findOne({ learnerId });
+  assert.equal(progress?.totalXp, 50);
+  assert.equal(await RewardLedgerModel.countDocuments({ learnerId }), 1);
 });
