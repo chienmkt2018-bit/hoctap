@@ -1,0 +1,158 @@
+name: Playwright read-only staging E2E
+
+on:
+  push:
+    branches:
+      - "test/playwright-readonly-staging"
+    paths:
+      - ".github/workflows/playwright-staging-readonly.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/playwright-staging-readonly.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-staging-readonly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staging-readonly-e2e:
+    name: Read-only E2E against staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      STAGING_FRONTEND_URL: https://hoctap-staging-frontend.onrender.com
+      STAGING_API_HEALTH_URL: https://hoctap-staging-api.onrender.com/api/v1/health
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright
+        working-directory: backend
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Run read-only staging checks
+        working-directory: backend
+        run: |
+          mkdir -p artifacts
+          node --input-type=module <<'NODE'
+          import { chromium, request } from 'playwright';
+
+          const results = [];
+          const record = (name, ok, detail) => {
+            results.push({ name, ok, detail });
+            console.log(`${ok ? 'PASS' : 'FAIL'} | ${name} | ${detail}`);
+          };
+
+          const apiUrl = process.env.STAGING_API_HEALTH_URL;
+          const frontendUrl = process.env.STAGING_FRONTEND_URL;
+          let browser;
+
+          try {
+            const api = await request.newContext({ timeout: 20000 });
+            try {
+              const response = await api.get(apiUrl);
+              let body = {};
+              try { body = await response.json(); } catch {}
+              record(
+                'STG-API-01 health endpoint',
+                response.status() === 200 && body.status === 'ok',
+                `HTTP ${response.status()}, status=${String(body.status ?? 'missing')}`
+              );
+            } catch (error) {
+              record('STG-API-01 health endpoint', false, String(error));
+            } finally {
+              await api.dispose();
+            }
+
+            browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
+            const pageErrors = [];
+            const consoleErrors = [];
+            page.on('pageerror', error => pageErrors.push(error.message));
+            page.on('console', message => {
+              if (message.type() === 'error') consoleErrors.push(message.text());
+            });
+
+            let response;
+            try {
+              response = await page.goto(frontendUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+              record(
+                'STG-UI-01 frontend loads',
+                Boolean(response && response.status() >= 200 && response.status() < 400),
+                `HTTP ${response?.status() ?? 'no response'}`
+              );
+            } catch (error) {
+              record('STG-UI-01 frontend loads', false, String(error));
+            }
+
+            if (response && response.status() >= 200 && response.status() < 400) {
+              try {
+                await page.locator('body').waitFor({ state: 'visible', timeout: 10000 });
+                const title = (await page.title()).trim();
+                const bodyText = (await page.locator('body').innerText()).trim();
+                record(
+                  'STG-UI-02 page has title and content',
+                  title.length > 0 && bodyText.length > 30,
+                  `title="${title.slice(0, 100)}", visibleTextLength=${bodyText.length}`
+                );
+
+                const links = page.locator('a:visible');
+                const linkCount = await links.count();
+                record(
+                  'STG-UI-03 navigation/link controls render',
+                  linkCount > 0,
+                  `visible links=${linkCount}; no links were clicked`
+                );
+
+                await page.screenshot({ path: 'artifacts/staging-home.png', fullPage: true });
+              } catch (error) {
+                record('STG-UI-02/03 page content and navigation', false, String(error));
+              }
+            } else {
+              record('STG-UI-02 page has title and content', false, 'Skipped because frontend did not load');
+              record('STG-UI-03 navigation/link controls render', false, 'Skipped because frontend did not load');
+            }
+
+            record(
+              'STG-UI-04 uncaught browser errors',
+              pageErrors.length === 0,
+              pageErrors.length ? pageErrors.join(' | ').slice(0, 1200) : 'No uncaught page errors observed'
+            );
+            record(
+              'STG-UI-05 console errors',
+              consoleErrors.length === 0,
+              consoleErrors.length ? consoleErrors.join(' | ').slice(0, 1200) : 'No console.error messages observed'
+            );
+
+            await page.close();
+          } catch (error) {
+            record('STG-RUN-01 Playwright runner', false, String(error));
+          } finally {
+            if (browser) await browser.close();
+          }
+
+          const failed = results.filter(result => !result.ok);
+          console.log(`\nSummary: ${results.length - failed.length} PASS, ${failed.length} FAIL`);
+          if (failed.length) process.exitCode = 1;
+          NODE
+
+      - name: Upload staging screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-staging-readonly-evidence
+          path: backend/artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
