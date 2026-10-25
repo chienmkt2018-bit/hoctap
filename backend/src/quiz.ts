@@ -8,7 +8,7 @@ import { DEFAULT_TIME_ZONE, getLearningDate } from './learningDate.js';
 import { UserModel } from './models/User.js';
 import { calculateQuizXp, type QuizDifficulty } from './xp.js';
 import { RewardLedgerModel } from './models/RewardLedger.js';
-import { getRewardCandidates } from './rewards.js';
+import { grantRewardsOnce } from './rewards.js';
 
 const router = Router();
 
@@ -214,28 +214,14 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
           : [...new Set(currentDailyActivity.highScoreLessonIds)],
       };
 
-      let bonusXpAwarded = 0;
-      const rewardCandidates = getRewardCandidates({
+      // Write the shared progress document before ledger inserts so competing transactions
+      // conflict on the learner record and retry before attempting the same unique reward key.
+      await progress.save({ session });
+      const bonusXpAwarded = await grantRewardsOnce(learnerId, {
         learningDates: progress.learningDates,
         completedLessonIds: progress.completedLessonIds,
         dailyActivity: progress.dailyActivity,
-      }, learningDate);
-      for (const reward of rewardCandidates) {
-        const alreadyGranted = await RewardLedgerModel.findOne({
-          learnerId,
-          idempotencyKey: reward.idempotencyKey,
-        }).session(session);
-        if (alreadyGranted) continue;
-
-        await RewardLedgerModel.create([{
-          learnerId,
-          sourceType: reward.sourceType,
-          sourceId: reward.sourceId,
-          idempotencyKey: reward.idempotencyKey,
-          xpAmount: reward.xpAmount,
-        }], { session });
-        bonusXpAwarded += reward.xpAmount;
-      }
+      }, learningDate, session);
 
       progress.totalXp += bonusXpAwarded;
       await progress.save({ session });
