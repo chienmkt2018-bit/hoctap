@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:staging": "tsc -b && vite build --mode staging --outDir dist-staging --emptyOutDir",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty"
   },
