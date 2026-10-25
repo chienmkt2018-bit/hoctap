@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import type { InferSchemaType, Model } from 'mongoose';
+import { DEFAULT_TIME_ZONE, isValidTimeZone } from '../learningDate.js';
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -15,6 +16,7 @@ const userSchema = new mongoose.Schema({
     required: true,
     select: false,
   },
+  timezone: { type: String, required: true, default: DEFAULT_TIME_ZONE, validate: { validator: isValidTimeZone, message: 'timezone must be a valid IANA timezone.' } },
 }, {
   timestamps: true,
   versionKey: false,

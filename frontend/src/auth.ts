@@ -1,4 +1,4 @@
-export type AuthUser = { id: string; email: string };
+export type AuthUser = { id: string; email: string; timezone: string };
 
 export type ApiDailyActivity = { date: string; completedLessonIds: number[]; highScoreLessonIds: number[] };
 
@@ -73,7 +73,7 @@ export async function authenticate(
 ): Promise<AuthUser> {
   const result = await request<AuthResponse>(`/api/v1/auth/${mode === 'register' ? 'register' : 'login'}`, {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, ...(mode === 'register' ? { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } : {}) }),
   });
   saveAccessToken(result.token);
   return result.user;
@@ -121,6 +121,6 @@ export async function submitQuizAttempt(
 ): Promise<ServerQuizAttemptResult> {
   return request<ServerQuizAttemptResult>(`/api/v1/quizzes/${quizId}/attempts`, {
     method: 'POST',
-    body: JSON.stringify({ attemptId, answers, timezoneOffsetMinutes: new Date().getTimezoneOffset() }),
+    body: JSON.stringify({ attemptId, answers }),
   }, token);
 }

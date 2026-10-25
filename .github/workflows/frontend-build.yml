@@ -53,6 +53,8 @@ jobs:
           node-version: 22
       - name: Install backend dependencies
         run: npm install
+      - name: Run backend unit tests
+        run: npm test
       - name: Validate OpenAPI contract
         run: npx --yes @redocly/cli lint ../docs/openapi.yaml --extends=minimal
       - name: Type-check and build backend

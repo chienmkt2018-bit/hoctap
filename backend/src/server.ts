@@ -8,6 +8,7 @@ import { ProgressModel } from './models/Progress.js';
 import { QuizAttemptModel } from './models/QuizAttempt.js';
 import { UserModel } from './models/User.js';
 import quizRouter from './quiz.js';
+import { DEFAULT_TIME_ZONE, isValidTimeZone } from './learningDate.js';
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -115,11 +116,11 @@ app.post('/api/v1/auth/register', authRateLimit, async (request, response, next)
     }
 
     const body: unknown = request.body;
-    if (!isRecord(body) || !validEmail(body.email) || !validPassword(body.password)) {
+    if (!isRecord(body) || !validEmail(body.email) || !validPassword(body.password) || (body.timezone !== undefined && !isValidTimeZone(body.timezone))) {
       response.status(400).json({
         error: {
           code: 'INVALID_INPUT',
-          message: 'Provide a valid email and a password of 10–128 characters (maximum 72 UTF-8 bytes).',
+          message: 'Provide a valid email, a password of 10–128 characters (maximum 72 UTF-8 bytes), and a valid IANA timezone if supplied.',
         },
       });
       return;
@@ -128,13 +129,14 @@ app.post('/api/v1/auth/register', authRateLimit, async (request, response, next)
     const email = body.email.trim().toLowerCase();
     const passwordHash = await hashPassword(body.password);
     try {
-      const user = await UserModel.create({ email, passwordHash });
+      const timezone = isValidTimeZone(body.timezone) ? body.timezone : DEFAULT_TIME_ZONE;
+      const user = await UserModel.create({ email, passwordHash, timezone });
       const userId = user.id as string;
       response.status(201).json({
         token: createAccessToken(userId, secret),
         tokenType: 'Bearer',
         expiresIn: 3600,
-        user: { id: userId, email: user.email },
+        user: { id: userId, email: user.email, timezone: user.timezone || DEFAULT_TIME_ZONE },
       });
     } catch (error) {
       if (isRecord(error) && error.code === 11000) {
@@ -183,7 +185,7 @@ app.post('/api/v1/auth/login', authRateLimit, async (request, response, next) =>
       token: createAccessToken(userId, secret),
       tokenType: 'Bearer',
       expiresIn: 3600,
-      user: { id: userId, email: user.email },
+      user: { id: userId, email: user.email, timezone: user.timezone || DEFAULT_TIME_ZONE },
     });
   } catch (error) {
     next(error);
@@ -193,14 +195,14 @@ app.post('/api/v1/auth/login', authRateLimit, async (request, response, next) =>
 app.get('/api/v1/auth/me', requireAuthentication, async (_request, response, next) => {
   try {
     if (getDatabaseStatus() !== 'connected') return databaseUnavailable(response);
-    const user = await UserModel.findById(response.locals.userId).select('email');
+    const user = await UserModel.findById(response.locals.userId).select('email timezone');
     if (!user) {
       response.status(401).json({
         error: { code: 'UNAUTHORIZED', message: 'The account for this token no longer exists.' },
       });
       return;
     }
-    response.status(200).json({ user: { id: user.id, email: user.email } });
+    response.status(200).json({ user: { id: user.id, email: user.email, timezone: user.timezone || DEFAULT_TIME_ZONE } });
   } catch (error) {
     next(error);
   }

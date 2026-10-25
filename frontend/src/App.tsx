@@ -53,8 +53,13 @@ type SavedProgress = {
   learningDates: string[];
 };
 
-function getLocalDateKey(): string {
+function getLocalDateKey(timeZone?: string): string {
   const now = new Date();
+  if (timeZone) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  }
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
@@ -89,9 +94,9 @@ function getDateKey(date: Date): string {
 }
 
 function shiftDateKey(dateKey: string, amount: number): string {
-  const date = new Date(`${dateKey}T12:00:00`);
-  date.setDate(date.getDate() + amount);
-  return getDateKey(date);
+  const date = new Date(`${dateKey}T12:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
 }
 
 function getCurrentLearningStreak(learningDates: string[], today = getLocalDateKey()): number {
@@ -106,15 +111,18 @@ function getCurrentLearningStreak(learningDates: string[], today = getLocalDateK
   return streak;
 }
 
-function getCurrentWeek(learningDates: string[], today = new Date()) {
-  const mondayOffset = (today.getDay() + 6) % 7;
-  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - mondayOffset, 12);
+function getCurrentWeek(learningDates: string[], todayKey = getLocalDateKey()) {
+  const today = new Date(`${todayKey}T12:00:00.000Z`);
+  const mondayOffset = (today.getUTCDay() + 6) % 7;
+  const monday = new Date(today);
+  monday.setUTCDate(monday.getUTCDate() - mondayOffset);
   const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
   const learned = new Set(learningDates);
   return labels.map((label, index) => {
-    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + index, 12);
-    const dateKey = getDateKey(date);
-    return { label, dateKey, learned: learned.has(dateKey), today: dateKey === getDateKey(today) };
+    const date = new Date(monday);
+    date.setUTCDate(date.getUTCDate() + index);
+    const dateKey = date.toISOString().slice(0, 10);
+    return { label, dateKey, learned: learned.has(dateKey), today: dateKey === todayKey };
   });
 }
 
@@ -212,7 +220,7 @@ function deriveQuestsFromCompletedLessons(completedLessons: Record<number, boole
   });
 }
 
-function mergeRemoteProgress(remote: ApiProgress): SavedProgress {
+function mergeRemoteProgress(remote: ApiProgress, timeZone: string): SavedProgress {
   // For signed-in accounts, quiz attempts on the server are the sole source of truth.
   // Do not resurrect stale local completion flags or client-written progress.
   const completedLessons = Object.fromEntries(
@@ -225,7 +233,7 @@ function mergeRemoteProgress(remote: ApiProgress): SavedProgress {
   const learningDates = [...new Set(remote.learningDates ?? [])]
     .filter(isValidDateKey)
     .sort();
-  const today = getLocalDateKey();
+  const today = getLocalDateKey(timeZone);
   const remoteDaily = remote.dailyActivity;
   const dailyActivity = remoteDaily && remoteDaily.date === today && isValidDailyActivity(remoteDaily)
     ? {
@@ -293,10 +301,10 @@ function App() {
     }
   }, [user?.id, quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates]);
 
-  // Roll the daily checklist over when the local date changes while the tab remains open.
+  // Roll the daily checklist over in the saved account timezone, or device-local time for guests.
   useEffect(() => {
     const refreshDailyActivity = () => {
-      const today = getLocalDateKey();
+      const today = getLocalDateKey(user?.timezone);
       setDailyActivity((current) => current.date === today ? current : createDailyActivity(today));
     };
     window.addEventListener('focus', refreshDailyActivity);
@@ -305,7 +313,7 @@ function App() {
       window.removeEventListener('focus', refreshDailyActivity);
       document.removeEventListener('visibilitychange', refreshDailyActivity);
     };
-  }, []);
+  }, [user?.timezone]);
 
   // Restore a session token and load progress from server-verified quiz attempts.
   useEffect(() => {
@@ -319,7 +327,7 @@ function App() {
         if (cancelled) return;
         // Authenticated progress comes only from server-verified quiz attempts.
         // Guest and account-local caches are never used to grant completion.
-        const merged = mergeRemoteProgress(remote);
+        const merged = mergeRemoteProgress(remote, currentUser.timezone);
         setQuests(merged.quests);
         setEarnedQuizXp(merged.earnedQuizXp);
         setServerTotalXp(remote.totalXp);
@@ -353,7 +361,7 @@ function App() {
       if (!token) throw new Error('Không thể lưu phiên đăng nhập trong tab này.');
       const remote = await getRemoteProgress(token);
       // Load only server-verified quiz progress for this account.
-      const merged = mergeRemoteProgress(remote);
+      const merged = mergeRemoteProgress(remote, currentUser.timezone);
       setQuests(merged.quests);
       setEarnedQuizXp(merged.earnedQuizXp);
       setServerTotalXp(remote.totalXp);
@@ -414,26 +422,39 @@ function App() {
     { id: 'high-score', icon: '✧', title: 'Đạt ít nhất 80% chính xác', description: 'Đạt 80% trở lên ở một bài quiz hôm nay.', progress: Math.min(dailyActivity.highScoreLessonIds.length, 1), target: 1 },
   ].map((quest) => ({ ...quest, done: quest.progress >= quest.target }));
   const completedDailyQuestCount = dailyQuests.filter((quest) => quest.done).length;
-  const learningStreak = getCurrentLearningStreak(learningDates);
-  const currentWeek = getCurrentWeek(learningDates);
+  const todayLearningDate = getLocalDateKey(user?.timezone);
+  const learningStreak = getCurrentLearningStreak(learningDates, todayLearningDate);
+  const currentWeek = getCurrentWeek(learningDates, todayLearningDate);
 
   function handleQuizComplete(result: QuizResult): number {
     const updatedCompletedLessons = { ...completedLessons, [result.lessonId]: true };
     setCompletedLessons(updatedCompletedLessons);
     setQuests(deriveQuestsFromCompletedLessons(updatedCompletedLessons));
-    setDailyActivity((current) => {
+    if (user) {
+      // The server is authoritative for account learning dates and daily activity.
+      const token = readAccessToken();
+      if (token) {
+        void getRemoteProgress(token).then((remote) => {
+          const verified = mergeRemoteProgress(remote, user.timezone);
+          setDailyActivity(verified.dailyActivity);
+          setLearningDates(verified.learningDates);
+        }).catch(() => undefined);
+      }
+    } else {
+      // Guest progress has no server record, so use the device's local calendar date.
       const today = getLocalDateKey();
-      const activity = current.date === today ? current : createDailyActivity(today);
-      const completedLessonIds = [...new Set([...activity.completedLessonIds, result.lessonId])];
-      const highScoreLessonIds = result.percentage >= 80
-        ? [...new Set([...activity.highScoreLessonIds, result.lessonId])]
-        : activity.highScoreLessonIds;
-      return { date: today, completedLessonIds, highScoreLessonIds };
-    });
-    // A streak day is earned only by a completed quiz result, never by opening the app.
-    setLearningDates((current) => current.includes(getLocalDateKey())
-      ? current
-      : [...current, getLocalDateKey()].sort());
+      setDailyActivity((current) => {
+        const activity = current.date === today ? current : createDailyActivity(today);
+        const completedLessonIds = [...new Set([...activity.completedLessonIds, result.lessonId])];
+        const highScoreLessonIds = result.percentage >= 80
+          ? [...new Set([...activity.highScoreLessonIds, result.lessonId])]
+          : activity.highScoreLessonIds;
+        return { date: today, completedLessonIds, highScoreLessonIds };
+      });
+      setLearningDates((current) => current.includes(today)
+        ? current
+        : [...current, today].sort());
+    }
     if (result.serverAwardedXp !== undefined) {
       const awarded = result.serverAwardedXp;
       setQuizBestXp((current) => ({
