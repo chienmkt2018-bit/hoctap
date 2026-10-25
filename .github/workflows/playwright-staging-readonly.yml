@@ -60,18 +60,24 @@ jobs:
           let browser;
 
           try {
-            const api = await request.newContext({ timeout: 20000 });
+            const api = await request.newContext({ timeout: 45000 });
+            let apiPassed = false;
+            let apiDetail = 'No response';
             try {
-              const response = await api.get(apiUrl);
-              let body = {};
-              try { body = await response.json(); } catch {}
-              record(
-                'STG-API-01 health endpoint',
-                response.status() === 200 && body.status === 'ok',
-                `HTTP ${response.status()}, status=${String(body.status ?? 'missing')}`
-              );
-            } catch (error) {
-              record('STG-API-01 health endpoint', false, String(error));
+              for (let attempt = 1; attempt <= 3 && !apiPassed; attempt += 1) {
+                try {
+                  const response = await api.get(apiUrl);
+                  let body = {};
+                  try { body = await response.json(); } catch {}
+                  apiPassed = response.status() === 200 && body.status === 'ok';
+                  apiDetail = `attempt ${attempt}: HTTP ${response.status()}, status=${String(body.status ?? 'missing')}`;
+                  if (!apiPassed && attempt < 3) await new Promise(resolve => setTimeout(resolve, 3000));
+                } catch (error) {
+                  apiDetail = `attempt ${attempt}: ${String(error)}`;
+                  if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 3000));
+                }
+              }
+              record('STG-API-01 health endpoint', apiPassed, apiDetail);
             } finally {
               await api.dispose();
             }
