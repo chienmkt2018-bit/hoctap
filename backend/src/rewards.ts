@@ -1,5 +1,3 @@
-import type { QuizDifficulty } from './xp.js';
-
 export type RewardSourceType = 'streak' | 'chapter' | 'daily_quest';
 
 export type RewardCandidate = {
