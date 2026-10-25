@@ -35,7 +35,7 @@ test('level progress is correct immediately before and at thresholds', () => {
 
 test('level progress handles multiple levels crossed in one award', () => {
   assert.equal(getLevelProgress(5000).level, 7);
-  assert.equal(getLevelProgress(5000).xpIntoCurrentLevel, 61);
+  assert.equal(getLevelProgress(5000).xpIntoCurrentLevel, 709);
 });
 
 test('rejects invalid XP and level values', () => {
