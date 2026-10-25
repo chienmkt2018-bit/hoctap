@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - staging
       - "fix/**"
     paths:
       - "frontend/**"
@@ -12,7 +13,7 @@ on:
       - "README.md"
       - ".github/workflows/frontend-build.yml"
   pull_request:
-    branches: [main]
+    branches: [main, staging]
     paths:
       - "frontend/**"
       - "backend/**"
@@ -37,6 +38,8 @@ jobs:
         run: npm install
       - name: Type-check and build frontend
         run: npm run build
+      - name: Build isolated staging frontend
+        run: npm run build:staging
 
   backend:
     name: Backend type-check and build
