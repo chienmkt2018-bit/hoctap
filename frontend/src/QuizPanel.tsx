@@ -17,6 +17,7 @@ export type QuizResult = {
   percentage: number;
   calculatedXp: number;
   serverAwardedXp?: number;
+  serverBonusXpAwarded?: number;
   serverTotalXp?: number;
 };
 
@@ -112,6 +113,7 @@ export default function QuizPanel({ lessonId, lessonTitle, isFirstValidCompletio
           percentage: serverResult.percentage,
           calculatedXp: calculateDisplayQuizXp(difficulty, serverResult.percentage, isFirstValidCompletion),
           serverAwardedXp: serverResult.replayed ? 0 : serverResult.xpAwarded,
+          serverBonusXpAwarded: serverResult.replayed ? 0 : serverResult.bonusXpAwarded,
           serverTotalXp: serverResult.totalXp,
         });
         setAwardedXp(awarded);
