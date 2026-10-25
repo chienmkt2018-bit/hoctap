@@ -109,6 +109,7 @@ export type ServerQuizAttemptResult = {
   totalQuestions: number;
   percentage: number;
   xpAwarded: number;
+  bonusXpAwarded: number;
   totalXp: number;
   replayed: boolean;
 };
