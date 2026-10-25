@@ -193,7 +193,9 @@ router.post('/quizzes/:quizId/attempts', requireAuthentication, async (request, 
       const lessonKey = String(lessonId);
       const isFirstValidCompletion = !progress.completedLessonIds.includes(lessonId);
       const previousBest = progress.bestXpByLesson.get(lessonKey) ?? 0;
-      const calculatedXp = calculateQuizXp(lessonDifficulty[lessonId], percentage, isFirstValidCompletion);
+      const difficulty = lessonDifficulty[lessonId];
+      if (!difficulty) throw new Error('Quiz difficulty configuration is missing.');
+      const calculatedXp = calculateQuizXp(difficulty, percentage, isFirstValidCompletion);
       const quizXpAwarded = Math.max(0, calculatedXp - previousBest);
       progress.totalXp += quizXpAwarded;
       progress.bestXpByLesson.set(lessonKey, Math.max(previousBest, calculatedXp));
