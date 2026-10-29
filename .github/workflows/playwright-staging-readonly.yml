@@ -96,6 +96,17 @@ jobs:
             const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
             const pageErrors = [];
             const consoleErrors = [];
+            const blockedWriteRequests = [];
+            // Guardrail: this workflow must never send a mutating browser request.
+            await page.route('**/*', async route => {
+              const request = route.request();
+              if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
+                blockedWriteRequests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+                await route.abort('blockedbyclient');
+                return;
+              }
+              await route.continue();
+            });
             page.on('pageerror', error => pageErrors.push(error.message));
             page.on('console', message => {
               if (message.type() === 'error') consoleErrors.push(message.text());
@@ -133,6 +144,44 @@ jobs:
                 );
 
                 await page.screenshot({ path: 'artifacts/staging-home.png', fullPage: true });
+
+                // Lesson navigation/lock-state checks use a fresh anonymous browser context.
+                // Never open a quiz, answer a question, or submit learning progress.
+                let lessonPassed = false;
+                let lessonDetail = 'Lesson checks did not complete';
+                try {
+                  await page.getByRole('button', { name: 'Bài học', exact: true }).click();
+                  const library = page.locator('section.lesson-library[aria-label="Thư viện bài học"]');
+                  await library.waitFor({ state: 'visible', timeout: 10000 });
+                  await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+
+                  const firstLesson = library.locator('.lesson-card').filter({ hasText: 'Khởi động tư duy' }).first();
+                  const firstClass = await firstLesson.getAttribute('class');
+                  if (!firstClass?.includes('lesson-card-available')) {
+                    throw new Error(`Expected "Khởi động tư duy" to be available; class=${String(firstClass)}`);
+                  }
+                  await firstLesson.getByRole('button', { name: /Xem chi tiết/ }).click();
+                  await library.getByRole('heading', { name: 'Chi tiết bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  await library.getByRole('heading', { name: 'Khởi động tư duy', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  await page.getByRole('button', { name: /Quay lại danh sách/ }).click();
+                  await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+
+                  const lockedLesson = library.locator('.lesson-card').filter({ hasText: 'Thử thách nhanh' }).first();
+                  const lockedClass = await lockedLesson.getAttribute('class');
+                  if (!lockedClass?.includes('lesson-card-locked')) {
+                    throw new Error(`Expected "Thử thách nhanh" to be locked for a fresh anonymous session; class=${String(lockedClass)}`);
+                  }
+                  await lockedLesson.getByRole('button', { name: 'Đang khóa', exact: true }).click();
+                  await page.getByText('Bài học này đang khóa. Hãy hoàn thành các chặng đang mở trước nhé.', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+
+                  lessonPassed = true;
+                  lessonDetail = 'Navigated to lesson list and detail; first lesson available; locked lesson stayed locked and displayed notice';
+                } catch (error) {
+                  lessonDetail = String(error).slice(0, 1200);
+                }
+                record('STG-UI-06 lesson navigation and lock state', lessonPassed, lessonDetail);
+                await page.screenshot({ path: 'artifacts/staging-lessons.png', fullPage: true });
               } catch (error) {
                 record('STG-UI-02/03 page content and navigation', false, String(error));
               }
@@ -145,6 +194,11 @@ jobs:
               'STG-UI-04 uncaught browser errors',
               pageErrors.length === 0,
               pageErrors.length ? pageErrors.join(' | ').slice(0, 1200) : 'No uncaught page errors observed'
+            );
+            record(
+              'STG-SAFE-01 no browser write requests',
+              blockedWriteRequests.length === 0,
+              blockedWriteRequests.length ? `Blocked mutating requests: ${blockedWriteRequests.join(' | ').slice(0, 1000)}` : 'No non-GET/HEAD/OPTIONS browser requests observed'
             );
             record(
               'STG-UI-05 console errors',
