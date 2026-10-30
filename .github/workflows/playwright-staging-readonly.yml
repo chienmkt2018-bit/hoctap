@@ -6,6 +6,7 @@ on:
     branches:
       - "test/playwright-readonly-staging"
       - "staging"
+      - "main"
     paths:
       - ".github/workflows/playwright-staging-readonly.yml"
       - "frontend/**"
