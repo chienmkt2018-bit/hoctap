@@ -171,7 +171,7 @@ jobs:
                   if (!lockedClass?.includes('lesson-card-locked')) {
                     throw new Error(`Expected "Thử thách nhanh" to be locked for a fresh anonymous session; class=${String(lockedClass)}`);
                   }
-                  await lockedLesson.getByRole('button', { name: 'Đang khóa', exact: true }).click();
+                  await lockedLesson.getByRole('button', { name: /Đang khóa/ }).click();
                   await page.getByText('Bài học này đang khóa. Hãy hoàn thành các chặng đang mở trước nhé.', { exact: true }).waitFor({ state: 'visible', timeout: 10000 });
                   await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
 
