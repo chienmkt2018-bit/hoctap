@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: playwright-staging-readonly-\${{ github.ref }}
+  group: playwright-staging-readonly-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
