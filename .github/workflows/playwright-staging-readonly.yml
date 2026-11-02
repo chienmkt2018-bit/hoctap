@@ -56,7 +56,7 @@ jobs:
           const results = [];
           const record = (name, ok, detail) => {
             results.push({ name, ok, detail });
-            console.log(\`\${ok ? 'PASS' : 'FAIL'} | \${name} | \${detail}\`);
+            console.log(`${ok ? 'PASS' : 'FAIL'} | ${name} | ${detail}`);
           };
           const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
           const apiUrl = process.env.STAGING_API_HEALTH_URL;
@@ -78,10 +78,10 @@ jobs:
                   apiPassed = response.status() === 200 &&
                     body.status === 'ok' &&
                     body.service === expectedService;
-                  apiDetail = \`attempt \${attempt}: HTTP \${response.status()}, status=\${String(body.status ?? 'missing')}, service=\${String(body.service ?? 'missing')}, expected=\${expectedService}\`;
+                  apiDetail = `attempt ${attempt}: HTTP ${response.status()}, status=${String(body.status ?? 'missing')}, service=${String(body.service ?? 'missing')}, expected=${expectedService}`;
                   if (!apiPassed && attempt < 3) await wait(3000);
                 } catch (error) {
-                  apiDetail = \`attempt \${attempt}: \${String(error)}\`;
+                  apiDetail = `attempt ${attempt}: ${String(error)}`;
                   if (attempt < 3) await wait(3000);
                 }
               }
@@ -101,7 +101,7 @@ jobs:
               await page.route('**/*', async route => {
                 const req = route.request();
                 if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method())) {
-                  blockedWrites.push(\`\${req.method()} \${new URL(req.url()).pathname}\`);
+                  blockedWrites.push(`${req.method()} ${new URL(req.url()).pathname}`);
                   await route.abort('blockedbyclient');
                   return;
                 }
@@ -115,9 +115,9 @@ jobs:
               let response;
               try {
                 response = await page.goto(frontendUrl, { waitUntil: 'domcontentloaded', timeout: 40000 });
-                record(\` \${screenshotName} frontend HTTP\`, Boolean(response && response.status() >= 200 && response.status() < 400), \`HTTP \${response?.status() ?? 'no response'}\`);
+                record(` ${screenshotName} frontend HTTP`, Boolean(response && response.status() >= 200 && response.status() < 400), `HTTP ${response?.status() ?? 'no response'}`);
               } catch (error) {
-                record(\` \${screenshotName} frontend HTTP\`, false, String(error));
+                record(` ${screenshotName} frontend HTTP`, false, String(error));
               }
 
               return { context, page, pageErrors, consoleErrors, blockedWrites, response, screenshotName };
@@ -126,8 +126,8 @@ jobs:
             async function inspectLayout(session) {
               const { page, screenshotName } = session;
               if (!session.response || session.response.status() < 200 || session.response.status() >= 400) {
-                record(\`\${screenshotName} staging document identity\`, false, 'Skipped: page did not load');
-                record(\`\${screenshotName} responsive layout\`, false, 'Skipped: page did not load');
+                record(`${screenshotName} staging document identity`, false, 'Skipped: page did not load');
+                record(`${screenshotName} responsive layout`, false, 'Skipped: page did not load');
                 return;
               }
 
@@ -136,9 +136,9 @@ jobs:
               const heading = await page.locator('h1').first().innerText().catch(() => '');
               const isStagingPath = new URL(page.url()).pathname === '/staging.html';
               record(
-                \`\${screenshotName} staging document identity\`,
+                `${screenshotName} staging document identity`,
                 isStagingPath && title.includes('STAGING') && heading.includes('cuộc phiêu lưu học tập'),
-                \`path=\${new URL(page.url()).pathname}, title="\${title}", h1="\${heading.trim()}"\`
+                `path=${new URL(page.url()).pathname}, title="${title}", h1="${heading.trim()}"`
               );
 
               const layout = await page.evaluate(() => ({
@@ -155,18 +155,18 @@ jobs:
               const noHorizontalOverflow = layout.documentWidth <= layout.viewportWidth + 1 &&
                 layout.bodyWidth <= layout.viewportWidth + 1;
               record(
-                \`\${screenshotName} responsive layout\`,
+                `${screenshotName} responsive layout`,
                 noHorizontalOverflow && layout.navButtons.length === 3,
-                \`viewport=\${layout.viewportWidth}px, document=\${layout.documentWidth}px, body=\${layout.bodyWidth}px, visible nav=[\${layout.navButtons.join(', ')}]\`
+                `viewport=${layout.viewportWidth}px, document=${layout.documentWidth}px, body=${layout.bodyWidth}px, visible nav=[${layout.navButtons.join(', ')}]`
               );
 
-              await page.screenshot({ path: \`artifacts/\${screenshotName}-home.png\`, fullPage: true });
+              await page.screenshot({ path: `artifacts/${screenshotName}-home.png`, fullPage: true });
             }
 
             async function inspectNavigation(session) {
               const { page, screenshotName } = session;
               if (!session.response || session.response.status() < 200 || session.response.status() >= 400) {
-                record(\`\${screenshotName} section navigation\`, false, 'Skipped: page did not load');
+                record(`${screenshotName} section navigation`, false, 'Skipped: page did not load');
                 return;
               }
               try {
@@ -182,10 +182,10 @@ jobs:
 
                 await page.getByRole('button', { name: /Tổng quan/ }).first().click();
                 await page.getByRole('heading', { name: 'Hành trình của bạn', exact: true }).waitFor({ state: 'visible', timeout: 8000 });
-                await page.screenshot({ path: \`artifacts/\${screenshotName}-navigation.png\`, fullPage: true });
-                record(\`\${screenshotName} section navigation\`, true, 'Overview → Quest Map → Lesson Library → Overview; preview content verified');
+                await page.screenshot({ path: `artifacts/${screenshotName}-navigation.png`, fullPage: true });
+                record(`${screenshotName} section navigation`, true, 'Overview → Quest Map → Lesson Library → Overview; preview content verified');
               } catch (error) {
-                record(\`\${screenshotName} section navigation\`, false, String(error).slice(0, 1200));
+                record(`${screenshotName} section navigation`, false, String(error).slice(0, 1200));
               }
             }
 
@@ -200,19 +200,19 @@ jobs:
             for (const session of [desktop, mobile]) {
               const prefix = session.screenshotName;
               record(
-                \`\${prefix} uncaught browser errors\`,
+                `${prefix} uncaught browser errors`,
                 session.pageErrors.length === 0,
                 session.pageErrors.length ? session.pageErrors.join(' | ').slice(0, 1200) : 'No uncaught page errors observed'
               );
               record(
-                \`\${prefix} console errors\`,
+                `${prefix} console errors`,
                 session.consoleErrors.length === 0,
                 session.consoleErrors.length ? session.consoleErrors.join(' | ').slice(0, 1200) : 'No console.error messages observed'
               );
               record(
-                \`\${prefix} no browser write requests\`,
+                `${prefix} no browser write requests`,
                 session.blockedWrites.length === 0,
-                session.blockedWrites.length ? \`Blocked mutating requests: \${session.blockedWrites.join(' | ').slice(0, 1000)}\` : 'No non-GET/HEAD/OPTIONS browser requests observed'
+                session.blockedWrites.length ? `Blocked mutating requests: ${session.blockedWrites.join(' | ').slice(0, 1000)}` : 'No non-GET/HEAD/OPTIONS browser requests observed'
               );
               await session.context.close();
             }
@@ -223,7 +223,7 @@ jobs:
           }
 
           const failed = results.filter(result => !result.ok);
-          console.log(\`\\nSummary: \${results.length - failed.length} PASS, \${failed.length} FAIL\`);
+          console.log(`\\nSummary: ${results.length - failed.length} PASS, ${failed.length} FAIL`);
           console.log(JSON.stringify(results, null, 2));
           if (failed.length) process.exitCode = 1;
           NODE
