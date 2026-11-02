@@ -92,6 +92,34 @@ jobs:
               await api.dispose();
             }
 
+            // CORS preflight: OPTIONS must be accepted from the exact staging frontend origin.
+            const corsOrigin = 'https://hoctap-staging-frontend.onrender.com';
+            const corsUrl = apiUrl;
+            const preflight = await request.newContext({ timeout: 30000 });
+            try {
+              const options = await preflight.fetch(corsUrl, {
+                method: 'OPTIONS',
+                headers: {
+                  Origin: corsOrigin,
+                  'Access-Control-Request-Method': 'GET',
+                  'Access-Control-Request-Headers': 'content-type'
+                }
+              });
+              const h = options.headers();
+              const allowOrigin = h['access-control-allow-origin'] ?? '';
+              const allowMethods = h['access-control-allow-methods'] ?? '';
+              const allowHeaders = h['access-control-allow-headers'] ?? '';
+              const preflightOk = options.status() >= 200 && options.status() < 300 &&
+                allowOrigin === corsOrigin && /\\bGET\\b/i.test(allowMethods) &&
+                /content-type/i.test(allowHeaders);
+              record('CORS-01 OPTIONS preflight', preflightOk,
+                `HTTP ${options.status()}; allow-origin=${allowOrigin || 'missing'}; allow-methods=${allowMethods || 'missing'}; allow-headers=${allowHeaders || 'missing'}`);
+            } catch (error) {
+              record('CORS-01 OPTIONS preflight', false, String(error).slice(0, 1000));
+            } finally {
+              await preflight.dispose();
+            }
+
             browser = await chromium.launch({ headless: true });
             const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
             const pageErrors = [];
@@ -115,6 +143,30 @@ jobs:
 
             if (response && response.status() >= 200 && response.status() < 400) {
               try {
+                // Real browser fetch from the approved staging frontend origin.
+                try {
+                  const browserFetch = await page.evaluate(async (url) => {
+                    try {
+                      const response = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
+                      return {
+                        ok: response.ok,
+                        status: response.status,
+                        allowOrigin: response.headers.get('access-control-allow-origin'),
+                        contentType: response.headers.get('content-type'),
+                        body: await response.text()
+                      };
+                    } catch (error) {
+                      return { error: String(error) };
+                    }
+                  }, apiUrl);
+                  const fetchOk = browserFetch.ok === true && browserFetch.status === 200 &&
+                    browserFetch.allowOrigin === frontendUrl.replace(/\\/$/, '');
+                  record('CORS-02 browser fetch GET', fetchOk,
+                    browserFetch.error || `HTTP ${browserFetch.status}; allow-origin=${browserFetch.allowOrigin || 'missing'}; content-type=${browserFetch.contentType || 'missing'}`);
+                } catch (error) {
+                  record('CORS-02 browser fetch GET', false, String(error).slice(0, 1000));
+                }
+
                 await page.locator('body').waitFor({ state: 'visible', timeout: 10000 });
                 const title = (await page.title()).trim();
                 const bodyText = (await page.locator('body').innerText()).trim();
