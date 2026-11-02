@@ -114,6 +114,13 @@ jobs:
                 /content-type/i.test(allowHeaders);
               record('CORS-01 OPTIONS preflight', preflightOk,
                 `HTTP ${options.status()}; allow-origin=${allowOrigin || 'missing'}; allow-methods=${allowMethods || 'missing'}; allow-headers=${allowHeaders || 'missing'}`);
+
+              const getResponse = await preflight.get(corsUrl, { headers: { Origin: corsOrigin } });
+              const getHeaders = getResponse.headers();
+              const getAllowOrigin = getHeaders['access-control-allow-origin'] ?? '';
+              const getHeaderOk = getResponse.status() === 200 && getAllowOrigin === corsOrigin;
+              record('CORS-03 GET response allow-origin header', getHeaderOk,
+                `HTTP ${getResponse.status()}; allow-origin=${getAllowOrigin || 'missing'}`);
             } catch (error) {
               record('CORS-01 OPTIONS preflight', false, String(error).slice(0, 1000));
             } finally {
@@ -125,6 +132,12 @@ jobs:
             const pageErrors = [];
             const consoleErrors = [];
             page.on('pageerror', error => pageErrors.push(error.message));
+            const browserWriteRequests = [];
+            page.on('request', request => {
+              if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
+                browserWriteRequests.push(`${request.method()} ${request.url()}`);
+              }
+            });
             page.on('console', message => {
               if (message.type() === 'error') consoleErrors.push(message.text());
             });
@@ -148,21 +161,23 @@ jobs:
                   const browserFetch = await page.evaluate(async (url) => {
                     try {
                       const response = await fetch(url, { method: 'GET', mode: 'cors', credentials: 'omit' });
+                      const bodyText = await response.text();
+                      let bodyStatus = 'unreadable';
+                      try { bodyStatus = JSON.parse(bodyText).status ?? 'missing'; } catch {}
                       return {
                         ok: response.ok,
                         status: response.status,
-                        allowOrigin: response.headers.get('access-control-allow-origin'),
                         contentType: response.headers.get('content-type'),
-                        body: await response.text()
+                        bodyStatus
                       };
                     } catch (error) {
                       return { error: String(error) };
                     }
                   }, apiUrl);
                   const fetchOk = browserFetch.ok === true && browserFetch.status === 200 &&
-                    browserFetch.allowOrigin === frontendUrl.replace(/\/$/, '');
+                    browserFetch.bodyStatus === 'ok';
                   record('CORS-02 browser fetch GET', fetchOk,
-                    browserFetch.error || `HTTP ${browserFetch.status}; allow-origin=${browserFetch.allowOrigin || 'missing'}; content-type=${browserFetch.contentType || 'missing'}`);
+                    browserFetch.error || `HTTP ${browserFetch.status}; body.status=${browserFetch.bodyStatus}; content-type=${browserFetch.contentType || 'missing'}`);
                 } catch (error) {
                   record('CORS-02 browser fetch GET', false, String(error).slice(0, 1000));
                 }
@@ -234,6 +249,25 @@ jobs:
                 } else {
                   record('STG-LESSON-02 locked lesson remains inaccessible', false, 'Skipped because lesson navigation/detail test did not pass');
                 }
+
+                // Repeat the read-only lesson flow at a mobile viewport.
+                try {
+                  await page.setViewportSize({ width: 390, height: 844 });
+                  const library = page.getByRole('region', { name: 'Thư viện bài học' });
+                  await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  const availableCard = library.locator('.lesson-card-available').filter({ has: page.getByRole('heading', { name: 'Khởi động tư duy', exact: true }) }).first();
+                  await availableCard.getByRole('button', { name: /Xem chi tiết/ }).click();
+                  await library.getByRole('heading', { name: 'Chi tiết bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  await library.getByRole('button', { name: /Quay lại danh sách/ }).click();
+                  await library.getByRole('heading', { name: 'Khám phá bài học', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
+                  const mobileLocked = library.locator('.lesson-card-locked').filter({ has: page.getByRole('heading', { name: 'Thử thách nhanh', exact: true }) }).first();
+                  const mobileLockedVisible = await mobileLocked.isVisible();
+                  const mobileWidth = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth }));
+                  record('STG-LESSON-03 mobile navigation and lock state', mobileLockedVisible && mobileWidth.document <= mobileWidth.viewport,
+                    `viewport=${mobileWidth.viewport}; document=${mobileWidth.document}; locked card visible=${mobileLockedVisible}`);
+                } catch (error) {
+                  record('STG-LESSON-03 mobile navigation and lock state', false, String(error).slice(0, 1000));
+                }
               } catch (error) {
                 record('STG-UI-02/03 page content and navigation', false, String(error));
               }
@@ -251,6 +285,12 @@ jobs:
               'STG-UI-05 console errors',
               consoleErrors.length === 0,
               consoleErrors.length ? consoleErrors.join(' | ').slice(0, 1200) : 'No console.error messages observed'
+            );
+
+            record(
+              'STG-SAFE-01 no browser write requests',
+              browserWriteRequests.length === 0,
+              browserWriteRequests.length ? browserWriteRequests.join(' | ').slice(0, 1200) : 'No non-GET/HEAD/OPTIONS browser requests observed'
             );
 
             await page.close();
