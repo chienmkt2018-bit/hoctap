@@ -32,7 +32,7 @@ concurrency:
 jobs:
   staging-readonly-e2e:
     name: Read-only E2E against staging
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       STAGING_FRONTEND_URL: https://hoctap-staging-frontend.onrender.com
