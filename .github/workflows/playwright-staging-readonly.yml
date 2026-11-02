@@ -110,7 +110,7 @@ jobs:
               const allowMethods = h['access-control-allow-methods'] ?? '';
               const allowHeaders = h['access-control-allow-headers'] ?? '';
               const preflightOk = options.status() >= 200 && options.status() < 300 &&
-                allowOrigin === corsOrigin && /\\bGET\\b/i.test(allowMethods) &&
+                allowOrigin === corsOrigin && /\bGET\b/i.test(allowMethods) &&
                 /content-type/i.test(allowHeaders);
               record('CORS-01 OPTIONS preflight', preflightOk,
                 `HTTP ${options.status()}; allow-origin=${allowOrigin || 'missing'}; allow-methods=${allowMethods || 'missing'}; allow-headers=${allowHeaders || 'missing'}`);
@@ -160,7 +160,7 @@ jobs:
                     }
                   }, apiUrl);
                   const fetchOk = browserFetch.ok === true && browserFetch.status === 200 &&
-                    browserFetch.allowOrigin === frontendUrl.replace(/\\/$/, '');
+                    browserFetch.allowOrigin === frontendUrl.replace(/\/$/, '');
                   record('CORS-02 browser fetch GET', fetchOk,
                     browserFetch.error || `HTTP ${browserFetch.status}; allow-origin=${browserFetch.allowOrigin || 'missing'}; content-type=${browserFetch.contentType || 'missing'}`);
                 } catch (error) {
