@@ -1,0 +1,83 @@
+name: Quiz API idempotency and concurrency integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "test/playwright-readonly-staging"
+    paths:
+      - "backend/src/**"
+      - "backend/test/quizApi.integration.test.ts"
+      - "backend/package.json"
+      - ".github/workflows/quiz-api-idempotency-test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quiz-api-idempotency-\${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quiz-api-integration:
+    name: Quiz API integration on isolated MongoDB test database
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      MONGODB_TEST_URI: \${{ secrets.MONGODB_TEST_URI }}
+    steps:
+      - name: Checkout QA branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify isolated database target without printing credentials
+        run: |
+          node --input-type=module <<'NODE'
+          const raw = process.env.MONGODB_TEST_URI;
+          if (!raw) {
+            console.error('BLOCKED: GitHub Actions secret MONGODB_TEST_URI is not configured.');
+            process.exit(1);
+          }
+          let uri;
+          try {
+            uri = new URL(raw);
+          } catch {
+            console.error('BLOCKED: MONGODB_TEST_URI is not a valid MongoDB connection URI.');
+            process.exit(1);
+          }
+          if (!['mongodb:', 'mongodb+srv:'].includes(uri.protocol) ||
+              uri.pathname !== '/hoctap_xp_test' ||
+              !uri.hostname) {
+            console.error('BLOCKED: MONGODB_TEST_URI must target the dedicated hoctap_xp_test database. Staging and production database names are rejected.');
+            process.exit(1);
+          }
+          console.log('PASS: URI format and dedicated test database name verified; credentials and host are not printed.');
+          NODE
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check backend source
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Run Quiz API idempotency and concurrency integration test
+        working-directory: backend
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          npx tsx --test test/quizApi.integration.test.ts 2>&1 | tee artifacts/quiz-api-idempotency.tap.log
+
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quiz-api-idempotency-concurrency-evidence
+          path: backend/artifacts/quiz-api-idempotency.tap.log
+          if-no-files-found: ignore
+          retention-days: 7
