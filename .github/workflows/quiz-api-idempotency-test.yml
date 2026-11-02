@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: quiz-api-idempotency-\${{ github.ref }}
+  group: quiz-api-idempotency-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      MONGODB_TEST_URI: \${{ secrets.MONGODB_TEST_URI }}
+      MONGODB_TEST_URI: ${{ secrets.MONGODB_TEST_URI }}
     steps:
       - name: Checkout QA branch
         uses: actions/checkout@v4
