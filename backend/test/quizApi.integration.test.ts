@@ -8,7 +8,9 @@ import { dirname, resolve } from 'node:path';
 import mongoose from 'mongoose';
 import test from 'node:test';
 import { request as playwrightRequest, type APIRequestContext } from 'playwright';
+import { ProgressModel } from '../src/models/Progress.js';
 import { QuizAttemptModel } from '../src/models/QuizAttempt.js';
+import { RewardLedgerModel } from '../src/models/RewardLedger.js';
 import { UserModel } from '../src/models/User.js';
 
 const configuredTestUri = process.env.MONGODB_TEST_URI;
@@ -18,10 +20,7 @@ const enabled = Boolean(configuredTestUri);
 if (enabled && !/\/hoctap_xp_test(?:\?|$)/.test(configuredTestUri ?? '')) {
   throw new Error('MONGODB_TEST_URI must target the isolated hoctap_xp_test database.');
 }
-const quizTestUri = configuredTestUri?.replace(
-  /\/hoctap_xp_test(?=\?|$)/,
-  '/hoctap_quiz_api_test',
-);
+const quizTestUri = configuredTestUri;
 
 async function getFreePort(): Promise<number> {
   const server = createServer();
@@ -99,16 +98,9 @@ async function stopApi(child: ChildProcess): Promise<void> {
 
 test('quiz HTTP API enforces authentication, server scoring, and attempt idempotency', { skip: !enabled }, async () => {
   assert.ok(quizTestUri, 'The isolated quiz API test URI must be configured.');
-  assert.notEqual(quizTestUri, configuredTestUri, 'Quiz API tests must use their own database.');
 
-  // This suite drops only its dedicated, explicitly named test database.
-  await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
-  try {
-    await mongoose.connection.db!.dropDatabase();
-  } finally {
-    await mongoose.disconnect();
-  }
-
+  // Use only the explicitly authorized QA database. Never drop the database: cleanup
+  // below is scoped to the unique account created by this test run.
   const port = await getFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
   const backendDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -128,6 +120,7 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
 
   let processOutput = '';
   const api = await playwrightRequest.newContext();
+  const registeredEmail = `quiz-api-${randomUUID()}@example.test`;
   child.stdout?.on('data', (chunk: Buffer) => { processOutput += chunk.toString(); });
   child.stderr?.on('data', (chunk: Buffer) => { processOutput += chunk.toString(); });
 
@@ -147,7 +140,6 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     });
     assert.equal(unauthenticated.status, 401, 'Quiz attempts must require authentication.');
 
-    const registeredEmail = `quiz-api-${randomUUID()}@example.test`;
     const registered = await requestJson(api, baseUrl, '/api/v1/auth/register', {
       method: 'POST',
       body: {
@@ -247,7 +239,16 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     await api.dispose();
     await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
     try {
-      await mongoose.connection.db!.dropDatabase();
+      const testUser = await UserModel.findOne({ email: registeredEmail }).select('_id');
+      if (testUser) {
+        const learnerId = String(testUser._id);
+        await Promise.all([
+          QuizAttemptModel.deleteMany({ learnerId }),
+          ProgressModel.deleteMany({ learnerId }),
+          RewardLedgerModel.deleteMany({ learnerId }),
+          UserModel.deleteOne({ _id: testUser._id, email: registeredEmail }),
+        ]);
+      }
     } finally {
       await mongoose.disconnect();
     }
