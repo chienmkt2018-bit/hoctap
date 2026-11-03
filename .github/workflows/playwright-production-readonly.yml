@@ -47,7 +47,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: p5-06-production-readonly-evidence
+          name: p54-06-production-readonly-evidence
           path: backend/artifacts/p54-06-production-readonly/
           if-no-files-found: warn
           retention-days: 7
