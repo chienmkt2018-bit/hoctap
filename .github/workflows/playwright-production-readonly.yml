@@ -1,0 +1,53 @@
+name: Playwright production read-only QA
+
+on:
+  # Manual only: adding this file to the QA branch must not start a production run.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playwright-production-readonly
+  cancel-in-progress: false
+
+jobs:
+  production-readonly:
+    name: Read-only production UI verification
+    if: github.ref == 'refs/heads/test/playwright-readonly-staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    environment: production-readonly
+    env:
+      PRODUCTION_FRONTEND_URL: https://hoctap-frontend.onrender.com
+    steps:
+      - name: Checkout approved QA branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/playwright-readonly-staging
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright Chromium
+        working-directory: backend
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Run production read-only checks
+        working-directory: backend
+        run: |
+          mkdir -p artifacts
+          node scripts/p54-06-production-readonly.mjs
+
+      - name: Upload production read-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p5-06-production-readonly-evidence
+          path: backend/artifacts/p54-06-production-readonly/
+          if-no-files-found: warn
+          retention-days: 7
