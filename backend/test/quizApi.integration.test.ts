@@ -121,6 +121,7 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
   let processOutput = '';
   const api = await playwrightRequest.newContext();
   const registeredEmail = `quiz-api-${randomUUID()}@example.test`;
+  const concurrentRegisteredEmail = `quiz-api-race-${randomUUID()}@example.test`;
   child.stdout?.on('data', (chunk: Buffer) => { processOutput += chunk.toString(); });
   child.stderr?.on('data', (chunk: Buffer) => { processOutput += chunk.toString(); });
 
@@ -197,40 +198,92 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     assert.equal(changedPayload.status, 409);
     assert.equal(changedPayload.body.error?.code, 'IDEMPOTENCY_KEY_REUSED');
 
+    // Use a separate learner so the concurrency case races on the first completion
+    // of lesson 2, rather than replaying after the same lesson was already completed.
+    const concurrentRegistered = await requestJson(api, baseUrl, '/api/v1/auth/register', {
+      method: 'POST',
+      body: {
+        email: concurrentRegisteredEmail,
+        password: 'OnlyForTests_12345',
+        timezone: 'Asia/Ho_Chi_Minh',
+      },
+    });
+    assert.equal(concurrentRegistered.status, 201);
+    assert.equal(typeof concurrentRegistered.body.token, 'string');
+    const concurrentToken = concurrentRegistered.body.token as string;
+
+    const seedAttempt = await requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
+      method: 'POST',
+      token: concurrentToken,
+      body: { attemptId: `quiz-seed-${randomUUID()}`, answers: validAnswers },
+    });
+    assert.equal(seedAttempt.status, 201);
+    assert.equal(seedAttempt.body.xpAwarded, 18);
+    assert.equal(seedAttempt.body.totalXp, 18);
+
+    const lessonTwoAnswers = [
+      { questionId: 'q1', selectedOptionId: '1' },
+      { questionId: 'q2', selectedOptionId: '2' },
+      { questionId: 'q3', selectedOptionId: '0' },
+    ];
     const concurrentAttemptId = `quiz-race-${randomUUID()}`;
     const concurrentRequestCount = 10;
     const concurrentResults = await Promise.all(
       Array.from({ length: concurrentRequestCount }, () =>
-        requestJson(api, baseUrl, '/api/v1/quizzes/1/attempts', {
-          method: 'POST', token, body: { attemptId: concurrentAttemptId, answers: validAnswers },
+        requestJson(api, baseUrl, '/api/v1/quizzes/2/attempts', {
+          method: 'POST',
+          token: concurrentToken,
+          body: { attemptId: concurrentAttemptId, answers: lessonTwoAnswers },
         }),
       ),
     );
     assert.deepEqual(
       concurrentResults.map((result) => result.status).sort((a, b) => a - b),
       [...Array(concurrentRequestCount - 1).fill(200), 201],
-      'Ten concurrent retries should create one attempt and replay the same result for the other nine.',
+      'Ten concurrent first-completion requests should create one attempt and replay nine times.',
     );
     assert.equal(concurrentResults.filter((result) => result.body.replayed === false).length, 1);
     assert.equal(concurrentResults.filter((result) => result.body.replayed === true).length, concurrentRequestCount - 1);
-    assert.ok(concurrentResults.every((result) => result.body.totalXp === 18));
+    assert.ok(concurrentResults.every((result) => result.body.totalXp === 86));
+    assert.ok(concurrentResults.every((result) => result.body.xpAwarded === 68));
 
-    const progress = await requestJson(api, baseUrl, '/api/v1/progress', { token });
-    assert.equal(progress.status, 200);
-    assert.equal(progress.body.progress.totalXp, 18, 'Retries must not add XP twice.');
-    assert.deepEqual(progress.body.progress.completedLessonIds, [1]);
-    assert.equal(progress.body.progress.bestXpByLesson['1'], 18);
+    const concurrentProgress = await requestJson(api, baseUrl, '/api/v1/progress', {
+      token: concurrentToken,
+    });
+    assert.equal(concurrentProgress.status, 200);
+    assert.equal(concurrentProgress.body.progress.totalXp, 86,
+      'Two first completions and one daily quest reward must be counted exactly once.');
+    assert.deepEqual(concurrentProgress.body.progress.completedLessonIds, [1, 2]);
+    assert.equal(concurrentProgress.body.progress.bestXpByLesson['1'], 18);
+    assert.equal(concurrentProgress.body.progress.bestXpByLesson['2'], 18);
 
-    // Verify the database invariant directly: one attempt record for this learner/key.
+    // Verify both persistence invariants directly in the isolated database.
     await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
     try {
-      const testUser = await UserModel.findOne({ email: registeredEmail }).select('_id');
-      assert.ok(testUser, 'The isolated test account should exist in the test database.');
+      const concurrentUser = await UserModel.findOne({
+        email: concurrentRegisteredEmail,
+      }).select('_id');
+      assert.ok(concurrentUser, 'The isolated concurrency test account should exist.');
+      const learnerId = String(concurrentUser._id);
       const attemptCount = await QuizAttemptModel.countDocuments({
-        learnerId: String(testUser._id),
+        learnerId,
         idempotencyKey: concurrentAttemptId,
       });
-      assert.equal(attemptCount, 1, 'Concurrent retries must persist exactly one quiz attempt.');
+      assert.equal(attemptCount, 1,
+        'Concurrent first-completion requests must persist exactly one quiz attempt.');
+
+      const dailyQuestLedgerCount = await RewardLedgerModel.countDocuments({
+        learnerId,
+        sourceType: 'daily_quest',
+      });
+      assert.equal(dailyQuestLedgerCount, 1,
+        'Concurrent completion of the second lesson must create exactly one daily quest ledger entry.');
+      const dailyQuestLedger = await RewardLedgerModel.findOne({
+        learnerId,
+        sourceType: 'daily_quest',
+      }).select('xpAmount');
+      assert.equal(dailyQuestLedger?.xpAmount, 50,
+        'The single daily quest ledger entry must award exactly 50 XP.');
     } finally {
       await mongoose.disconnect();
     }
@@ -239,14 +292,19 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     await api.dispose();
     await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
     try {
-      const testUser = await UserModel.findOne({ email: registeredEmail }).select('_id');
-      if (testUser) {
-        const learnerId = String(testUser._id);
+      const testUsers = await UserModel.find({
+        email: { $in: [registeredEmail, concurrentRegisteredEmail] },
+      }).select('_id email');
+      const learnerIds = testUsers.map((user) => String(user._id));
+      if (learnerIds.length > 0) {
         await Promise.all([
-          QuizAttemptModel.deleteMany({ learnerId }),
-          ProgressModel.deleteMany({ learnerId }),
-          RewardLedgerModel.deleteMany({ learnerId }),
-          UserModel.deleteOne({ _id: testUser._id, email: registeredEmail }),
+          QuizAttemptModel.deleteMany({ learnerId: { $in: learnerIds } }),
+          ProgressModel.deleteMany({ learnerId: { $in: learnerIds } }),
+          RewardLedgerModel.deleteMany({ learnerId: { $in: learnerIds } }),
+          UserModel.deleteMany({
+            _id: { $in: testUsers.map((user) => user._id) },
+            email: { $in: [registeredEmail, concurrentRegisteredEmail] },
+          }),
         ]);
       }
     } finally {
