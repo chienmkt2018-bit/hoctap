@@ -20,11 +20,24 @@ concurrency:
 
 jobs:
   quiz-api-integration:
-    name: Quiz API integration on isolated MongoDB test database
+    name: Quiz API integration on ephemeral MongoDB replica set
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
-      MONGODB_TEST_URI: ${{ secrets.MONGODB_TEST_URI }}
+      MONGODB_TEST_URI: mongodb://127.0.0.1:27017/hoctap_xp_test?replicaSet=rs0
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 10s
+        command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+
     steps:
       - name: Checkout QA branch
         uses: actions/checkout@v4
@@ -34,108 +47,55 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify isolated database target without printing credentials
-        run: |
-          node --input-type=module <<'NODE'
-          const raw = process.env.MONGODB_TEST_URI;
-          if (!raw || raw !== raw.trim() || raw.startsWith('"') || raw.endsWith('"')) {
-            console.error('BLOCKED: MONGODB_TEST_URI is missing or contains surrounding whitespace/quotes.');
-            process.exit(1);
-          }
-          let uri;
-          try {
-            uri = new URL(raw);
-          } catch {
-            console.error('BLOCKED: MONGODB_TEST_URI is malformed. Use mongodb:// or mongodb+srv:// and percent-encode reserved characters in credentials.');
-            process.exit(1);
-          }
-          if (!['mongodb:', 'mongodb+srv:'].includes(uri.protocol) ||
-              uri.pathname !== '/hoctap_xp_test' ||
-              !uri.hostname ||
-              !uri.username ||
-              !uri.password) {
-            console.error('BLOCKED: MONGODB_TEST_URI must include valid credentials and target only the dedicated hoctap_xp_test database.');
-            process.exit(1);
-          }
-          console.log('PASS: MongoDB URI syntax and dedicated hoctap_xp_test database verified; credentials and host are not printed.');
-          NODE
-
       - name: Install backend dependencies
         working-directory: backend
         run: npm install --no-audit --no-fund
 
+      - name: Initialize ephemeral MongoDB replica set
+        working-directory: backend
+        run: |
+          node --input-type=module <<'NODE'
+          import mongoose from 'mongoose';
+
+          const uri = 'mongodb://127.0.0.1:27017/admin?directConnection=true';
+          await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
+          try {
+            try {
+              await mongoose.connection.db.admin().command({
+                replSetInitiate: {
+                  _id: 'rs0',
+                  members: [{ _id: 0, host: '127.0.0.1:27017' }]
+                }
+              });
+              console.log('PASS: initialized the ephemeral MongoDB replica set.');
+            } catch (error) {
+              if (error.code !== 23 && !String(error.message).includes('already initialized')) {
+                throw error;
+              }
+              console.log('INFO: replica set was already initialized.');
+            }
+
+            let primary = false;
+            for (let attempt = 0; attempt < 30; attempt += 1) {
+              try {
+                const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+                if (hello.isWritablePrimary === true) {
+                  primary = true;
+                  break;
+                }
+              } catch {}
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            if (!primary) throw new Error('MongoDB replica set did not elect a primary within 30 seconds.');
+            console.log('PASS: ephemeral MongoDB replica set primary is ready.');
+          } finally {
+            await mongoose.disconnect();
+          }
+          NODE
+
       - name: Type-check backend source
         working-directory: backend
         run: npm run typecheck
-
-      # This grants the GitHub-hosted runner temporary access to the QA database.
-      # Atlas Administration API access-list enforcement is separate: if enabled,
-      # the Service Account must already be allowed to call the API from this runner.
-      - name: Add temporary GitHub runner IP to Atlas QA cluster
-        id: atlas-network-access
-        env:
-          ATLAS_PROJECT_ID: ${{ vars.ATLAS_PROJECT_ID }}
-          ATLAS_CLIENT_ID: ${{ secrets.ATLAS_CLIENT_ID }}
-          ATLAS_CLIENT_SECRET: ${{ secrets.ATLAS_CLIENT_SECRET }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${ATLAS_PROJECT_ID:-}" || -z "${ATLAS_CLIENT_ID:-}" || -z "${ATLAS_CLIENT_SECRET:-}" ]]; then
-            echo "BLOCKED: configure repository variable ATLAS_PROJECT_ID and secrets ATLAS_CLIENT_ID / ATLAS_CLIENT_SECRET."
-            exit 1
-          fi
-          if [[ ! "$ATLAS_PROJECT_ID" =~ ^[a-fA-F0-9]{24}$ ]]; then
-            echo "BLOCKED: ATLAS_PROJECT_ID must be the 24-character Atlas Project ID."
-            exit 1
-          fi
-
-          RUNNER_IP="$(curl --fail --silent --show-error https://api.ipify.org)"
-          node -e 'const net=require("node:net"); if(net.isIP(process.argv[1])!==4) process.exit(1)' "$RUNNER_IP" || {
-            echo "BLOCKED: runner public IP lookup did not return a valid IPv4 address."
-            exit 1
-          }
-
-          TOKEN_RESPONSE="$(curl --fail --silent --show-error \
-            --user "$ATLAS_CLIENT_ID:$ATLAS_CLIENT_SECRET" \
-            --header "Content-Type: application/x-www-form-urlencoded" \
-            --header "Accept: application/json" \
-            --data-urlencode "grant_type=client_credentials" \
-            https://cloud.mongodb.com/api/oauth/token)"
-          ACCESS_TOKEN="$(printf '%s' "$TOKEN_RESPONSE" | jq -er '.access_token')"
-          unset TOKEN_RESPONSE
-
-          EXPIRES_AT="$(date -u -d '+30 minutes' '+%Y-%m-%dT%H:%M:%SZ')"
-          PAYLOAD="$(jq -cn --arg ip "$RUNNER_IP" \
-            --arg comment "HOC TAP QUEST QA run ${GITHUB_RUN_ID}" \
-            --arg expiry "$EXPIRES_AT" \
-            '[{ipAddress:$ip,comment:$comment,deleteAfterDate:$expiry}]')"
-          RESPONSE_FILE="$(mktemp)"
-          HTTP_CODE="$(curl --silent --show-error --output "$RESPONSE_FILE" --write-out '%{http_code}' \
-            --request POST \
-            --header "Authorization: Bearer $ACCESS_TOKEN" \
-            --header "Accept: application/vnd.atlas.2025-03-12+json" \
-            --header "Content-Type: application/json" \
-            --data "$PAYLOAD" \
-            "https://cloud.mongodb.com/api/atlas/v2/groups/$ATLAS_PROJECT_ID/accessList")"
-          unset ACCESS_TOKEN PAYLOAD
-
-          case "$HTTP_CODE" in
-            200|201|202)
-              CREATED=true
-              echo "PASS: temporary runner IP entry added with 30-minute expiry."
-              ;;
-            409)
-              CREATED=false
-              echo "PASS: runner IP entry already exists; workflow will not remove an entry it did not create."
-              ;;
-            *)
-              echo "BLOCKED: Atlas rejected the temporary database IP entry (HTTP $HTTP_CODE). Check Service Account role and the separate Atlas Administration API IP access list."
-              rm -f "$RESPONSE_FILE"
-              exit 1
-              ;;
-          esac
-          rm -f "$RESPONSE_FILE"
-          echo "ip_address=$RUNNER_IP" >> "$GITHUB_OUTPUT"
-          echo "created=$CREATED" >> "$GITHUB_OUTPUT"
 
       - name: Run Quiz API idempotency and concurrency integration test
         working-directory: backend
@@ -143,45 +103,6 @@ jobs:
           mkdir -p artifacts
           set -o pipefail
           npx tsx --test test/quizApi.integration.test.ts 2>&1 | tee artifacts/quiz-api-idempotency.tap.log
-
-      - name: Remove temporary GitHub runner IP from Atlas
-        if: always()
-        env:
-          ATLAS_PROJECT_ID: ${{ vars.ATLAS_PROJECT_ID }}
-          ATLAS_CLIENT_ID: ${{ secrets.ATLAS_CLIENT_ID }}
-          ATLAS_CLIENT_SECRET: ${{ secrets.ATLAS_CLIENT_SECRET }}
-          RUNNER_IP: ${{ steps.atlas-network-access.outputs.ip_address }}
-          ENTRY_CREATED: ${{ steps.atlas-network-access.outputs.created }}
-        run: |
-          set -euo pipefail
-          if [[ "${ENTRY_CREATED:-}" != "true" || -z "${RUNNER_IP:-}" ]]; then
-            echo "SKIP: no temporary IP entry created by this workflow; Atlas expiry remains the fallback."
-            exit 0
-          fi
-          if [[ -z "${ATLAS_PROJECT_ID:-}" || -z "${ATLAS_CLIENT_ID:-}" || -z "${ATLAS_CLIENT_SECRET:-}" ]]; then
-            echo "WARNING: cleanup credentials are unavailable; the Atlas entry will expire automatically within 30 minutes."
-            exit 0
-          fi
-
-          TOKEN_RESPONSE="$(curl --fail --silent --show-error \
-            --user "$ATLAS_CLIENT_ID:$ATLAS_CLIENT_SECRET" \
-            --header "Content-Type: application/x-www-form-urlencoded" \
-            --header "Accept: application/json" \
-            --data-urlencode "grant_type=client_credentials" \
-            https://cloud.mongodb.com/api/oauth/token)"
-          ACCESS_TOKEN="$(printf '%s' "$TOKEN_RESPONSE" | jq -er '.access_token')"
-          unset TOKEN_RESPONSE
-
-          HTTP_CODE="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-            --request DELETE \
-            --header "Authorization: Bearer $ACCESS_TOKEN" \
-            --header "Accept: application/vnd.atlas.2025-03-12+json" \
-            "https://cloud.mongodb.com/api/atlas/v2/groups/$ATLAS_PROJECT_ID/accessList/$RUNNER_IP")"
-          unset ACCESS_TOKEN
-          case "$HTTP_CODE" in
-            200|202|204|404) echo "PASS: temporary runner IP cleanup completed (HTTP $HTTP_CODE)." ;;
-            *) echo "WARNING: Atlas cleanup returned HTTP $HTTP_CODE; the 30-minute automatic expiry remains the fallback."; exit 1 ;;
-          esac
 
       - name: Upload test evidence
         if: always()
