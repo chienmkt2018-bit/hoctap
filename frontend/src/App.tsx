@@ -599,6 +599,7 @@ function App() {
                 <strong>{completedCount} / {quests.length}</strong>
               </div>
 
+              <div className="rpg-world-layout">
               <div className="rpg-stone-map" aria-label="Bản đồ nhiệm vụ chương 01">
                 <div className="rpg-path-line" aria-hidden="true"><span style={{height:`${completedCount / quests.length * 100}%`}} /></div>
                 <div className="rpg-quest-stack">
@@ -633,13 +634,26 @@ function App() {
                 {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</button>}
               </div>
 
-              <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
-                <span><UIIcon name="sparkles" size={18}/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
-              </button>
-              {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
-                <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
-                {dailyQuests.map((quest) => <div className="rpg-daily-row" key={quest.id}><span>{quest.done ? '✓' : '◇'}</span><div><strong>{quest.title}</strong><small>{quest.description}</small></div><b>{quest.progress}/{quest.target}</b></div>)}
-              </section>}
+              </div>
+              <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
+                <section className="rpg-side-profile">
+                  <span className="rpg-side-emblem"><UIIcon name="crown" size={24}/></span>
+                  <div><small>NHÀ THÁM HIỂM</small><strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
+                </section>
+                <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
+                  <div><span className="rpg-side-stat-icon xp"><UIIcon name="sparkles" size={17}/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
+                  <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
+                  <div><span className="rpg-side-stat-icon gems"><UIIcon name="gem" size={17}/></span><small>GEMS</small><strong>120</strong></div>
+                </section>
+                <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
+                  <span><UIIcon name="sparkles" size={18}/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
+                </button>
+                {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
+                  <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
+                  {dailyQuests.map((quest) => <div className="rpg-daily-row" key={quest.id}><span>{quest.done ? '✓' : '◇'}</span><div><strong>{quest.title}</strong><small>{quest.description}</small></div><b>{quest.progress}/{quest.target}</b></div>)}
+                </section>}
+              </aside>
+              </div>
             </section>
           )}
 
