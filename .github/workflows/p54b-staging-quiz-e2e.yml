@@ -57,12 +57,12 @@ jobs:
     permissions:
       contents: read
     env:
-      MONGODB_URI: ${{ secrets.P54B_STAGING_MONGODB_URI }}
+      MONGODB_URI: \${{ secrets.P54B_STAGING_MONGODB_URI }}
       MONGODB_DB_NAME: test
-      P54B_RUN_ID: ${{ github.run_id }}
-      P54B_RUN_ATTEMPT: ${{ github.run_attempt }}
+      P54B_RUN_ID: \${{ github.run_id }}
+      P54B_RUN_ATTEMPT: \${{ github.run_attempt }}
       P54B_CLEANUP_APPLY: "true"
-      P54B_CLEANUP_CONFIRMATION: DELETE-P54B-${{ github.run_id }}-${{ github.run_attempt }}
+      P54B_CLEANUP_CONFIRMATION: DELETE-P54B-\${{ github.run_id }}-\${{ github.run_attempt }}
 
     steps:
       - name: Download this run's non-secret test summary
@@ -75,8 +75,8 @@ jobs:
         id: identity
         shell: bash
         env:
-          EXPECTED_RUN_ID: ${{ github.run_id }}
-          EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EXPECTED_RUN_ID: \${{ github.run_id }}
+          EXPECTED_RUN_ATTEMPT: \${{ github.run_attempt }}
         run: |
           node <<'NODE'
           const fs = require("node:fs");
@@ -87,12 +87,12 @@ jobs:
             throw new Error("Artifact run identity does not match this GitHub Actions run.");
           }
           const email = String(summary.testEmail || "").toLowerCase();
-          const expectedEmail = new RegExp("^p54b-" + runId + "-" + runAttempt + "-[a-f0-9]{8}\\\\@example\\\\.test$");
+          const expectedEmail = new RegExp("^p54b-" + runId + "-" + runAttempt + "-[a-f0-9]{8}@example\\\\.test$");
           if (!expectedEmail.test(email)) throw new Error("Artifact does not contain the exact synthetic email for this run.");
           const userId = summary.testUserId == null ? "" : String(summary.testUserId);
           if (userId && !/^[a-f0-9]{24}$/i.test(userId)) throw new Error("Artifact contains an invalid synthetic MongoDB user ID.");
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, "email=" + email + "\\n");
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, "user_id=" + userId + "\\n");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "email=" + email + "\n");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "user_id=" + userId + "\n");
           NODE
 
       - name: Checkout isolated cleanup worker
@@ -121,6 +121,6 @@ jobs:
       - name: Delete and verify only this run's synthetic learner
         working-directory: cleanup-worker/backend
         env:
-          P54B_TEST_EMAIL: ${{ steps.identity.outputs.email }}
-          P54B_TEST_USER_ID: ${{ steps.identity.outputs.user_id }}
+          P54B_TEST_EMAIL: \${{ steps.identity.outputs.email }}
+          P54B_TEST_USER_ID: \${{ steps.identity.outputs.user_id }}
         run: node scripts/p54b-staging-cleanup-worker.mjs
