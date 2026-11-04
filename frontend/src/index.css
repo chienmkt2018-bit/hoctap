@@ -645,6 +645,13 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   .rpg-quest-4 { padding-left:42px; }
 }
 @media (prefers-reduced-motion:reduce) {
+  html { scroll-behavior: auto !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   .rpg-node-button.active,.rpg-node-button.active::before,.rpg-node-button.active::after,.rpg-companion { animation:none; }
   .rpg-node-button.active { box-shadow:inset 0 0 0 4px #29234b,0 0 0 6px #4fd1e044,0 0 24px #4fd1e066; }
   .rpg-speech { opacity:1; }
