@@ -260,6 +260,41 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
     // Verify both persistence invariants directly in the isolated database.
     await mongoose.connect(quizTestUri, { serverSelectionTimeoutMS: 5000 });
     try {
+      // Verify retry idempotency against persisted MongoDB documents, not only API responses.
+      const idempotencyUser = await UserModel.findOne({
+        email: registeredEmail,
+      }).select('_id');
+      assert.ok(idempotencyUser, 'The isolated idempotency test account should exist.');
+      const idempotencyLearnerId = String(idempotencyUser._id);
+      const idempotencyAttemptCount = await QuizAttemptModel.countDocuments({
+        learnerId: idempotencyLearnerId,
+        idempotencyKey: attemptId,
+      });
+      assert.equal(idempotencyAttemptCount, 1,
+        'The first submission and identical retry must persist exactly one quiz attempt.');
+      const idempotencyAttempt = await QuizAttemptModel.findOne({
+        learnerId: idempotencyLearnerId,
+        idempotencyKey: attemptId,
+      }).select('xpAwarded bonusXpAwarded totalXpAfter');
+      assert.equal(idempotencyAttempt?.xpAwarded, 18,
+        'The persisted idempotent attempt must retain the server-calculated XP.');
+      assert.equal(idempotencyAttempt?.bonusXpAwarded, 0,
+        'The persisted first-lesson attempt must not include a daily quest bonus.');
+      assert.equal(idempotencyAttempt?.totalXpAfter, 18,
+        'The persisted attempt must retain the post-award XP total.');
+      const idempotencyProgress = await ProgressModel.findOne({
+        learnerId: idempotencyLearnerId,
+      }).lean();
+      assert.ok(idempotencyProgress, 'The idempotency learner progress must be persisted.');
+      assert.equal(idempotencyProgress.totalXp, 18,
+        'The idempotency learner progress must persist exactly 18 XP after retry.');
+      assert.deepEqual(idempotencyProgress.completedLessonIds, [1],
+        'The idempotency learner progress must persist the completed first lesson.');
+      assert.equal(await RewardLedgerModel.countDocuments({
+        learnerId: idempotencyLearnerId,
+      }), 0, 'A first-lesson retry must not create an unrelated reward ledger entry.');
+
+      // Verify concurrent writes and the resulting progress/reward state in MongoDB.
       const concurrentUser = await UserModel.findOne({
         email: concurrentRegisteredEmail,
       }).select('_id');
@@ -271,6 +306,33 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
       });
       assert.equal(attemptCount, 1,
         'Concurrent first-completion requests must persist exactly one quiz attempt.');
+      const concurrentAttempt = await QuizAttemptModel.findOne({
+        learnerId,
+        idempotencyKey: concurrentAttemptId,
+      }).select('lessonId xpAwarded bonusXpAwarded totalXpAfter');
+      assert.equal(concurrentAttempt?.lessonId, 2,
+        'The single concurrent attempt must persist for lesson 2.');
+      assert.equal(concurrentAttempt?.xpAwarded, 68,
+        'The single concurrent attempt must persist the lesson XP plus one daily bonus.');
+      assert.equal(concurrentAttempt?.bonusXpAwarded, 50,
+        'The single concurrent attempt must persist exactly one 50 XP daily bonus.');
+      assert.equal(concurrentAttempt?.totalXpAfter, 86,
+        'The single concurrent attempt must persist the final 86 XP total.');
+
+      const concurrentProgress = await ProgressModel.findOne({ learnerId }).lean();
+      assert.ok(concurrentProgress, 'The concurrency learner progress must be persisted.');
+      assert.equal(concurrentProgress.totalXp, 86,
+        'MongoDB progress must persist exactly 86 XP after the concurrent submissions.');
+      assert.deepEqual(concurrentProgress.completedLessonIds, [1, 2],
+        'MongoDB progress must persist both completed lessons exactly once.');
+      assert.equal(concurrentProgress.dailyActivity?.completedLessonIds.length, 2,
+        'MongoDB daily activity must persist two completed lessons.');
+      assert.equal(concurrentProgress.dailyActivity?.highScoreLessonIds.length, 2,
+        'MongoDB daily activity must persist both high-score lessons.');
+      assert.equal(concurrentProgress.bestXpByLesson?.get('1'), 18,
+        'MongoDB progress must persist lesson 1 best XP.');
+      assert.equal(concurrentProgress.bestXpByLesson?.get('2'), 18,
+        'MongoDB progress must persist lesson 2 best XP.');
 
       const dailyQuestLedgerCount = await RewardLedgerModel.countDocuments({
         learnerId,
@@ -281,9 +343,13 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
       const dailyQuestLedger = await RewardLedgerModel.findOne({
         learnerId,
         sourceType: 'daily_quest',
-      }).select('xpAmount');
+      }).select('xpAmount idempotencyKey sourceId');
       assert.equal(dailyQuestLedger?.xpAmount, 50,
         'The single daily quest ledger entry must award exactly 50 XP.');
+      assert.equal(dailyQuestLedger?.idempotencyKey, 'daily_quest:' + concurrentProgress.dailyActivity?.date,
+        'The reward ledger idempotency key must match the persisted learning date.');
+      assert.equal(dailyQuestLedger?.sourceId, concurrentProgress.dailyActivity?.date,
+        'The reward ledger source ID must match the persisted learning date.');
     } finally {
       await mongoose.disconnect();
     }
