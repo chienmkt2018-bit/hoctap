@@ -25,18 +25,6 @@ jobs:
     timeout-minutes: 15
     env:
       MONGODB_TEST_URI: mongodb://127.0.0.1:27017/hoctap_xp_test?replicaSet=rs0
-    services:
-      mongodb:
-        image: mongo:7.0
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-          --health-start-period 10s
-        command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
 
     steps:
       - name: Checkout QA branch
@@ -51,47 +39,39 @@ jobs:
         working-directory: backend
         run: npm install --no-audit --no-fund
 
-      - name: Initialize ephemeral MongoDB replica set
-        working-directory: backend
+      - name: Start ephemeral MongoDB replica set
         run: |
-          node --input-type=module <<'NODE'
-          import mongoose from 'mongoose';
+          docker run --detach --name hoc-tap-quest-mongo \
+            --publish 27017:27017 \
+            mongo:7.0 mongod --replSet rs0 --bind_ip_all
 
-          const uri = 'mongodb://127.0.0.1:27017/admin?directConnection=true';
-          await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
-          try {
-            try {
-              await mongoose.connection.db.admin().command({
-                replSetInitiate: {
-                  _id: 'rs0',
-                  members: [{ _id: 0, host: '127.0.0.1:27017' }]
-                }
-              });
-              console.log('PASS: initialized the ephemeral MongoDB replica set.');
-            } catch (error) {
-              if (error.code !== 23 && !String(error.message).includes('already initialized')) {
-                throw error;
-              }
-              console.log('INFO: replica set was already initialized.');
-            }
+          for attempt in $(seq 1 30); do
+            if docker exec hoc-tap-quest-mongo mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' >/dev/null 2>&1; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              docker logs hoc-tap-quest-mongo
+              echo "FAIL: ephemeral MongoDB did not become reachable."
+              exit 1
+            fi
+            sleep 1
+          done
 
-            let primary = false;
-            for (let attempt = 0; attempt < 30; attempt += 1) {
-              try {
-                const hello = await mongoose.connection.db.admin().command({ hello: 1 });
-                if (hello.isWritablePrimary === true) {
-                  primary = true;
-                  break;
-                }
-              } catch {}
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-            if (!primary) throw new Error('MongoDB replica set did not elect a primary within 30 seconds.');
-            console.log('PASS: ephemeral MongoDB replica set primary is ready.');
-          } finally {
-            await mongoose.disconnect();
-          }
-          NODE
+          docker exec hoc-tap-quest-mongo mongosh --quiet --eval \
+            'rs.initiate({_id: "rs0", members: [{_id: 0, host: "127.0.0.1:27017"}]})'
+
+          for attempt in $(seq 1 30); do
+            PRIMARY="$(docker exec hoc-tap-quest-mongo mongosh --quiet --eval 'db.hello().isWritablePrimary' 2>/dev/null || true)"
+            if [ "$PRIMARY" = "true" ]; then
+              echo "PASS: ephemeral MongoDB replica set primary is ready."
+              exit 0
+            fi
+            sleep 1
+          done
+
+          docker logs hoc-tap-quest-mongo
+          echo "FAIL: ephemeral MongoDB replica set did not elect a primary."
+          exit 1
 
       - name: Type-check backend source
         working-directory: backend
@@ -103,6 +83,10 @@ jobs:
           mkdir -p artifacts
           set -o pipefail
           npx tsx --test test/quizApi.integration.test.ts 2>&1 | tee artifacts/quiz-api-idempotency.tap.log
+
+      - name: Stop ephemeral MongoDB
+        if: always()
+        run: docker rm --force hoc-tap-quest-mongo || true
 
       - name: Upload test evidence
         if: always()
