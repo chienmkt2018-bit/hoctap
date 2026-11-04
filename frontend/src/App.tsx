@@ -634,7 +634,6 @@ function App() {
                 {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</button>}
               </div>
 
-              </div>
               <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
                 <section className="rpg-side-profile">
                   <span className="rpg-side-emblem"><UIIcon name="crown" size={24}/></span>
