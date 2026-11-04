@@ -1,0 +1,126 @@
+name: P5.4-B staging authenticated quiz API E2E
+
+on:
+  # This suite writes synthetic learning data. It runs only by manual dispatch.
+  workflow_dispatch:
+    branches:
+      - "test/playwright-readonly-staging"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p54b-staging-quiz-e2e
+  cancel-in-progress: false
+
+jobs:
+  staging-authenticated-quiz-e2e:
+    if: github.ref == 'refs/heads/test/playwright-readonly-staging'
+    name: Authenticated quiz API test on isolated staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      STAGING_API_BASE_URL: https://hoctap-staging-api.onrender.com
+
+    steps:
+      - name: Checkout QA-only branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/playwright-readonly-staging
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify staging API and authenticated quiz flow
+        run: |
+          mkdir -p artifacts
+          node backend/scripts/p54b-staging-quiz-e2e.mjs
+
+      - name: Upload non-secret test summary for cleanup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p54b-staging-authenticated-quiz-e2e
+          path: artifacts/p54b-staging-api-summary.json
+          if-no-files-found: ignore
+          retention-days: 7
+
+  cleanup-synthetic-learner:
+    name: Always clean up this run's exact synthetic learner
+    needs: staging-authenticated-quiz-e2e
+    if: always() && github.ref == 'refs/heads/test/playwright-readonly-staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging-cleanup
+    permissions:
+      contents: read
+    env:
+      MONGODB_URI: ${{ secrets.P54B_STAGING_MONGODB_URI }}
+      MONGODB_DB_NAME: test
+      P54B_RUN_ID: ${{ github.run_id }}
+      P54B_RUN_ATTEMPT: ${{ github.run_attempt }}
+      P54B_CLEANUP_APPLY: "true"
+      P54B_CLEANUP_CONFIRMATION: DELETE-P54B-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Download this run's non-secret test summary
+        uses: actions/download-artifact@v4
+        with:
+          name: p54b-staging-authenticated-quiz-e2e
+          path: cleanup-input
+
+      - name: Validate exact synthetic identity from this run
+        id: identity
+        shell: bash
+        env:
+          EXPECTED_RUN_ID: ${{ github.run_id }}
+          EXPECTED_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const summary = JSON.parse(fs.readFileSync("cleanup-input/p54b-staging-api-summary.json", "utf8"));
+          const runId = process.env.EXPECTED_RUN_ID;
+          const runAttempt = process.env.EXPECTED_RUN_ATTEMPT;
+          if (String(summary.runId) !== runId || String(summary.runAttempt) !== runAttempt) {
+            throw new Error("Artifact run identity does not match this GitHub Actions run.");
+          }
+          const email = String(summary.testEmail || "").toLowerCase();
+          const expectedEmail = new RegExp("^p54b-" + runId + "-" + runAttempt + "-[a-f0-9]{8}\\\\@example\\\\.test$");
+          if (!expectedEmail.test(email)) throw new Error("Artifact does not contain the exact synthetic email for this run.");
+          const userId = summary.testUserId == null ? "" : String(summary.testUserId);
+          if (userId && !/^[a-f0-9]{24}$/i.test(userId)) throw new Error("Artifact contains an invalid synthetic MongoDB user ID.");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "email=" + email + "\\n");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "user_id=" + userId + "\\n");
+          NODE
+
+      - name: Checkout isolated cleanup worker
+        uses: actions/checkout@v4
+        with:
+          ref: ops/p54b-staging-cleanup-worker
+          path: cleanup-worker
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate required staging secret without printing it
+        shell: bash
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::Missing GitHub Environment secret P54B_STAGING_MONGODB_URI in staging-cleanup."
+            exit 1
+          fi
+
+      - name: Install cleanup worker dependencies
+        working-directory: cleanup-worker/backend
+        run: npm install --no-audit --no-fund
+
+      - name: Delete and verify only this run's synthetic learner
+        working-directory: cleanup-worker/backend
+        env:
+          P54B_TEST_EMAIL: ${{ steps.identity.outputs.email }}
+          P54B_TEST_USER_ID: ${{ steps.identity.outputs.user_id }}
+        run: node scripts/p54b-staging-cleanup-worker.mjs
