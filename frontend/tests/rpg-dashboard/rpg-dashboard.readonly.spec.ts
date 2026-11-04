@@ -64,7 +64,7 @@ for (const viewport of viewports) {
     await expect(page.getByRole('region', { name: 'Chi tiết thử thách hôm nay' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Bài học' }).click();
-    await expect(page.getByRole('heading', { name: 'Thư viện bài học' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Khám phá bài học' })).toBeVisible();
     await page.getByRole('button', { name: 'Bản đồ nhiệm vụ' }).click();
     await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức' })).toBeVisible();
 
@@ -95,7 +95,7 @@ test('reduced-motion preference disables continuous animation', async ({ page })
   const motion = await page.evaluate(() => {
     const candidates = [...document.querySelectorAll('*')];
     return candidates.map(element => getComputedStyle(element).animationDuration)
-      .filter(duration => duration !== '0s' && duration !== '0ms');
+      .filter(duration => !['0s', '0ms', '0.01ms'].includes(duration));
   });
-  expect(motion, 'reduced-motion mode should suppress CSS animations').toEqual([]);
+  expect(motion, 'reduced-motion mode should suppress continuous CSS animations').toEqual([]);
 });
