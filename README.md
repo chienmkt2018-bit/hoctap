@@ -249,8 +249,12 @@ Các kết quả sau được ghi trong sổ tay vận hành Gateway ngày 04/11
 | Staging read-only E2E | Run #34; SHA `1fc3c974029789605802aeedfc2c709967ec4f86` | 15 PASS, 0 FAIL | Luồng staging được kiểm tra; staging frontend có harness riêng, không chứng minh toàn bộ UI production |
 | Quiz API idempotency/concurrency | Run #8; QA SHA `4645f30d2604a75b3f7d2b22ed4a9f9a8fd81b25` | Workflow success; integration test chạy trên MongoDB 7.0 replica set ephemeral | Không phải kiểm thử trên MongoDB Atlas production |
 | Production read-only Playwright | Run ID `41621599091`; SHA `35f578e0c1571687c65945a0a3f4349f75e94f7a` | 10 PASS, 0 FAIL | Chỉ frontend load, lesson navigation/lock và mobile viewport; không kiểm thử luồng ghi |
+| P5.4-B staging authenticated Quiz API E2E | Run ID `41767411947`; SHA `ea1a8520549238af49d9ca7fda1b53679643b5fd` | 40 PASS, 0 FAIL | Synthetic learner; auth, quiz scoring, idempotency, mismatch 409, concurrency, XP, progress và RewardLedger; dữ liệu staging đã qua cleanup verification |
+| P5.4-B exact synthetic learner cleanup dry-run | Manual workflow; branch `ops/p54b-staging-cleanup-worker`; worker SHA `a97bd91dff1f27129dbb165dd16776b8df766b77`; log timestamp 2026-11-04 10:21 UTC | PASS | Kết nối staging Atlas, database `test`; kết quả `no matching synthetic user or linked records; nothing to clean`; chế độ `dry-run`, không xóa hoặc thay đổi tài liệu; log trích dẫn không cung cấp workflow run ID |
 
 Link workflow/run cần tra cứu tại tab Actions của repository và đối chiếu SHA/artifact. Artifact có thời hạn lưu; không coi artifact cũ là bằng chứng còn tồn tại nếu chưa kiểm tra.
+
+**Ghi chú P5.4-B cleanup verification (04/11/2026):** GitHub Actions đã nạp được Environment secret và worker chạy tới MongoDB Atlas staging. Dry-run tìm theo định danh tổng hợp gắn với Quiz API E2E Run ID `41767411947`, attempt `1`, nhưng không tìm thấy user hoặc bản ghi liên kết phù hợp. Worker kết luận không có gì cần cleanup. Đây là bằng chứng cho truy vấn theo đúng bộ định danh; không phải xác nhận toàn bộ collection staging rỗng. Vì không có tài liệu phù hợp, không chạy `apply` và không thực hiện thao tác xóa.
 
 ## 9. Roadmap và trạng thái xác minh
 
@@ -263,9 +267,13 @@ Bảng dưới đây là snapshot định hướng theo thông tin dự án đư
 | P2 | Lesson, Quiz, kết quả và local progress | Đã triển khai | Cần tiếp tục kiểm tra hồi quy |
 | P3 | Backend, auth, progress, quiz API | Đã triển khai nhiều phần | API contract và server-authoritative XP; tiếp tục xác minh integration trên môi trường được phép |
 | P4 | Gamification | Đã triển khai nhiều phần | Thành tựu, daily quests, streak và đồng bộ tài khoản phải theo dõi riêng; không mặc định mọi phần đã PASS end-to-end |
-| P5 | QA, idempotency, concurrency và production verification | Đang xác minh theo từng phạm vi | Có bằng chứng staging read-only, test API cô lập và production read-only; không đồng nghĩa mọi luồng production đã được xác minh |
-| P5.4 | Production E2E mở rộng | Chưa kết luận hoàn tất | Chỉ mở rộng khi xác định test scope, môi trường, quyền, guard read-only hoặc database test cô lập và bằng chứng cần thu thập |
+| P5 | QA, idempotency, concurrency và production verification | Đã có bằng chứng theo từng phạm vi; tiếp tục theo dõi | Staging read-only, Quiz API E2E, cleanup dry-run và production read-only đã có kết quả riêng; không suy rộng thành xác minh toàn bộ production |
+| P5.4-A | Production read-only verification | Hoàn thành theo phạm vi đã chạy | Run ID `41621599091`: 10 PASS, 0 FAIL; chỉ gồm frontend load, lesson navigation/lock và mobile viewport |
+| P5.4-B | Staging authenticated Quiz API E2E và cleanup verification | Hoàn thành phần cleanup verification | Run ID `41767411947`: 40 PASS, 0 FAIL; staging Atlas dry-run PASS, không tìm thấy synthetic learner hoặc linked records; không cần và không thực hiện xóa |
+| P5.4-C | Browser authenticated quiz E2E | **CHƯA ĐƯỢC CẤP PHÉP – CHƯA BẮT ĐẦU** | Không thực hiện cho tới khi có phê duyệt riêng về phạm vi, tài khoản giả, dữ liệu và thao tác được phép |
 | P6 | AI và học tập thích ứng | Chưa bắt đầu | Chỉ triển khai sau khi nền tảng và dữ liệu được ổn định |
+
+**Gate P5.4-C:** trạng thái hiện tại là chưa được cấp phép. Việc P5.4-A/P5.4-B hoàn thành không tạo quyền mặc định để chạy P5.4-C. Cần người dùng phê duyệt riêng trước khi tạo tài khoản/dữ liệu, gửi quiz hoặc thực hiện browser E2E có xác thực.
 
 ### Điều kiện trước khi mở rộng QA production
 
