@@ -86,6 +86,9 @@ for (const viewport of viewports) {
     ).toBeTruthy();
 
     if (viewport.name === 'tablet-768x1024') {
+      // Navigation and disclosure checks may scroll the page; measure the topbar at scroll origin.
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
       const tabletLayout = await page.evaluate(() => {
         const topbar = document.querySelector('.topbar');
         const hud = document.querySelector('.rpg-hud');
