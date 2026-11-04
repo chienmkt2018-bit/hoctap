@@ -284,7 +284,7 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
         'The persisted attempt must retain the post-award XP total.');
       const idempotencyProgress = await ProgressModel.findOne({
         learnerId: idempotencyLearnerId,
-      }).lean();
+      });
       assert.ok(idempotencyProgress, 'The idempotency learner progress must be persisted.');
       assert.equal(idempotencyProgress.totalXp, 18,
         'The idempotency learner progress must persist exactly 18 XP after retry.');
@@ -319,7 +319,7 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
       assert.equal(concurrentAttempt?.totalXpAfter, 86,
         'The single concurrent attempt must persist the final 86 XP total.');
 
-      const concurrentProgress = await ProgressModel.findOne({ learnerId }).lean();
+      const concurrentProgress = await ProgressModel.findOne({ learnerId });
       assert.ok(concurrentProgress, 'The concurrency learner progress must be persisted.');
       assert.equal(concurrentProgress.totalXp, 86,
         'MongoDB progress must persist exactly 86 XP after the concurrent submissions.');
