@@ -605,7 +605,7 @@ function App() {
                 <div className="rpg-quest-stack">
                   {[...quests].reverse().map((quest) => (
                     <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
-                      <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
+                      <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
                         {quest.status === 'done' ? '✓' : quest.status === 'locked' ? <UIIcon name="lock" size={25}/> : quest.id === 4 ? <UIIcon name="crown" size={30}/> : <UIIcon name="compass" size={27}/>}
                       </button>
                       <div className="rpg-node-copy">
