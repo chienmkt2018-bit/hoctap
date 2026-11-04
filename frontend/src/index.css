@@ -651,3 +651,7 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   .rpg-path-line span { transition:none; }
   .rpg-path-line::after,.rpg-start-button::after { animation:none; }
 }
+
+
+/* UI-02 QA: the RPG map provides its own HUD and chapter heading. */
+.page-intro.rpg-map-intro-hidden { display: none; }
