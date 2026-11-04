@@ -63,7 +63,7 @@ for (const viewport of viewports) {
     await expect(dailyToggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByRole('region', { name: 'Chi tiết thử thách hôm nay' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Bài học' }).click();
+    await page.getByRole('button', { name: 'Bài học', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Khám phá bài học' })).toBeVisible();
     await page.getByRole('button', { name: 'Bản đồ nhiệm vụ' }).click();
     await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức' })).toBeVisible();
