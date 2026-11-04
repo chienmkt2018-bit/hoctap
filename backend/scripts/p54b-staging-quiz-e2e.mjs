@@ -79,7 +79,12 @@ async function main() {
   });
   expectStatus(unauth, 401, "P54B-AUTH-01 quiz endpoint requires authentication");
 
-  // Emit the exact synthetic email before registration so cleanup can recover even if the response is lost.\n  console.log("QA_CLEANUP_EMAIL=" + email);\n  console.log("QA_CLEANUP_RUN_ID=" + runId);\n  console.log("QA_CLEANUP_RUN_ATTEMPT=" + runAttempt);\n\n  const registered = await request("/api/v1/auth/register", {
+  // Emit the exact synthetic email before registration so cleanup can recover even if the response is lost.
+  console.log("QA_CLEANUP_EMAIL=" + email);
+  console.log("QA_CLEANUP_RUN_ID=" + runId);
+  console.log("QA_CLEANUP_RUN_ATTEMPT=" + runAttempt);
+
+  const registered = await request("/api/v1/auth/register", {
     method: "POST",
     body: { email, password, timezone: "Asia/Ho_Chi_Minh" }
   });
@@ -198,6 +203,8 @@ try {
     apiOrigin: expectedBaseUrl,
     testEmail: email,
     testUserId: userId,
+    runId,
+    runAttempt,
     results,
     failure,
     cleanup: "pending external verification and exact-ID cleanup"
