@@ -103,7 +103,7 @@ for (const viewport of viewports) {
           hudTop: hudRect.top,
           mapBottom: mapRect.bottom,
           asideTop: asideRect.top,
-          worldColumns: getComputedStyle(world).gridTemplateColumns.trim().split(/\\s+/).length,
+          worldColumns: getComputedStyle(world).gridTemplateColumns.trim().split(/\s+/).length,
         };
       });
       expect(tabletLayout.topbarVisible, 'tablet should retain the desktop topbar').toBeTruthy();
