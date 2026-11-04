@@ -94,8 +94,8 @@ jobs:
           if (summary.testUserId != null && !/^[a-f0-9]{24}$/i.test(summary.testUserId)) {
             throw new Error("Artifact user ID is not a valid MongoDB ObjectId.");
           }
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, "test_email=" + summary.testEmail + "\\n");
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, "test_user_id=" + (summary.testUserId || "") + "\\n");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "test_email=" + summary.testEmail + "\n");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "test_user_id=" + (summary.testUserId || "") + "\n");
           console.log("PASS | artifact identity matches this exact P5.4-B run.");
           NODE
 
