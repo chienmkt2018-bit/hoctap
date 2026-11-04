@@ -373,6 +373,25 @@ test('quiz HTTP API enforces authentication, server scoring, and attempt idempot
           }),
         ]);
       }
+
+      // Prove the finally-block cleanup removed only this run's synthetic learners.
+      const remainingUsers = await UserModel.countDocuments({
+        email: { $in: [registeredEmail, concurrentRegisteredEmail] },
+      });
+      const remainingProgress = learnerIds.length
+        ? await ProgressModel.countDocuments({ learnerId: { $in: learnerIds } })
+        : 0;
+      const remainingAttempts = learnerIds.length
+        ? await QuizAttemptModel.countDocuments({ learnerId: { $in: learnerIds } })
+        : 0;
+      const remainingRewards = learnerIds.length
+        ? await RewardLedgerModel.countDocuments({ learnerId: { $in: learnerIds } })
+        : 0;
+      assert.deepEqual(
+        [remainingUsers, remainingProgress, remainingAttempts, remainingRewards],
+        [0, 0, 0, 0],
+        'Scoped cleanup must leave no user, progress, quiz-attempt, or reward-ledger records for this test run.',
+      );
     } finally {
       await mongoose.disconnect();
     }
