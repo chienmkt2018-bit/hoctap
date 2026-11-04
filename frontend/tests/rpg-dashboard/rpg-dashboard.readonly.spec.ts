@@ -54,7 +54,12 @@ for (const viewport of viewports) {
     const lockedQuest = page.getByRole('button', { name: 'Mở khóa kiến thức, đang khóa' });
     await expect(lockedQuest).toBeVisible();
     await expect(lockedQuest).toBeDisabled();
+    await expect(lockedQuest).toHaveAttribute('disabled', '');
     await expect(lockedQuest).toHaveAttribute('aria-disabled', 'true');
+    await expect.poll(() => lockedQuest.evaluate((element) => (element as HTMLButtonElement).disabled)).toBe(true);
+    // A native disabled button ignores programmatic click(), matching its non-interactive user state.
+    await lockedQuest.evaluate((element) => (element as HTMLButtonElement).click());
+    await expect(page.getByText('Hoàn thành nhiệm vụ đang mở để mở khóa chặng tiếp theo nhé.', { exact: true })).toHaveCount(0);
     expect(attemptedWrites, 'locked quest must not trigger a mutating HTTP request').toEqual([]);
 
     const dailyToggle = page.getByRole('button', { name: /Thử thách hôm nay/ });
@@ -79,6 +84,34 @@ for (const viewport of viewports) {
       focusStyle.outlineStyle !== 'none' && focusStyle.outlineWidth !== '0px' || focusStyle.boxShadow !== 'none',
       'focused navigation control should have a visible focus indicator',
     ).toBeTruthy();
+
+    if (viewport.name === 'tablet-768x1024') {
+      const tabletLayout = await page.evaluate(() => {
+        const topbar = document.querySelector('.topbar');
+        const hud = document.querySelector('.rpg-hud');
+        const map = document.querySelector('.rpg-stone-map');
+        const aside = document.querySelector('.rpg-world-aside');
+        const world = document.querySelector('.rpg-world-layout');
+        if (!topbar || !hud || !map || !aside || !world) throw new Error('Tablet RPG layout elements are missing');
+        const topbarRect = topbar.getBoundingClientRect();
+        const hudRect = hud.getBoundingClientRect();
+        const mapRect = map.getBoundingClientRect();
+        const asideRect = aside.getBoundingClientRect();
+        return {
+          topbarVisible: getComputedStyle(topbar).display !== 'none',
+          topbarBottom: topbarRect.bottom,
+          hudTop: hudRect.top,
+          mapBottom: mapRect.bottom,
+          asideTop: asideRect.top,
+          worldColumns: getComputedStyle(world).gridTemplateColumns.trim().split(/\\s+/).length,
+        };
+      });
+      expect(tabletLayout.topbarVisible, 'tablet should retain the desktop topbar').toBeTruthy();
+      expect(tabletLayout.topbarBottom, 'topbar must not overlap the RPG HUD at initial scroll position').toBeLessThanOrEqual(tabletLayout.hudTop + 1);
+      expect(tabletLayout.worldColumns, 'tablet world layout should use a single column below 900px').toBe(1);
+      expect(tabletLayout.asideTop, 'tablet information panel should follow the map, not overlap it').toBeGreaterThanOrEqual(tabletLayout.mapBottom);
+      await page.screenshot({ path: 'test-results/tablet-768x1024-viewport.png' });
+    }
 
     await page.screenshot({ path: `test-results/${viewport.name}.png`, fullPage: true });
     expect(attemptedWrites, 'no mutating HTTP requests may be sent').toEqual([]);
