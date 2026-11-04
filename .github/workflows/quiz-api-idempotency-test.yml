@@ -5,9 +5,12 @@ on:
   push:
     branches:
       - "test/playwright-readonly-staging"
+      - "ops/p54b-staging-cleanup-worker"
     paths:
       - "backend/src/**"
       - "backend/test/quizApi.integration.test.ts"
+      - "backend/test/p54bCleanupWorker.integration.test.mjs"
+      - "backend/scripts/p54b-staging-cleanup-worker.mjs"
       - "backend/package.json"
       - ".github/workflows/quiz-api-idempotency-test.yml"
 
@@ -83,6 +86,10 @@ jobs:
           mkdir -p artifacts
           set -o pipefail
           npx tsx --test test/quizApi.integration.test.ts 2>&1 | tee artifacts/quiz-api-idempotency.tap.log
+
+      - name: Test scoped staging cleanup worker against ephemeral MongoDB
+        working-directory: backend
+        run: node --test test/p54bCleanupWorker.integration.test.mjs
 
       - name: Stop ephemeral MongoDB
         if: always()
