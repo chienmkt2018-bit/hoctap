@@ -21,7 +21,18 @@ async function db() {
   return connection.db;
 }
 
-async function resetTarget() {\n  const database = await db();\n  await database.collection("users").deleteMany({ _id: { $in: [targetId, unrelatedId] } });\n  for (const collection of ["progresses", "quizattempts", "rewardledgers"]) {\n    await database.collection(collection).deleteMany({ learnerId: { $in: [String(targetId), String(unrelatedId)] } });\n  }\n  await seedLearner(targetId, email);\n}\n\nbeforeEach(resetTarget);\n\nasync function seedLearner(id, learnerEmail) {
+async function resetTarget() {
+  const database = await db();
+  await database.collection("users").deleteMany({ _id: { $in: [targetId, unrelatedId] } });
+  for (const collection of ["progresses", "quizattempts", "rewardledgers"]) {
+    await database.collection(collection).deleteMany({ learnerId: { $in: [String(targetId), String(unrelatedId)] } });
+  }
+  await seedLearner(targetId, email);
+}
+
+beforeEach(resetTarget);
+
+async function seedLearner(id, learnerEmail) {
   const database = await db();
   await database.collection("users").insertOne({
     _id: id,
@@ -64,7 +75,6 @@ async function countFor(id) {
 }
 
 test("cleanup worker dry-run reports exact target without writes", async () => {
-  await seedLearner(targetId, email);
   const result = runWorker();
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /DRY RUN only/);
