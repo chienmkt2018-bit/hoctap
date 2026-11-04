@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: quiz-api-idempotency-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   quiz-api-integration:
