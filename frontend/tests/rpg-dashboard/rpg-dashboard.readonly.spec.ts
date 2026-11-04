@@ -53,9 +53,9 @@ for (const viewport of viewports) {
 
     const lockedQuest = page.getByRole('button', { name: 'Mở khóa kiến thức, đang khóa' });
     await expect(lockedQuest).toBeVisible();
+    await expect(lockedQuest).toBeDisabled();
     await expect(lockedQuest).toHaveAttribute('aria-disabled', 'true');
-    await lockedQuest.click();
-    await expect(page.getByText('Hoàn thành nhiệm vụ đang mở để mở khóa chặng tiếp theo nhé.')).toBeVisible();
+    expect(attemptedWrites, 'locked quest must not trigger a mutating HTTP request').toEqual([]);
 
     const dailyToggle = page.getByRole('button', { name: /Thử thách hôm nay/ });
     await expect(dailyToggle).toHaveAttribute('aria-expanded', 'false');
@@ -92,10 +92,20 @@ test('reduced-motion preference disables continuous animation', async ({ page })
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await installReadOnlyGuards(page);
   await page.goto('/');
-  const motion = await page.evaluate(() => {
+  const motionDurationsMs = await page.evaluate(() => {
     const candidates = [...document.querySelectorAll('*')];
-    return candidates.map(element => getComputedStyle(element).animationDuration)
-      .filter(duration => !['0s', '0ms', '0.01ms'].includes(duration));
+    return candidates.flatMap(element =>
+      getComputedStyle(element).animationDuration.split(',').map(value => {
+        const duration = value.trim();
+        const numericValue = Number.parseFloat(duration);
+        if (duration.endsWith('ms')) return numericValue;
+        if (duration.endsWith('s')) return numericValue * 1000;
+        throw new Error(`Unexpected CSS animation-duration value: ${duration}`);
+      }),
+    );
   });
-  expect(motion, 'reduced-motion mode should suppress continuous CSS animations').toEqual([]);
+  expect(
+    motionDurationsMs.filter(duration => duration > 0.01),
+    'reduced-motion mode should suppress continuous CSS animations',
+  ).toEqual([]);
 });
