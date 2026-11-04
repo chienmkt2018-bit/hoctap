@@ -554,7 +554,7 @@ function App() {
             <p className="auth-footnote">Phiên đăng nhập được giữ trong tab hiện tại; khi đăng xuất, dữ liệu học cục bộ không bị xóa.</p>
           </section>}
 
-          <div className="page-intro">
+          <div className={`page-intro ${activeNav === 'map' ? 'rpg-map-intro-hidden' : ''}`}>
             <div>
               <p className="eyebrow"><span className="eyebrow-line" /> THỨ HAI · HÀNH TRÌNH CỦA BẠN</p>
               <h1>{activeNav === 'overview' ? <>Chào mừng trở lại,<br /><span>nhà thám hiểm.</span></> : activeTitle + '.'}</h1>
