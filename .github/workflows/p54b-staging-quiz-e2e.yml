@@ -1,12 +1,8 @@
 name: P5.4-B staging authenticated quiz API E2E
 
 on:
-  push:
-    branches:
-      - "test/playwright-readonly-staging"
-    paths:
-      - ".github/workflows/p54b-staging-quiz-e2e.yml"
-      - "backend/scripts/p54b-staging-quiz-e2e.mjs"
+  # This suite creates a synthetic learner and writes quiz/progress/reward data.
+  # It must never run automatically on push.
   workflow_dispatch:
     branches:
       - "test/playwright-readonly-staging"
