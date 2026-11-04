@@ -1,0 +1,53 @@
+name: P5.4-B staging authenticated quiz API E2E
+
+on:
+  push:
+    branches:
+      - "test/playwright-readonly-staging"
+    paths:
+      - ".github/workflows/p54b-staging-quiz-e2e.yml"
+      - "backend/scripts/p54b-staging-quiz-e2e.mjs"
+  workflow_dispatch:
+    branches:
+      - "test/playwright-readonly-staging"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p54b-staging-quiz-e2e
+  cancel-in-progress: false
+
+jobs:
+  staging-authenticated-quiz-e2e:
+    if: github.ref == 'refs/heads/test/playwright-readonly-staging'
+    name: Authenticated quiz API test on isolated staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      STAGING_API_BASE_URL: https://hoctap-staging-api.onrender.com
+
+    steps:
+      - name: Checkout QA-only branch
+        uses: actions/checkout@v4
+        with:
+          ref: test/playwright-readonly-staging
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify staging API and authenticated quiz flow
+        run: |
+          mkdir -p artifacts
+          node backend/scripts/p54b-staging-quiz-e2e.mjs
+
+      - name: Upload non-secret test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p54b-staging-authenticated-quiz-e2e
+          path: artifacts/p54b-staging-api-summary.json
+          if-no-files-found: ignore
+          retention-days: 7
