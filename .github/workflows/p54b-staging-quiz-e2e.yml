@@ -47,3 +47,84 @@ jobs:
           path: artifacts/p54b-staging-api-summary.json
           if-no-files-found: ignore
           retention-days: 7
+
+  cleanup-dry-run:
+    if: always() && github.ref == 'refs/heads/test/playwright-readonly-staging'
+    needs:
+      - staging-authenticated-quiz-e2e
+    name: Verify synthetic learner identity (DRY-RUN ONLY)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging-cleanup
+    env:
+      MONGODB_URI: ${{ secrets.P54B_STAGING_MONGODB_URI }}
+      MONGODB_DB_NAME: test
+      P54B_RUN_ID: ${{ github.run_id }}
+      P54B_RUN_ATTEMPT: ${{ github.run_attempt }}
+      P54B_CLEANUP_APPLY: "false"
+
+    steps:
+      - name: Download P5.4-B identity summary
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: p54b-staging-authenticated-quiz-e2e
+          path: artifacts
+
+      - name: Validate exact run identity from test artifact
+        id: identity
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+          const summaryPath = "artifacts/p54b-staging-api-summary.json";
+          if (!fs.existsSync(summaryPath)) {
+            throw new Error("P5.4-B summary artifact is missing; cleanup dry-run is blocked.");
+          }
+          const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+          const runId = process.env.GITHUB_RUN_ID;
+          const runAttempt = process.env.GITHUB_RUN_ATTEMPT;
+          const expectedEmail = new RegExp("^p54b-" + runId + "-" + runAttempt + "-[a-f0-9]{8}\\@example\\.test$");
+          if (summary.apiOrigin !== "https://hoctap-staging-api.onrender.com") {
+            throw new Error("Artifact API origin is not the approved staging API.");
+          }
+          if (typeof summary.testEmail !== "string" || !expectedEmail.test(summary.testEmail)) {
+            throw new Error("Artifact synthetic email does not match this exact workflow run and attempt.");
+          }
+          if (summary.testUserId != null && !/^[a-f0-9]{24}$/i.test(summary.testUserId)) {
+            throw new Error("Artifact user ID is not a valid MongoDB ObjectId.");
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "test_email=" + summary.testEmail + "\\n");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, "test_user_id=" + (summary.testUserId || "") + "\\n");
+          console.log("PASS | artifact identity matches this exact P5.4-B run.");
+          NODE
+
+      - name: Checkout isolated cleanup worker
+        uses: actions/checkout@v4
+        with:
+          ref: ops/p54b-staging-cleanup-worker
+          path: cleanup-worker
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate cleanup credential is configured
+        shell: bash
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::Missing GitHub Environment secret P54B_STAGING_MONGODB_URI; dry-run is blocked."
+            exit 1
+          fi
+
+      - name: Install cleanup worker dependencies
+        working-directory: cleanup-worker/backend
+        run: npm install --no-audit --no-fund
+
+      - name: Run scoped cleanup worker in DRY-RUN mode
+        working-directory: cleanup-worker/backend
+        env:
+          P54B_TEST_EMAIL: ${{ steps.identity.outputs.test_email }}
+          P54B_TEST_USER_ID: ${{ steps.identity.outputs.test_user_id }}
+        run: node scripts/p54b-staging-cleanup-worker.mjs
