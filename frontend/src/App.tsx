@@ -197,7 +197,7 @@ function NavigationIcon({ name }: { name: NavigationIconName }) {
 }
 
 
-type UIIconName = 'flame' | 'gem' | 'bell' | 'sparkles' | 'trophy' | 'target';
+type UIIconName = 'flame' | 'gem' | 'bell' | 'sparkles' | 'trophy' | 'target' | 'compass' | 'lock' | 'crown';
 
 function UIIcon({ name, size = 20 }: { name: UIIconName; size?: number }) {
   const paths: Record<UIIconName, string> = {
@@ -207,6 +207,9 @@ function UIIcon({ name, size = 20 }: { name: UIIconName; size?: number }) {
     sparkles: 'm12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 15l1 2.5 2.5 1-2.5 1L19 22l-1-2.5-2.5-1 2.5-1z',
     trophy: 'M8 21h8 M12 17v4 M7 4h10v5a5 5 0 0 1-10 0z M7 6H4v2a4 4 0 0 0 4 4 M17 6h3v2a4 4 0 0 1-4 4',
     target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z M12 12h.01',
+    compass: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M15.5 8.5l-2.2 4.8-4.8 2.2 2.2-4.8z',
+    lock: 'M5 10h14v11H5z M8 10V7a4 4 0 0 1 8 0v3 M12 14v3',
+    crown: 'M3 7l5 4 4-7 4 7 5-4-2 13H5z M5 17h14',
   };
   return <svg className="ui-icon" viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
 }
@@ -255,7 +258,8 @@ function mergeRemoteProgress(remote: ApiProgress, timeZone: string): SavedProgre
   };
 }
 function App() {
-  const [activeNav, setActiveNav] = useState('overview');
+  const [activeNav, setActiveNav] = useState('map');
+  const [dailySheetOpen, setDailySheetOpen] = useState(false);
   const [quests, setQuests] = useState(() => readSavedProgress()?.quests ?? initialQuests);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [notice, setNotice] = useState('');
@@ -505,7 +509,7 @@ function App() {
         <div className="sidebar-label">KHÔNG GIAN HỌC TẬP</div>
         <nav className="nav-list" aria-label="Điều hướng chính">
           {navigation.map((item) => (
-            <button key={item.id} className={`nav-item ${activeNav === item.id ? 'is-active' : ''}`} onClick={() => { setActiveNav(item.id); setSelectedQuest(null); }} type="button">
+            <button key={item.id} className={`nav-item ${activeNav === item.id ? 'is-active' : ''}`} aria-current={activeNav === item.id ? 'page' : undefined} onClick={() => { setActiveNav(item.id); setSelectedQuest(null); }} type="button">
               <span className="nav-icon"><NavigationIcon name={item.icon} /></span>
               <span>{item.label}</span>
               {item.id === 'map' && <span className="nav-badge">NEW</span>}
@@ -550,7 +554,7 @@ function App() {
             <p className="auth-footnote">Phiên đăng nhập được giữ trong tab hiện tại; khi đăng xuất, dữ liệu học cục bộ không bị xóa.</p>
           </section>}
 
-          <div className="page-intro">
+          <div className={`page-intro ${activeNav === 'map' ? 'rpg-map-intro-hidden' : ''}`}>
             <div>
               <p className="eyebrow"><span className="eyebrow-line" /> THỨ HAI · HÀNH TRÌNH CỦA BẠN</p>
               <h1>{activeNav === 'overview' ? <>Chào mừng trở lại,<br /><span>nhà thám hiểm.</span></> : activeTitle + '.'}</h1>
@@ -570,6 +574,85 @@ function App() {
               <div className="lesson-body"><span className="section-kicker">NHIỆM VỤ ĐANG CHỌN · +{selectedQuest.xp} XP</span><h2>{selectedQuest.title}</h2><p>{selectedQuest.subtitle}. Sẵn sàng bắt đầu phiên học ngắn của bạn?</p></div>
               <button className="primary-button" type="button" onClick={() => { setActiveNav('lessons'); setSelectedQuest(null); setNotice('Chọn bài học tương ứng trong thư viện để bắt đầu quiz.'); }}>Mở bài học tương ứng <span>↗</span></button>
               <button className="close-button" type="button" aria-label="Đóng nhiệm vụ" onClick={() => setSelectedQuest(null)}>×</button>
+            </section>
+          )}
+
+          {activeNav === 'map' && (
+            <section className="rpg-map-screen" aria-labelledby="rpg-chapter-title">
+              <header className="rpg-hud">
+                <div className="rpg-player">
+                  <div className="rpg-level-orb" aria-label={`Cấp độ ${level}`}>{level}</div>
+                  <div className="rpg-player-copy">
+                    <strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong>
+                    <div className="rpg-xp-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={levelXpRequired} aria-valuenow={levelProgress}><span style={{width:`${Math.min(100, levelProgress / levelXpRequired * 100)}%`}} /></div>
+                    <small>{levelProgress.toLocaleString('vi-VN')} / {levelXpRequired.toLocaleString('vi-VN')} XP</small>
+                  </div>
+                </div>
+                <div className="rpg-hud-chips">
+                  <div className="rpg-chip rpg-streak-chip" aria-label={`Chuỗi học ${learningStreak} ngày`}><UIIcon name="flame" size={16}/><strong>{learningStreak}</strong></div>
+                  <div className="rpg-chip rpg-gem-chip" aria-label="120 gems"><UIIcon name="gem" size={16}/><strong>120</strong></div>
+                </div>
+              </header>
+
+              <div className="rpg-chapter-heading">
+                <div><span>CHƯƠNG 01</span><h1 id="rpg-chapter-title">Khởi nguyên tri thức</h1></div>
+                <strong>{completedCount} / {quests.length}</strong>
+              </div>
+
+              <div className="rpg-world-layout">
+              <div className="rpg-stone-map" aria-label="Bản đồ nhiệm vụ chương 01">
+                <div className="rpg-path-line" aria-hidden="true"><span style={{height:`${completedCount / quests.length * 100}%`}} /></div>
+                <div className="rpg-quest-stack">
+                  {[...quests].reverse().map((quest) => (
+                    <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
+                      <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
+                        {quest.status === 'done' ? '✓' : quest.status === 'locked' ? <UIIcon name="lock" size={25}/> : quest.id === 4 ? <UIIcon name="crown" size={30}/> : <UIIcon name="compass" size={27}/>}
+                      </button>
+                      <div className="rpg-node-copy">
+                        <small>{quest.status === 'done' ? 'HOÀN THÀNH' : quest.status === 'active' ? 'ĐANG MỞ' : 'ĐANG KHÓA'}</small>
+                        <strong>{quest.title}</strong>
+                        <span>+{quest.xp} XP</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="rpg-companion" aria-label="Bạn đồng hành cổ vũ: Bắt đầu nào!">
+                    <span className="rpg-speech">Bắt đầu nào!</span>
+                    <svg viewBox="0 0 100 150" role="img" aria-label="Cậu bé tóc nâu, áo sọc cam kem, quần jean và giày nâu">
+                      <ellipse cx="50" cy="143" rx="30" ry="5" fill="#05050d" opacity=".55"/>
+                      <path d="M29 75Q50 63 71 75L76 112H24Z" fill="#e8a05c" stroke="#f5d5aa" strokeWidth="2"/>
+                      <path d="M34 76v35m10-36v37m11-37v37m10-36v35" stroke="#f8dfbd" strokeWidth="5"/>
+                      <path d="M29 83Q15 83 20 103l12 8 6-8-8-8m40-12q15 0 10 20l-12 8-6-8 8-8" fill="#e7ad78" stroke="#d28b57" strokeWidth="2"/>
+                      <path d="M31 110l-4 25h18l5-22m4-1 5 23h18l-7-28" fill="#426a91" stroke="#83a7c8" strokeWidth="2"/>
+                      <path d="M26 134h20q5 0 5 7H24q-3-3 2-7m32 0h18q5 0 5 7H59q-3-3-1-7" fill="#754b35"/>
+                      <circle cx="50" cy="48" r="25" fill="#efbd91" stroke="#d18d63" strokeWidth="2"/>
+                      <path d="M26 46Q20 20 43 17q7-14 19-2 17 2 14 24l-9-8-8 3-6-9-8 10-12-1z" fill="#5b392b"/>
+                      <path d="M39 50h2m17 0h2" stroke="#3a2a28" strokeWidth="3" strokeLinecap="round"/>
+                      <path d="M45 61q5 4 10 0" stroke="#a95e50" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                </div>
+                {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</button>}
+              </div>
+
+              <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
+                <section className="rpg-side-profile">
+                  <span className="rpg-side-emblem"><UIIcon name="crown" size={24}/></span>
+                  <div><small>NHÀ THÁM HIỂM</small><strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
+                </section>
+                <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
+                  <div><span className="rpg-side-stat-icon xp"><UIIcon name="sparkles" size={17}/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
+                  <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
+                  <div><span className="rpg-side-stat-icon gems"><UIIcon name="gem" size={17}/></span><small>GEMS</small><strong>120</strong></div>
+                </section>
+                <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
+                  <span><UIIcon name="sparkles" size={18}/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
+                </button>
+                {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
+                  <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
+                  {dailyQuests.map((quest) => <div className="rpg-daily-row" key={quest.id}><span>{quest.done ? '✓' : '◇'}</span><div><strong>{quest.title}</strong><small>{quest.description}</small></div><b>{quest.progress}/{quest.target}</b></div>)}
+                </section>}
+              </aside>
+              </div>
             </section>
           )}
 

@@ -1,0 +1,63 @@
+name: RPG Dashboard Read-only QA
+
+on:
+  push:
+    branches: ["feat/ui-02-rpg-dashboard"]
+    paths:
+      - ".github/workflows/rpg-dashboard-readonly.yml"
+      - "frontend/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-dashboard-readonly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rpg-dashboard:
+    name: TypeScript, Vite and read-only Playwright
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies and ephemeral Playwright test runner
+        run: |
+          npm install --no-package-lock
+          npm install --no-save --no-package-lock @playwright/test@1.56.1
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Vite production build
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run RPG dashboard read-only tests
+        run: npx playwright test --config=playwright.rpg.config.ts
+
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-dashboard-readonly-evidence
+          path: |
+            frontend/test-results/
+            frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
