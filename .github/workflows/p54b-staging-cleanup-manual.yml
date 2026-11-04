@@ -1,0 +1,95 @@
+name: P5.4-B staging cleanup (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "GitHub Actions run ID that created the synthetic learner"
+        required: true
+        type: string
+      run_attempt:
+        description: "Attempt number of the creating run (usually 1)"
+        required: true
+        default: "1"
+        type: string
+      test_email:
+        description: "Exact synthetic email printed as QA_CLEANUP_EMAIL"
+        required: true
+        type: string
+      test_user_id:
+        description: "Exact MongoDB user ID printed as QA_CLEANUP_USER_ID"
+        required: true
+        type: string
+      mode:
+        description: "Start with dry-run. Select apply only after reviewing dry-run output."
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      confirmation:
+        description: "For apply only: DELETE-P54B-<run_id>-<run_attempt>"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p54b-staging-cleanup-manual
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Exact synthetic learner cleanup on staging Atlas
+    if: github.ref == 'refs/heads/ops/p54b-staging-cleanup-worker'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging-cleanup
+    env:
+      MONGODB_URI: ${{ secrets.P54B_STAGING_MONGODB_URI }}
+      MONGODB_DB_NAME: test
+      P54B_RUN_ID: ${{ inputs.run_id }}
+      P54B_RUN_ATTEMPT: ${{ inputs.run_attempt }}
+      P54B_TEST_EMAIL: ${{ inputs.test_email }}
+      P54B_TEST_USER_ID: ${{ inputs.test_user_id }}
+      P54B_CLEANUP_APPLY: ${{ inputs.mode == 'apply' && 'true' || 'false' }}
+      P54B_CLEANUP_CONFIRMATION: ${{ inputs.confirmation }}
+
+    steps:
+      - name: Checkout selected worker branch
+        uses: actions/checkout@v4
+        with:
+          ref: ops/p54b-staging-cleanup-worker
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate required secret without printing it
+        shell: bash
+        run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::Missing GitHub Environment secret P54B_STAGING_MONGODB_URI."
+            exit 1
+          fi
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --no-audit --no-fund
+
+      - name: Run scoped cleanup worker
+        working-directory: backend
+        run: node scripts/p54b-staging-cleanup-worker.mjs
+
+      - name: Record completion mode
+        if: always()
+        shell: bash
+        run: |
+          if [ "${{ inputs.mode }}" = "apply" ]; then
+            echo "Cleanup mode: APPLY (worker performs its own exact-ID post-delete verification)."
+          else
+            echo "Cleanup mode: DRY-RUN (no database documents should be changed)."
+          fi
