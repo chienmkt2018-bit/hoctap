@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { test } from "node:test";
+import { beforeEach, test } from "node:test";
 import mongoose from "mongoose";
 
 const uri = process.env.MONGODB_TEST_URI;
@@ -21,7 +21,7 @@ async function db() {
   return connection.db;
 }
 
-async function seedLearner(id, learnerEmail) {
+async function resetTarget() {\n  const database = await db();\n  await database.collection("users").deleteMany({ _id: { $in: [targetId, unrelatedId] } });\n  for (const collection of ["progresses", "quizattempts", "rewardledgers"]) {\n    await database.collection(collection).deleteMany({ learnerId: { $in: [String(targetId), String(unrelatedId)] } });\n  }\n  await seedLearner(targetId, email);\n}\n\nbeforeEach(resetTarget);\n\nasync function seedLearner(id, learnerEmail) {
   const database = await db();
   await database.collection("users").insertOne({
     _id: id,
