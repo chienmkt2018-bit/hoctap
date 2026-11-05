@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import StagingApp from './StagingApp';
+import App from './App';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -10,6 +10,6 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <StagingApp />
+    <App readOnlyPreview />
   </StrictMode>,
 );
