@@ -81,16 +81,18 @@ jobs:
                       ]
                       magenta_count = sum(magenta)
 
-                      edge_indices = set()
-                      for x in range(width):
-                          edge_indices.add(x)
-                          edge_indices.add((height - 1) * width + x)
-                      for y in range(height):
-                          edge_indices.add(y * width)
-                          edge_indices.add(y * width + width - 1)
-                      edge_magenta = sum(magenta[i] for i in edge_indices)
-                      edge_alpha_visible = sum(alpha_values[i] > 0 for i in edge_indices)
-                      edge_count = len(edge_indices)
+                      # Character silhouette boundary: visible-alpha pixels that
+                      # touch at least one transparent pixel in their 3x3 neighborhood.
+                      from PIL import ImageChops, ImageFilter
+                      alpha_image = image.getchannel("A")
+                      visible_mask = alpha_image.point(lambda value: 255 if value > 0 else 0)
+                      eroded_mask = visible_mask.filter(ImageFilter.MinFilter(3))
+                      boundary_mask = ImageChops.subtract(visible_mask, eroded_mask)
+                      boundary_count = sum(1 for value in boundary_mask.getdata() if value > 0)
+                      magenta_mask = Image.new("L", (width, height))
+                      magenta_mask.putdata([255 if flag else 0 for flag in magenta])
+                      boundary_magenta = ImageChops.multiply(boundary_mask, magenta_mask)
+                      boundary_magenta_count = sum(1 for value in boundary_magenta.getdata() if value > 0)
 
                       has_alpha_channel = "A" in source.getbands()
                       row = {
@@ -106,10 +108,9 @@ jobs:
                           "alpha_opaque_pct": round(alpha_bins["alpha_255"] * 100 / total, 4),
                           "magenta_pixels": magenta_count,
                           "magenta_pct": round(magenta_count * 100 / total, 4),
-                          "edge_pixels": edge_count,
-                          "edge_magenta_pixels": edge_magenta,
-                          "edge_magenta_pct": round(edge_magenta * 100 / edge_count, 4) if edge_count else 0,
-                          "edge_visible_alpha_pct": round(edge_alpha_visible * 100 / edge_count, 4) if edge_count else 0,
+                          "silhouette_boundary_pixels": boundary_count,
+                          "silhouette_boundary_magenta_pixels": boundary_magenta_count,
+                          "silhouette_boundary_magenta_pct": round(boundary_magenta_count * 100 / boundary_count, 4) if boundary_count else 0,
                           "status": "PASS",
                           "notes": ""
                       }
@@ -176,12 +177,12 @@ jobs:
               report.write(f"- PNG discovered: **{len(pngs)} / {expected_count} expected**\n")
               report.write("- Source assets were opened for inspection only; no source image was modified.\n\n")
               report.write("## Image metrics\n\n")
-              report.write("| File | Dimensions | Mode | Alpha transparent / partial / opaque | Magenta px | Magenta edge % | Status |\n")
+              report.write("| File | Dimensions | Mode | Alpha transparent / partial / opaque | Magenta px | Silhouette magenta % | Status |\n")
               report.write("|---|---:|---|---:|---:|---:|---|\n")
               for row in rows:
                   dims = f"{row.get('width', '')} × {row.get('height', '')}"
                   alpha = f"{row.get('alpha_transparent_pct', '')}% / {row.get('alpha_partial_pct', '')}% / {row.get('alpha_opaque_pct', '')}%"
-                  report.write(f"| `{row['file']}` | {dims} | {row.get('mode', '')} | {alpha} | {row.get('magenta_pixels', '')} | {row.get('edge_magenta_pct', '')}% | {row.get('status', '')} |\n")
+                  report.write(f"| `{row['file']}` | {dims} | {row.get('mode', '')} | {alpha} | {row.get('magenta_pixels', '')} | {row.get('silhouette_boundary_magenta_pct', '')}% | {row.get('status', '')} |\n")
               report.write("\n## Contact sheet\n\n")
               report.write("The sheet contains the first seven PNG paths in stable case-insensitive alphabetical order. All discovered PNGs are included in the metrics CSV.\n\n")
               for path in included:
@@ -192,9 +193,9 @@ jobs:
                       report.write(f"- `{path}`\n")
               report.write("\n## Heuristic interpretation\n\n")
               report.write("- Magenta pixels are pixels with R ≥ 200, G ≤ 80, B ≥ 200 and alpha > 0. This flags likely magenta key/background contamination; it is not a semantic background classifier.\n")
-              report.write("- Magenta edge percentage measures the share of perimeter pixels matching that threshold and helps locate colored fringes.\n")
+              report.write("- Silhouette-boundary magenta percentage measures magenta pixels on the visible-alpha boundary (visible pixels touching transparency in a 3×3 neighborhood); this is a heuristic for colored fringes around transparent character cutouts.\n")
               report.write("- Alpha distribution is counted across six bins: 0, 1–63, 64–127, 128–191, 192–254 and 255.\n")
-              report.write("- Contact sheet supports visual review of silhouette/edge quality; automated pixel statistics cannot conclusively judge whether a character outline is visually correct.\n")
+              report.write("- If an image has no transparent pixels, the silhouette-boundary metric may be zero or uninformative. Contact sheet supports visual review; pixel statistics cannot conclusively judge whether a character outline is visually correct.\n")
               if failures:
                   report.write("\n## Findings requiring attention\n\n")
                   for item in failures:
