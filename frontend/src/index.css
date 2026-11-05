@@ -896,14 +896,58 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
 }
 
 
-/* RPG companion emphasis — scoped to the map companion only. */
-.rpg-companion { width:150px; height:210px; left:6px; bottom:0; }
-.rpg-speech { left:104px; }
+/* RPG companion + map composition v1.2 — avoid node overlap and enlarge visible artwork. */
+.rpg-companion {
+  left:auto;
+  right:18px;
+  bottom:8px;
+  width:210px;
+  height:290px;
+  z-index:3;
+}
+.rpg-companion-art {
+  left:-34%;
+  bottom:-2%;
+  width:168%;
+  height:168%;
+  max-width:none;
+  object-position:bottom center;
+}
+.rpg-speech {
+  top:24px;
+  left:auto;
+  right:142px;
+  font-size:13px;
+  padding:8px 12px;
+  white-space:nowrap;
+}
 @media (max-width:760px) {
-  .rpg-companion { width:112px; height:165px; left:2px; bottom:0; }
-  .rpg-speech { left:76px; }
+  .rpg-companion {
+    right:4px;
+    bottom:4px;
+    width:164px;
+    height:232px;
+  }
+  .rpg-companion-art {
+    left:-34%;
+    width:168%;
+    height:168%;
+  }
+  .rpg-speech {
+    top:18px;
+    right:112px;
+    font-size:11px;
+    padding:7px 10px;
+  }
 }
 @media (max-width:390px) {
-  .rpg-companion { width:104px; height:154px; }
-  .rpg-speech { left:70px; }
+  .rpg-companion {
+    right:2px;
+    width:150px;
+    height:216px;
+  }
+  .rpg-speech { right:104px; }
 }
+
+/* The map itself is the chapter selector; do not render a second legacy list. */
+.rpg-map-screen + .alternate-panel { display:none; }
