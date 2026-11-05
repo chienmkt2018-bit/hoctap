@@ -40,7 +40,7 @@ jobs:
           import os
           import sys
 
-          root = Path("frontend/public/assets/game")
+          root = Path("frontend/public/assets/incoming")
           out = Path("asset-inspection")
           out.mkdir(parents=True, exist_ok=True)
 
