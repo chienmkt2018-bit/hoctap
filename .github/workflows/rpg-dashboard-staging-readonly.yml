@@ -3,9 +3,9 @@ name: RPG Dashboard Direct Staging Read-only QA
 on:
   push:
     branches: ["feat/ui-02-rpg-dashboard"]
+    # Run automatically only when the staging-specific Playwright target changes.
+    # Local test edits must not trigger checks against the deployed staging site.
     paths:
-      - ".github/workflows/rpg-dashboard-staging-readonly.yml"
-      - "frontend/tests/rpg-dashboard/**"
       - "frontend/playwright.rpg.staging.config.ts"
   workflow_dispatch:
 
