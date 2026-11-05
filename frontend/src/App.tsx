@@ -609,19 +609,17 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                       <span>THE KNOWLEDGE KINGDOM</span>
                       <strong>CHƯƠNG 01 · KHỞI NGUYÊN TRI THỨC</strong>
                     </div>
-                    <svg className="rpg-route-art" viewBox="0 0 1000 760" preserveAspectRatio="none" aria-hidden="true">
-                      <defs>
-                        <linearGradient id="rpg-route-gradient" x1="0" y1="1" x2="1" y2="0">
-                          <stop offset="0%" stopColor="#f3c66b" />
-                          <stop offset="52%" stopColor="#80e7df" />
-                          <stop offset="100%" stopColor="#c9a6ff" />
-                        </linearGradient>
-                      </defs>
+                    <svg className="rpg-route-art rpg-route-desktop" viewBox="0 0 1000 760" preserveAspectRatio="none" aria-hidden="true">
                       <path className="rpg-route-shadow" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
                       <path className="rpg-route-base" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
                       <path className="rpg-route-glow" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
                     </svg>
-                    <div className="rpg-quest-stack">
+                    <svg className="rpg-route-art rpg-route-mobile" viewBox="0 0 360 900" preserveAspectRatio="none" aria-hidden="true">
+                      <path className="rpg-route-shadow" d="M85 760 C250 720 300 630 270 550 S80 420 90 330 S270 230 280 130" />
+                      <path className="rpg-route-base" d="M85 760 C250 720 300 630 270 550 S80 420 90 330 S270 230 280 130" />
+                      <path className="rpg-route-glow" d="M85 760 C250 720 300 630 270 550 S80 420 90 330 S270 230 280 130" />
+                    </svg>
+                                        <div className="rpg-quest-stack">
                       {quests.map((quest) => (
                         <div className={'rpg-quest-point rpg-point-' + quest.id + ' ' + quest.status} key={quest.id}>
                           <button
@@ -631,7 +629,16 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                             aria-label={quest.title + ', ' + (quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, xem nhiệm vụ' : 'đang khóa, xem điều kiện')}
                             onClick={() => startQuest(quest)}
                           >
-                            <span className="rpg-node-glyph" aria-hidden="true">{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '◇' : quest.id === 4 ? '♜' : '✦'}</span>
+                            <img
+                              className="rpg-node-art"
+                              src={quest.status === 'done'
+                                ? '/assets/incoming/node_hoan_thanh_vuong_mien.png'
+                                : quest.status === 'locked'
+                                  ? '/assets/incoming/node_khoa.png'
+                                  : '/assets/incoming/node_dang_mo.png'}
+                              alt=""
+                              aria-hidden="true"
+                            />
                           </button>
                           <div className="rpg-node-copy">
                             <small>{quest.status === 'done' ? '✓ ĐÃ HOÀN THÀNH' : quest.status === 'active' ? '✦ ĐANG MỞ' : '▣ ĐANG KHÓA'}</small>
