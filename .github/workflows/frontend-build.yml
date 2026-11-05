@@ -8,6 +8,7 @@ on:
       - "fix/**"
       - "feat/fantasy-game-assets-v1"
       - "feat/fantasy-rpg-ui-v1"
+      - "feat/p2-fantasy-world-map-v1"
     paths:
       - "frontend/**"
       - "backend/**"
