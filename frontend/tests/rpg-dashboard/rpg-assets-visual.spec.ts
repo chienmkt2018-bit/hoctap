@@ -65,6 +65,13 @@ for (const viewport of viewports) {
     await expect(page.locator('.rpg-node-art')).toHaveCount(4);
     await expect(page.locator('.rpg-companion-art')).toBeVisible();
     await expect(page.locator('.rpg-start-button-art')).toBeVisible();
+    const startButtonLayout = await page.locator('.rpg-start-button').evaluate(element => {
+      const map = element.closest('.rpg-stone-map');
+      const rect = element.getBoundingClientRect();
+      return { insideMap: Boolean(map), height: rect.height };
+    });
+    expect(startButtonLayout.insideMap, 'start CTA must stay inside the RPG map panel').toBeTruthy();
+    expect(startButtonLayout.height, 'start CTA must not stretch to the map column height').toBeLessThan(90);
     await expect(page.locator('.rpg-side-stat-icon.xp img')).toBeVisible();
     await expect(page.locator('.rpg-side-stat-icon.gems img')).toBeVisible();
     await expect(page.locator('.rpg-challenge-cup')).toBeVisible();
