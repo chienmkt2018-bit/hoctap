@@ -610,6 +610,13 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                       <strong>CHƯƠNG 01 · KHỞI NGUYÊN TRI THỨC</strong>
                     </div>
                     <svg className="rpg-route-art rpg-route-desktop" viewBox="0 0 1000 760" preserveAspectRatio="none" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="rpg-route-gradient" x1="0" y1="1" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#f3c66b" />
+                          <stop offset="52%" stopColor="#80e7df" />
+                          <stop offset="100%" stopColor="#c9a6ff" />
+                        </linearGradient>
+                      </defs>
                       <path className="rpg-route-shadow" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
                       <path className="rpg-route-base" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
                       <path className="rpg-route-glow" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
