@@ -21,7 +21,9 @@ Người dùng đã chọn một concept gồm hai bố cục đặt cạnh nhau
 2. Dùng ảnh đó làm chuẩn đối chiếu trực quan chính (visual source of truth).
 3. Không tự suy đoán tên file hoặc đường dẫn khi chưa kiểm tra repository.
 
-**Đường dẫn concept trong repository:** `CHƯA GHI NHẬN — chờ người dùng tải lên GitHub`.
+**Đường dẫn concept trong repository:** [`frontend/concept.png`](frontend/concept.png)  
+**GitHub:** https://github.com/chienmkt2018-bit/hoctap/blob/feat/fantasy-game-assets-v1/frontend/concept.png  
+**Trạng thái:** Đã xác nhận file tồn tại trên nhánh `feat/fantasy-game-assets-v1`. Đây là ảnh concept gốc được dùng làm chuẩn đối chiếu trực quan.
 
 Ảnh concept là chuẩn về bố cục, phong cách và cảm nhận thị giác; không có nghĩa mọi chi tiết minh họa trong ảnh phải được ghép thành một ảnh nền duy nhất. Ưu tiên UI React/CSS thực, asset 2D có thể tái sử dụng và thành phần responsive.
 
