@@ -914,9 +914,11 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   object-position:bottom center;
 }
 .rpg-speech {
-  top:24px;
+  position:absolute;
+  top:18px;
+  right:18px;
   left:auto;
-  right:142px;
+  z-index:4;
   font-size:13px;
   padding:8px 12px;
   white-space:nowrap;
@@ -934,8 +936,8 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
     height:168%;
   }
   .rpg-speech {
-    top:18px;
-    right:112px;
+    top:14px;
+    right:12px;
     font-size:11px;
     padding:7px 10px;
   }
@@ -946,7 +948,7 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
     width:150px;
     height:216px;
   }
-  .rpg-speech { right:104px; }
+  .rpg-speech { right:10px; }
 }
 
 /* The map itself is the chapter selector; do not render a second legacy list. */
