@@ -790,3 +790,24 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   .rpg-node-copy { padding:6px 7px; }
   .rpg-node-copy strong { font-size:11px; }
 }
+
+/* RPG Fantasy v1.1 — use the existing world backgrounds (no image generation/inpainting). */
+.rpg-stone-map {
+  background-image:
+    linear-gradient(180deg, rgba(10, 11, 28, .24), rgba(10, 11, 28, .46)),
+    url('/assets/incoming/bg-world-main.webp');
+  background-size: cover;
+  background-position: center 48%;
+  background-repeat: no-repeat;
+}
+.rpg-stone-map::before { opacity: .34; }
+
+@media (max-width: 760px) {
+  .rpg-stone-map {
+    background-image:
+      linear-gradient(180deg, rgba(10, 11, 28, .26), rgba(10, 11, 28, .50)),
+      url('/assets/incoming/bg_mobile_9x16.webp');
+    background-position: center center;
+  }
+  .rpg-stone-map::before { opacity: .22; }
+}
