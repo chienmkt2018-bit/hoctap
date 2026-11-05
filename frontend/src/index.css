@@ -947,3 +947,71 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
 
 /* The map itself is the chapter selector; do not render a second legacy list. */
 .rpg-map-screen + .alternate-panel { display:none; }
+
+
+/* P2 Fantasy World Map — curved route follows the staggered quest islands. */
+.rpg-stone-map { isolation:isolate; }
+.rpg-route-art {
+  position:absolute;
+  inset:0;
+  z-index:0;
+  width:100%;
+  height:100%;
+  overflow:visible;
+  pointer-events:none;
+}
+.rpg-route-art path {
+  fill:none;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  vector-effect:non-scaling-stroke;
+}
+.rpg-route-glow {
+  stroke:#39cfff;
+  stroke-width:13;
+  opacity:.34;
+  filter:drop-shadow(0 0 10px #39cfff) drop-shadow(0 0 20px #865cff);
+}
+.rpg-route-base {
+  stroke:#a7f3ff;
+  stroke-width:4;
+  stroke-dasharray:12 15;
+  opacity:.96;
+  filter:drop-shadow(0 0 5px #43dfff);
+}
+.rpg-route-progress {
+  stroke:#fff2a8;
+  stroke-width:4;
+  stroke-dasharray:100;
+  stroke-linecap:round;
+  filter:drop-shadow(0 0 7px #ffd76a);
+  transition:stroke-dashoffset 420ms ease;
+}
+.rpg-quest-stack { z-index:1; }
+.rpg-node-button { z-index:2; }
+.rpg-node-button.active .rpg-node-art {
+  filter:drop-shadow(0 0 12px #73f2ff) drop-shadow(0 0 22px #8b5cff) drop-shadow(0 5px 8px #05050d99);
+}
+.rpg-node-button.done .rpg-node-art {
+  filter:drop-shadow(0 0 10px #ffd76a) drop-shadow(0 5px 8px #05050d99);
+}
+.rpg-node-copy { backdrop-filter:blur(5px); }
+@media (max-width:760px) {
+  .rpg-route-art { display:none; }
+  .rpg-route-art::after { content:none; }
+  .rpg-stone-map { isolation:isolate; }
+  .rpg-stone-map::after {
+    content:"";
+    position:absolute;
+    z-index:0;
+    inset:0;
+    pointer-events:none;
+    background:
+      radial-gradient(ellipse at 48% 78%,#8d65ff24,transparent 24%),
+      radial-gradient(ellipse at 72% 34%,#31d8ff18,transparent 22%);
+  }
+  .rpg-quest-stack { z-index:1; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .rpg-route-progress { transition:none; }
+}
