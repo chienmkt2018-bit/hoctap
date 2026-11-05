@@ -1,0 +1,67 @@
+name: P1 Fantasy RPG visual QA (pinned commit)
+
+on:
+  push:
+    branches:
+      - "test/p1-visual-qa-6352bf8"
+    paths:
+      - ".github/workflows/p1-fantasy-rpg-visual-qa.yml"
+      - "frontend/src/**"
+      - "frontend/public/**"
+      - "frontend/tests/rpg-dashboard/rpg-assets-visual.spec.ts"
+      - "frontend/playwright.rpg.local-ci.config.ts"
+      - "frontend/package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p1-fantasy-rpg-visual-qa
+  cancel-in-progress: true
+
+jobs:
+  visual-qa:
+    name: Desktop and mobile visual checks on 6352bf8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout exact application commit
+        uses: actions/checkout@v4
+        with:
+          ref: 6352bf860fb51cdce410e73b6c4603b9196bfdd5
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install application dependencies
+        run: npm install --no-package-lock
+
+      - name: Install ephemeral Playwright test runner
+        run: npm install --no-save --no-package-lock @playwright/test@1.56.1
+
+      - name: Build exact application commit
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run desktop and mobile RPG visual tests
+        run: npx playwright test --config=playwright.rpg.local-ci.config.ts rpg-assets-visual.spec.ts
+
+      - name: Upload screenshots, traces and HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-fantasy-rpg-visual-qa-6352bf8
+          path: |
+            frontend/test-results-local-ci/
+            frontend/playwright-report-local-ci/
+          if-no-files-found: warn
+          retention-days: 7
