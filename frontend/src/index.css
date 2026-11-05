@@ -597,6 +597,16 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
 @media (max-width:760px) {
   .sidebar { display:contents; }
   .sidebar > :not(.nav-list) { display:none; }
+  /* P3: keep the product identity visible above the mobile RPG HUD. */
+  .sidebar > .brand {
+    display:flex;
+    width:100%;
+    margin:0 0 12px;
+    padding:0 4px 11px;
+    border-bottom:1px solid var(--line);
+  }
+  .sidebar > .brand .brand-mark { width:34px; height:34px; }
+  .sidebar > .brand .brand-name { font-size:12px; }
   .main-area { margin-left:0; padding-bottom:calc(76px + env(safe-area-inset-bottom)); }
   .topbar { display:none; }
   .content-wrap { padding:14px 16px 22px; }
