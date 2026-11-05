@@ -1,0 +1,77 @@
+name: RPG Dashboard Staging Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Source branch to test
+        required: true
+        type: choice
+        options:
+          - staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-dashboard-staging-dispatch
+  cancel-in-progress: false
+
+jobs:
+  rpg-dashboard-local:
+    if: ${{ inputs.target_ref == 'staging' }}
+    name: Build and test staging source locally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    env:
+      VITE_API_BASE_URL: http://127.0.0.1:4174
+
+    steps:
+      - name: Checkout selected staging source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_ref }}
+
+      - name: Record source commit
+        run: |
+          echo "Target branch: ${{ inputs.target_ref }}"
+          git -C "$GITHUB_WORKSPACE" log -1 \
+            --format="Source commit: %H%nSubject: %s"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies
+        run: npm install --no-package-lock
+
+      - name: Install ephemeral Playwright runner
+        run: npm install --no-save --no-package-lock @playwright/test@1.56.1
+
+      - name: Build staging source
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run read-only Playwright locally
+        run: npx playwright test --config=playwright.rpg.local-ci.config.ts
+
+      - name: Upload Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-dashboard-staging-playwright-evidence
+          path: |
+            frontend/test-results-local-ci/
+            frontend/playwright-report-local-ci/
+          if-no-files-found: warn
+          retention-days: 7
