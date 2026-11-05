@@ -601,7 +601,11 @@ function App() {
 
               <div className="rpg-world-layout">
               <div className="rpg-stone-map" aria-label="Bản đồ nhiệm vụ chương 01">
-                <div className="rpg-path-line" aria-hidden="true"><span style={{height:`${completedCount / quests.length * 100}%`}} /></div>
+                <svg className="rpg-route-art" viewBox="0 0 1000 545" preserveAspectRatio="none" aria-hidden="true">
+                  <path className="rpg-route-glow" d="M 65 485 C 55 435, 95 390, 145 350 S 175 275, 225 215 S 270 125, 335 60" />
+                  <path className="rpg-route-base" d="M 65 485 C 55 435, 95 390, 145 350 S 175 275, 225 215 S 270 125, 335 60" />
+                  <path className="rpg-route-progress" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - (completedCount / quests.length * 100)} d="M 65 485 C 55 435, 95 390, 145 350 S 175 275, 225 215 S 270 125, 335 60" />
+                </svg>
                 <div className="rpg-quest-stack">
                   {[...quests].reverse().map((quest) => (
                     <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
