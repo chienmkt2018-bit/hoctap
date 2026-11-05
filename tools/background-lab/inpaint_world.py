@@ -45,7 +45,7 @@ for region in REGIONS:
 
 # A small dilation reduces text/UI edge halos without expanding the mask excessively.
 from PIL import ImageFilter
-mask = mask.filter(ImageFilter.MaxFilter( nine := 9 ))
+mask = mask.filter(ImageFilter.MaxFilter(9))
 
 image.save(OUT / "source-preview.jpg", quality=92)
 mask.save(OUT / "mask-preview.png")
