@@ -39,7 +39,7 @@ for (const viewport of viewports) {
     expect(response?.status()).toBe(200);
     await page.getByRole('navigation', { name: 'Điều hướng chính' })
       .getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
-    await expect(page.getByRole('heading', { name: 'Chọn chặng tiếp theo', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức', level: 1 })).toBeVisible();
 
     const map = page.locator('.rpg-stone-map');
     await expect(map).toBeVisible();
