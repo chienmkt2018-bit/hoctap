@@ -12,14 +12,20 @@ servers:
     description: Render staging deployment
 tags:
   - name: System
+    description: Service health and runtime availability.
   - name: Authentication
+    description: Learner registration, login, and identity.
   - name: Progress
+    description: Authenticated learner progress reads and permitted updates.
   - name: Quiz
+    description: Server-authoritative quiz attempts and scoring.
 paths:
   /health:
     get:
+      operationId: getHealth
       tags: [System]
       summary: Check API and database availability
+      security: []
       responses:
         '200':
           description: API is available and database is connected or not configured
@@ -41,8 +47,10 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
   /auth/register:
     post:
+      operationId: registerLearner
       tags: [Authentication]
       summary: Register a learner account
+      security: []
       requestBody:
         required: true
         content:
@@ -71,8 +79,10 @@ paths:
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /auth/login:
     post:
+      operationId: loginLearner
       tags: [Authentication]
       summary: Authenticate with email and password
+      security: []
       requestBody:
         required: true
         content:
@@ -100,6 +110,7 @@ paths:
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /auth/me:
     get:
+      operationId: getCurrentLearner
       tags: [Authentication]
       summary: Get the authenticated learner account
       security:
@@ -118,6 +129,7 @@ paths:
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /progress:
     get:
+      operationId: getLearnerProgress
       tags: [Progress]
       summary: Read the authenticated learner's saved progress
       description: Read-only. If no progress document exists, the API returns an empty progress representation without creating database records.
@@ -132,6 +144,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
     put:
+      operationId: updateLearnerQuestStatuses
       tags: [Progress]
       summary: Update the authenticated learner's quest display statuses
       description: Learner identity is derived from the verified JWT. Only questStatuses may be updated; lesson completion, XP, and bestXpByLesson are server-authoritative and cannot be submitted by clients.
@@ -153,6 +166,7 @@ paths:
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /quizzes/{quizId}/attempts:
     post:
+      operationId: submitQuizAttempt
       tags: [Quiz]
       summary: Submit a quiz attempt and calculate XP on the server
       description: Correct answers and base XP are server-controlled. Reusing an attemptId for the same learner is idempotent. Requires MongoDB transaction support.
