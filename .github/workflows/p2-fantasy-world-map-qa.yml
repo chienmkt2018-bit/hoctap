@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
       - name: Install application dependencies
-        run: npm ci
+        run: npm install
       - name: Type-check and build
         run: npm run build
       - name: Install Playwright Chromium
