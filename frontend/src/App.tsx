@@ -618,16 +618,6 @@ function App() {
                   <div className="rpg-companion" aria-label="Bạn đồng hành cổ vũ: Bắt đầu nào!">
                     <span className="rpg-speech">Bắt đầu nào!</span>
                     <img className="rpg-companion-art" src="/assets/incoming/nhan_vat_dong_hanh.png" alt="Nhân vật đồng hành" />
-                      <ellipse cx="50" cy="143" rx="30" ry="5" fill="#05050d" opacity=".55"/>
-                      <path d="M29 75Q50 63 71 75L76 112H24Z" fill="#e8a05c" stroke="#f5d5aa" strokeWidth="2"/>
-                      <path d="M34 76v35m10-36v37m11-37v37m10-36v35" stroke="#f8dfbd" strokeWidth="5"/>
-                      <path d="M29 83Q15 83 20 103l12 8 6-8-8-8m40-12q15 0 10 20l-12 8-6-8 8-8" fill="#e7ad78" stroke="#d28b57" strokeWidth="2"/>
-                      <path d="M31 110l-4 25h18l5-22m4-1 5 23h18l-7-28" fill="#426a91" stroke="#83a7c8" strokeWidth="2"/>
-                      <path d="M26 134h20q5 0 5 7H24q-3-3 2-7m32 0h18q5 0 5 7H59q-3-3-1-7" fill="#754b35"/>
-                      <circle cx="50" cy="48" r="25" fill="#efbd91" stroke="#d18d63" strokeWidth="2"/>
-                      <path d="M26 46Q20 20 43 17q7-14 19-2 17 2 14 24l-9-8-8 3-6-9-8 10-12-1z" fill="#5b392b"/>
-                      <path d="M39 50h2m17 0h2" stroke="#3a2a28" strokeWidth="3" strokeLinecap="round"/>
-                      <path d="M45 61q5 4 10 0" stroke="#a95e50" strokeWidth="2" fill="none" strokeLinecap="round"/>
                     </div>
                   </div>
                 </div>
