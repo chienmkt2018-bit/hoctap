@@ -1058,13 +1058,13 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   align-items:center;
   gap:10px;
   width:min(31%,300px);
-  transform:translate(-50%,-50%);
+  transform:translateY(-50%);
 }
-.rpg-point-1 { left:13%; top:79%; }
-.rpg-point-2 { left:35.5%; top:59%; }
-.rpg-point-3 { left:62.5%; top:36%; }
+.rpg-point-1 { left:calc(13% - 44px); top:79%; }
+.rpg-point-2 { left:calc(35.5% - 44px); top:59%; }
+.rpg-point-3 { left:calc(62.5% - 44px); top:36%; }
 .rpg-point-4 {
-  left:92%;
+  left:89%;
   top:14%;
   grid-template-columns:minmax(0,185px) 104px;
   transform:translate(-100%,-50%);
