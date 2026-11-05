@@ -704,13 +704,4 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
 }
 
 
-/* Staging RPG preview: reuse the actual map UI without exposing account or write actions. */
-.rpg-preview-sidebar-hidden,
-.rpg-preview-topbar-hidden { display:none !important; }
-.rpg-preview-sidebar-hidden + .main-area { margin-left:0; }
-.rpg-preview-topbar-hidden + .content-wrap { padding-top:28px; }
-@media (max-width:760px) {
-  .rpg-preview-topbar-hidden + .content-wrap { padding-top:14px; }
-}
-
 export default App;
