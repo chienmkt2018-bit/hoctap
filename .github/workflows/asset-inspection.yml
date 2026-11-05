@@ -1,0 +1,224 @@
+name: Asset Inspection (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: asset-inspection-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: Inspect PNG assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install image inspection dependency
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Inspect all PNGs and create report/contact sheet
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, ImageFont
+          import csv
+          import math
+          import os
+          import sys
+
+          root = Path("frontend/public/assets/game")
+          out = Path("asset-inspection")
+          out.mkdir(parents=True, exist_ok=True)
+
+          pngs = sorted(
+              (p for p in root.rglob("*") if p.is_file() and p.suffix.lower() == ".png"),
+              key=lambda p: p.as_posix().lower()
+          ) if root.exists() else []
+
+          expected_count = 8
+          rows = []
+          failures = []
+
+          if not root.exists():
+              failures.append(f"Asset directory not found: {root.as_posix()}")
+
+          for path in pngs:
+              rel = path.as_posix()
+              try:
+                  with Image.open(path) as source:
+                      source.verify()
+                  with Image.open(path) as source:
+                      image = source.convert("RGBA")
+                      width, height = image.size
+                      pixels = list(image.getdata())
+                      total = len(pixels)
+                      alpha_values = [px[3] for px in pixels]
+                      alpha_bins = {
+                          "alpha_0": sum(a == 0 for a in alpha_values),
+                          "alpha_1_63": sum(1 <= a <= 63 for a in alpha_values),
+                          "alpha_64_127": sum(64 <= a <= 127 for a in alpha_values),
+                          "alpha_128_191": sum(128 <= a <= 191 for a in alpha_values),
+                          "alpha_192_254": sum(192 <= a <= 254 for a in alpha_values),
+                          "alpha_255": sum(a == 255 for a in alpha_values),
+                      }
+                      magenta = [
+                          (r >= 200 and g <= 80 and b >= 200 and a > 0)
+                          for r, g, b, a in pixels
+                      ]
+                      magenta_count = sum(magenta)
+
+                      # Character silhouette boundary: visible-alpha pixels that
+                      # touch at least one transparent pixel in their 3x3 neighborhood.
+                      from PIL import ImageChops, ImageFilter
+                      alpha_image = image.getchannel("A")
+                      visible_mask = alpha_image.point(lambda value: 255 if value > 0 else 0)
+                      eroded_mask = visible_mask.filter(ImageFilter.MinFilter(3))
+                      boundary_mask = ImageChops.subtract(visible_mask, eroded_mask)
+                      boundary_count = sum(1 for value in boundary_mask.getdata() if value > 0)
+                      magenta_mask = Image.new("L", (width, height))
+                      magenta_mask.putdata([255 if flag else 0 for flag in magenta])
+                      boundary_magenta = ImageChops.multiply(boundary_mask, magenta_mask)
+                      boundary_magenta_count = sum(1 for value in boundary_magenta.getdata() if value > 0)
+
+                      has_alpha_channel = "A" in source.getbands()
+                      row = {
+                          "file": rel,
+                          "width": width,
+                          "height": height,
+                          "mode": source.mode,
+                          "rgba_decodable": "yes",
+                          "has_alpha_channel": "yes" if has_alpha_channel else "no",
+                          **alpha_bins,
+                          "alpha_transparent_pct": round(alpha_bins["alpha_0"] * 100 / total, 4),
+                          "alpha_partial_pct": round(sum(alpha_bins[k] for k in ("alpha_1_63", "alpha_64_127", "alpha_128_191", "alpha_192_254")) * 100 / total, 4),
+                          "alpha_opaque_pct": round(alpha_bins["alpha_255"] * 100 / total, 4),
+                          "magenta_pixels": magenta_count,
+                          "magenta_pct": round(magenta_count * 100 / total, 4),
+                          "silhouette_boundary_pixels": boundary_count,
+                          "silhouette_boundary_magenta_pixels": boundary_magenta_count,
+                          "silhouette_boundary_magenta_pct": round(boundary_magenta_count * 100 / boundary_count, 4) if boundary_count else 0,
+                          "status": "PASS",
+                          "notes": ""
+                      }
+                      rows.append(row)
+              except Exception as exc:
+                  failures.append(f"Unreadable PNG {rel}: {type(exc).__name__}: {exc}")
+                  rows.append({
+                      "file": rel, "width": "", "height": "", "mode": "",
+                      "rgba_decodable": "no", "has_alpha_channel": "",
+                      "status": "FAIL", "notes": str(exc)
+                  })
+
+          if len(pngs) != expected_count:
+              failures.append(f"Expected exactly {expected_count} PNG files; discovered {len(pngs)}.")
+
+          fields = sorted({key for row in rows for key in row.keys()})
+          with (out / "asset-metrics.csv").open("w", newline="", encoding="utf-8") as handle:
+              writer = csv.DictWriter(handle, fieldnames=fields)
+              writer.writeheader()
+              writer.writerows(rows)
+
+          # Seven-image contact sheet: all assets are inspected above; the sheet
+          # displays the first seven in stable, case-insensitive path order.
+          sheet_items = [p for p in pngs[:7] if p.is_file()]
+          cell_w, cell_h, label_h, cols = 360, 270, 48, 2
+          rows_count = math.ceil(len(sheet_items) / cols) if sheet_items else 1
+          sheet = Image.new("RGB", (cols * cell_w, rows_count * (cell_h + label_h)), (38, 34, 52))
+          draw = ImageDraw.Draw(sheet)
+          try:
+              font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+          except OSError:
+              font = ImageFont.load_default()
+
+          for idx, path in enumerate(sheet_items):
+              x = (idx % cols) * cell_w
+              y = (idx // cols) * (cell_h + label_h)
+              draw.rectangle((x + 8, y + 8, x + cell_w - 8, y + cell_h - 8), fill=(224, 224, 224))
+              try:
+                  with Image.open(path) as source:
+                      thumb = source.convert("RGBA")
+                      thumb.thumbnail((cell_w - 32, cell_h - 32))
+                      checker = Image.new("RGBA", (cell_w - 32, cell_h - 32), (245, 245, 245, 255))
+                      cd = ImageDraw.Draw(checker)
+                      block = 16
+                      for yy in range(0, checker.height, block):
+                          for xx in range(0, checker.width, block):
+                              if ((xx // block) + (yy // block)) % 2:
+                                  cd.rectangle((xx, yy, xx + block - 1, yy + block - 1), fill=(205, 205, 205, 255))
+                      checker.alpha_composite(thumb, ((checker.width - thumb.width) // 2, (checker.height - thumb.height) // 2))
+                      sheet.paste(checker.convert("RGB"), (x + 16, y + 16))
+              except Exception:
+                  draw.text((x + 20, y + 20), "Preview unavailable", fill=(160, 0, 0), font=font)
+              draw.text((x + 12, y + cell_h + 8), path.name[:48], fill=(255, 255, 255), font=font)
+
+          sheet.save(out / "contact-sheet-7.png")
+
+          included = [p.as_posix() for p in sheet_items]
+          omitted = [p.as_posix() for p in pngs[7:]]
+          with (out / "report.md").open("w", encoding="utf-8") as report:
+              report.write("# Asset Inspection Report\n\n")
+              report.write(f"- Commit: `{os.environ.get('GITHUB_SHA', 'unknown')}`\n")
+              report.write(f"- Ref: `{os.environ.get('GITHUB_REF_NAME', 'unknown')}`\n")
+              report.write(f"- Scan root: `{root.as_posix()}`\n")
+              report.write(f"- PNG discovered: **{len(pngs)} / {expected_count} expected**\n")
+              report.write("- Source assets were opened for inspection only; no source image was modified.\n\n")
+              report.write("## Image metrics\n\n")
+              report.write("| File | Dimensions | Mode | Alpha transparent / partial / opaque | Magenta px | Silhouette magenta % | Status |\n")
+              report.write("|---|---:|---|---:|---:|---:|---|\n")
+              for row in rows:
+                  dims = f"{row.get('width', '')} × {row.get('height', '')}"
+                  alpha = f"{row.get('alpha_transparent_pct', '')}% / {row.get('alpha_partial_pct', '')}% / {row.get('alpha_opaque_pct', '')}%"
+                  report.write(f"| `{row['file']}` | {dims} | {row.get('mode', '')} | {alpha} | {row.get('magenta_pixels', '')} | {row.get('silhouette_boundary_magenta_pct', '')}% | {row.get('status', '')} |\n")
+              report.write("\n## Contact sheet\n\n")
+              report.write("The sheet contains the first seven PNG paths in stable case-insensitive alphabetical order. All discovered PNGs are included in the metrics CSV.\n\n")
+              for path in included:
+                  report.write(f"- `{path}`\n")
+              if omitted:
+                  report.write("\nNot shown on the seven-image sheet (still inspected):\n")
+                  for path in omitted:
+                      report.write(f"- `{path}`\n")
+              report.write("\n## Heuristic interpretation\n\n")
+              report.write("- Magenta pixels are pixels with R ≥ 200, G ≤ 80, B ≥ 200 and alpha > 0. This flags likely magenta key/background contamination; it is not a semantic background classifier.\n")
+              report.write("- Silhouette-boundary magenta percentage measures magenta pixels on the visible-alpha boundary (visible pixels touching transparency in a 3×3 neighborhood); this is a heuristic for colored fringes around transparent character cutouts.\n")
+              report.write("- Alpha distribution is counted across six bins: 0, 1–63, 64–127, 128–191, 192–254 and 255.\n")
+              report.write("- If an image has no transparent pixels, the silhouette-boundary metric may be zero or uninformative. Contact sheet supports visual review; pixel statistics cannot conclusively judge whether a character outline is visually correct.\n")
+              if failures:
+                  report.write("\n## Findings requiring attention\n\n")
+                  for item in failures:
+                      report.write(f"- **FAIL:** {item}\n")
+              else:
+                  report.write("\n## Structural checks\n\n- **PASS:** Exactly eight readable PNG files discovered.\n")
+
+          print(f"PNG_DISCOVERED={len(pngs)}")
+          print(f"CONTACT_SHEET_ITEMS={len(sheet_items)}")
+          print(f"REPORT={out / 'report.md'}")
+          print(f"CSV={out / 'asset-metrics.csv'}")
+          print(f"SHEET={out / 'contact-sheet-7.png'}")
+
+          if failures:
+              print("\n".join(f"::error::{item}" for item in failures))
+              sys.exit(1)
+          PY
+
+      - name: Upload inspection report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: asset-inspection-${{ github.run_number }}
+          path: asset-inspection/
+          if-no-files-found: warn
+          retention-days: 14
