@@ -1,0 +1,45 @@
+name: P0.1 Asset Dependency and Mask QA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p01-asset-qa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  asset-qa:
+    if: github.ref == 'refs/heads/feat/fantasy-game-assets-v1'
+    name: Read-only image inventory and visual QA
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout approved feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/fantasy-game-assets-v1
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: false
+
+      - name: Install pinned image QA dependency
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Inspect original assets without modifying them
+        run: python tools/asset-qa/inspect_assets.py
+
+      - name: Upload P0.1 QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p01-asset-qa-${{ github.run_number }}
+          path: asset-qa/
+          if-no-files-found: error
+          retention-days: 14
