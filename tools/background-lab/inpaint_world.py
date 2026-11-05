@@ -1,71 +1,73 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from pathlib import Path
 
-import numpy as np
-from PIL import Image, ImageDraw
-from simple_lama_inpainting import SimpleLama
+from PIL import Image, ImageDraw, ImageFilter
 
 SOURCE = Path(os.environ["SOURCE_IMAGE"])
 OUT = Path(os.environ.get("OUTPUT_DIR", "artifacts/world-background-experiment"))
 OUT.mkdir(parents=True, exist_ok=True)
 
-# Coordinates are normalized (0..1) so the mask scales to the uploaded image.
-# These are intentionally conservative first-pass regions; inspect mask-preview.png
-# before treating the inpainted image as a usable background.
 REGIONS = [
-    # Shared top bars / headings in both mockup panels
     {"name": "top-overlay", "box": [0.00, 0.00, 1.00, 0.115]},
-    # Mobile device: lower navigation, labels and quest cards
     {"name": "mobile-bottom-ui", "box": [0.00, 0.805, 0.335, 1.00]},
-    # Desktop: lower quest / information panel
     {"name": "desktop-bottom-ui", "box": [0.56, 0.815, 1.00, 1.00]},
-    # Desktop right-side text / controls area
     {"name": "desktop-right-ui", "box": [0.865, 0.12, 1.00, 0.82]},
 ]
 
-image = Image.open(SOURCE).convert("RGB")
-width, height = image.size
-mask = Image.new("L", (width, height), 0)
-draw = ImageDraw.Draw(mask)
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--stage", choices=("mask-qa", "inpaint"), required=True)
+    args = parser.parse_args()
 
-for region in REGIONS:
-    x0, y0, x1, y1 = region["box"]
-    draw.rectangle(
-        (
-            round(x0 * width),
-            round(y0 * height),
-            round(x1 * width),
-            round(y1 * height),
-        ),
-        fill=255,
+    image = Image.open(SOURCE).convert("RGB")
+    width, height = image.size
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+
+    for region in REGIONS:
+        x0, y0, x1, y1 = region["box"]
+        draw.rectangle(
+            (round(x0 * width), round(y0 * height),
+             round(x1 * width), round(y1 * height)),
+            fill=255,
+        )
+
+    mask = mask.filter(ImageFilter.MaxFilter(9))
+    image.save(OUT / "source-preview.jpg", quality=92)
+    mask.save(OUT / "mask-preview.png")
+
+    coverage = sum(mask.histogram()[1:]) / (width * height)
+    metadata = {
+        "source": str(SOURCE),
+        "image_size": [width, height],
+        "mask_coverage": round(coverage, 5),
+        "regions": REGIONS,
+        "stage": args.stage,
+        "note": "Review mask-preview.png against source-preview.jpg. White pixels are selected for removal/inpainting.",
+    }
+    (OUT / "mask-regions.json").write_text(
+        json.dumps(metadata, indent=2), encoding="utf-8"
     )
+    print(f"Source: {SOURCE} ({width}x{height})")
+    print(f"Mask coverage: {coverage:.1%}")
+    print(f"Mask QA outputs written to: {OUT}")
 
-# A small dilation reduces text/UI edge halos without expanding the mask excessively.
-from PIL import ImageFilter
-mask = mask.filter(ImageFilter.MaxFilter(9))
+    if args.stage == "mask-qa":
+        print("Mask QA stage complete; LaMa was not imported or executed.")
+        return
 
-image.save(OUT / "source-preview.jpg", quality=92)
-mask.save(OUT / "mask-preview.png")
-(OUT / "mask-regions.json").write_text(
-    json.dumps(
-        {
-            "source": str(SOURCE),
-            "image_size": [width, height],
-            "regions": REGIONS,
-            "note": "Approximate first-pass overlay masks. Adjust REGIONS after reviewing mask-preview.png.",
-        },
-        indent=2,
-    ),
-    encoding="utf-8",
-)
+    if os.environ.get("MASK_APPROVED", "").lower() != "yes":
+        raise SystemExit("Inpainting blocked: set MASK_APPROVED=yes only after reviewing the mask artifact.")
 
-lama = SimpleLama()
-result = lama(image, mask)
-result.save(OUT / "world-background-inpainted.png")
+    from simple_lama_inpainting import SimpleLama
 
-print(f"Source: {SOURCE} ({width}x{height})")
-print(f"Mask coverage: {np.asarray(mask).mean() / 255:.1%}")
-print(f"Outputs written to: {OUT}")
+    result = SimpleLama()(image, mask)
+    result.save(OUT / "world-background-inpainted.png")
+    print(f"Inpainted result written to: {OUT / 'world-background-inpainted.png'}")
+
+if __name__ == "__main__":
+    main()
