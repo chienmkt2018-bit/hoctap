@@ -40,7 +40,10 @@ async function getFreePort(): Promise<number> {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const response = await fetch(url, init);
+  const response = await fetch(url, {
+    ...init,
+    signal: init?.signal ?? AbortSignal.timeout(10000),
+  });
   return { status: response.status, body: await response.json() as Record<string, any> };
 }
 
@@ -63,13 +66,21 @@ async function waitForApi(child: ChildProcess, baseUrl: string, output: () => st
 }
 
 async function stopApi(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || child.killed) return;
+  if (child.exitCode !== null) return;
   const exited = new Promise<void>((resolveExit) => child.once('exit', () => resolveExit()));
+  if (child.exitCode !== null) return;
   child.kill('SIGTERM');
-  await Promise.race([exited, delay(5000)]);
-  if (child.exitCode === null) {
+  const stoppedGracefully = await Promise.race([
+    exited.then(() => true),
+    delay(5000).then(() => false),
+  ]);
+  if (!stoppedGracefully && child.exitCode === null) {
     child.kill('SIGKILL');
-    await Promise.race([exited, delay(1000)]);
+    const stoppedForcefully = await Promise.race([
+      exited.then(() => true),
+      delay(2000).then(() => false),
+    ]);
+    if (!stoppedForcefully) throw new Error('Test API process did not exit after SIGKILL.');
   }
 }
 
