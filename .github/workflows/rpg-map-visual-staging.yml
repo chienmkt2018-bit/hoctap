@@ -1,4 +1,4 @@
-name: RPG map visual QA — read-only staging
+name: RPG map visual QA — feature preview + staging API
 
 on:
   push:
@@ -12,45 +12,72 @@ permissions:
   contents: read
 
 concurrency:
-  group: rpg-map-visual-staging-readonly
+  group: rpg-map-visual-readonly
   cancel-in-progress: false
 
 jobs:
   visual-qa:
     name: Playwright desktop and mobile visual checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
-      STAGING_FRONTEND_URL: https://hoctap-staging-frontend.onrender.com/
+      STAGING_API_HEALTH_URL: https://hoctap-staging-api.onrender.com/api/v1/health
+      FEATURE_PREVIEW_URL: http://127.0.0.1:4173/
     steps:
-      - name: Checkout isolated QA branch
+      - name: Checkout feature source under test
         uses: actions/checkout@v4
+        with:
+          ref: feat/fantasy-game-assets-v1
+          path: app
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
+      - name: Install frontend dependencies and build feature preview
+        working-directory: app/frontend
+        env:
+          VITE_API_BASE_URL: https://hoctap-staging-api.onrender.com
+        run: |
+          npm install --no-package-lock
+          npm run build
+
+      - name: Start isolated feature preview
+        working-directory: app/frontend
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > /tmp/hq-vite-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              echo "Feature preview is responding on port 4173"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/hq-vite-preview.log
+          exit 1
+
       - name: Install Playwright Chromium
-        working-directory: backend
+        working-directory: app/backend
         run: |
           npm install --no-save --no-package-lock playwright@1.56.1
           npx playwright install --with-deps chromium
 
-      - name: Inspect RPG map on staging (read-only)
-        working-directory: backend
+      - name: Inspect RPG map on feature preview (staging API, read-only)
+        working-directory: app/backend
         run: |
           mkdir -p artifacts
           node --input-type=module <<'NODE'
-          import { chromium } from 'playwright';
+          import { chromium, request } from 'playwright';
           import { writeFile } from 'node:fs/promises';
 
           const results = [];
-          const record = (id, status, detail) => {
-            results.push({ id, status, detail });
-            console.log(`${status} | ${id} | ${detail}`);
+          const record = (id, ok, detail) => {
+            results.push({ id, ok, detail });
+            console.log(`${ok ? 'PASS' : 'FAIL'} | ${id} | ${detail}`);
           };
-          const baseUrl = process.env.STAGING_FRONTEND_URL;
+          const baseUrl = process.env.FEATURE_PREVIEW_URL;
+          const apiUrl = process.env.STAGING_API_HEALTH_URL;
           const viewports = [
             { name: 'desktop', width: 1440, height: 1000, expectedAsset: 'bg-world-main.webp' },
             { name: 'mobile', width: 390, height: 844, expectedAsset: 'bg_mobile_9x16.webp' },
@@ -58,6 +85,28 @@ jobs:
           let browser;
 
           try {
+            // Read-only check of the staging API; no account or learning endpoints are called.
+            const api = await request.newContext({ timeout: 45000 });
+            try {
+              let healthy = false;
+              let detail = 'No response';
+              for (let attempt = 1; attempt <= 3 && !healthy; attempt += 1) {
+                try {
+                  const response = await api.get(apiUrl);
+                  const body = await response.json().catch(() => ({}));
+                  healthy = response.status() === 200 && body.status === 'ok' &&
+                    body.service === 'hoc-tap-quest-api';
+                  detail = `attempt ${attempt}: HTTP ${response.status()}, status=${body.status ?? 'missing'}, service=${body.service ?? 'missing'}`;
+                } catch (error) {
+                  detail = `attempt ${attempt}: ${String(error).slice(0, 500)}`;
+                }
+                if (!healthy && attempt < 3) await new Promise(resolve => setTimeout(resolve, 3000));
+              }
+              record('STG-API-01', healthy, detail);
+            } finally {
+              await api.dispose();
+            }
+
             browser = await chromium.launch({ headless: true });
 
             for (const viewport of viewports) {
@@ -70,7 +119,7 @@ jobs:
               const consoleErrors = [];
               const attemptedWrites = [];
 
-              // Strict read-only guard: block every browser request other than GET/HEAD/OPTIONS.
+              // Block any browser-side mutation, including accidental quiz/progress writes.
               await page.route('**/*', async route => {
                 const req = route.request();
                 if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method())) {
@@ -85,24 +134,19 @@ jobs:
                 if (message.type() === 'error') consoleErrors.push(message.text());
               });
 
-              let response;
               try {
-                response = await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-                const ok = Boolean(response && response.status() >= 200 && response.status() < 400);
-                record(`MAP-${viewport.name.toUpperCase()}-01`, ok,
-                  `GET ${baseUrl} -> HTTP ${response?.status() ?? 'no response'}`);
-                if (!ok) {
-                  record(`MAP-${viewport.name.toUpperCase()}-02`, 'BLOCKED', 'Không thể kiểm tra bản đồ vì trang staging không tải thành công');
-                  await context.close();
-                  continue;
-                }
+                const response = await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+                record(`MAP-${viewport.name.toUpperCase()}-01`,
+                  Boolean(response && response.status() >= 200 && response.status() < 400),
+                  `feature preview HTTP ${response?.status() ?? 'no response'}; viewport=${viewport.width}x${viewport.height}`);
 
-                await page.locator('body').waitFor({ state: 'visible', timeout: 15000 });
+                await page.locator('body').waitFor({ state: 'visible', timeout: 10000 });
                 const mapNav = page.getByRole('button', { name: /Bản đồ nhiệm vụ/ }).first();
-                await mapNav.waitFor({ state: 'visible', timeout: 15000 });
+                await mapNav.waitFor({ state: 'visible', timeout: 10000 });
                 await mapNav.click();
+
                 const map = page.locator('.rpg-stone-map');
-                await map.waitFor({ state: 'visible', timeout: 15000 });
+                await map.waitFor({ state: 'visible', timeout: 10000 });
                 await page.locator('#rpg-chapter-title').waitFor({ state: 'visible', timeout: 10000 });
 
                 const visual = await map.evaluate(element => {
@@ -122,6 +166,8 @@ jobs:
                   });
                   return {
                     backgroundImage: style.backgroundImage,
+                    backgroundSize: style.backgroundSize,
+                    backgroundPosition: style.backgroundPosition,
                     width: rect.width,
                     height: rect.height,
                     aspectRatio: rect.width / rect.height,
@@ -135,14 +181,15 @@ jobs:
 
                 const expectedBackground = visual.backgroundImage.includes(viewport.expectedAsset);
                 record(`MAP-${viewport.name.toUpperCase()}-02`, expectedBackground,
-                  `background-image=${visual.backgroundImage}; expected asset=${viewport.expectedAsset}`);
+                  `background-image=${visual.backgroundImage}; expected=${viewport.expectedAsset}; size=${visual.backgroundSize}; position=${visual.backgroundPosition}`);
 
                 let imageLoaded = false;
-                let imageDetail = 'Không có URL ảnh nền đúng trong computed background-image';
+                let imageDetail = 'Expected background image URL is absent';
                 if (expectedBackground) {
-                  const match = visual.backgroundImage.match(/url\(["']?(.*?)["']?\)/);
-                  const imageUrl = match?.[1] ? new URL(match[1], page.url()).toString() : '';
-                  if (imageUrl) {
+                  const urls = [...visual.backgroundImage.matchAll(/url\(["']?(.*?)["']?\)/g)];
+                  const imagePath = urls.map(match => match[1]).find(value => value.includes(viewport.expectedAsset));
+                  if (imagePath) {
+                    const imageUrl = new URL(imagePath, page.url()).toString();
                     try {
                       const imageResponse = await page.request.get(imageUrl, { timeout: 30000 });
                       const contentType = imageResponse.headers()['content-type'] ?? '';
@@ -167,25 +214,24 @@ jobs:
                 record(`MAP-${viewport.name.toUpperCase()}-05`, labelsReadable,
                   `quest nodes=${visual.questCount}; titles=${visual.labels.map(label => `${label.text} (${label.fontSize}px, ${label.color})`).join('; ')}`);
 
-                // Preserve screenshots for human review of crop, contrast, and text legibility.
                 await map.scrollIntoViewIfNeeded();
                 await map.screenshot({ path: `artifacts/rpg-map-${viewport.name}.png` });
                 await page.screenshot({ path: `artifacts/rpg-map-${viewport.name}-page.png`, fullPage: true });
                 record(`MAP-${viewport.name.toUpperCase()}-06`, true,
-                  `Đã lưu ảnh bản đồ và toàn trang ở viewport ${viewport.width}x${viewport.height}`);
+                  `Captured map and full page at ${viewport.width}x${viewport.height}`);
 
                 record(`MAP-${viewport.name.toUpperCase()}-07`, pageErrors.length === 0,
-                  pageErrors.length ? pageErrors.join(' | ').slice(0, 1000) : 'Không quan sát thấy uncaught page error');
+                  pageErrors.length ? pageErrors.join(' | ').slice(0, 1000) : 'No uncaught page errors observed');
                 record(`MAP-${viewport.name.toUpperCase()}-08`, consoleErrors.length === 0,
-                  consoleErrors.length ? consoleErrors.join(' | ').slice(0, 1000) : 'Không quan sát thấy console.error');
+                  consoleErrors.length ? consoleErrors.join(' | ').slice(0, 1000) : 'No console.error messages observed');
                 record(`MAP-${viewport.name.toUpperCase()}-09`, attemptedWrites.length === 0,
-                  attemptedWrites.length ? attemptedWrites.join(' | ').slice(0, 1000) : 'Không phát sinh request ghi; mọi thao tác ngoài GET/HEAD/OPTIONS đều bị chặn');
+                  attemptedWrites.length ? attemptedWrites.join(' | ').slice(0, 1000) : 'No mutating browser requests attempted; non-read methods are blocked');
 
-                // Store measurements separately so the artifact is machine-readable.
                 await writeFile(`artifacts/rpg-map-${viewport.name}-metrics.json`,
                   JSON.stringify(visual, null, 2));
               } catch (error) {
                 record(`MAP-${viewport.name}-RUN`, false, String(error).slice(0, 1500));
+                await page.screenshot({ path: `artifacts/rpg-map-${viewport.name}-failure.png`, fullPage: true }).catch(() => {});
               } finally {
                 await context.close();
               }
@@ -197,18 +243,17 @@ jobs:
           }
 
           await writeFile('artifacts/results.json', JSON.stringify(results, null, 2));
-          const failures = results.filter(result => result.status === false || result.status === 'FAIL');
-          const blocked = results.filter(result => result.status === 'BLOCKED');
-          const passed = results.filter(result => result.status === true || result.status === 'PASS');
-          console.log(`\\nSummary: ${passed.length} PASS, ${failures.length} FAIL, ${blocked.length} BLOCKED`);
-          if (failures.length > 0) process.exitCode = 1;
+          const failed = results.filter(result => !result.ok);
+          const passed = results.filter(result => result.ok);
+          console.log(`\\nSummary: ${passed.length} PASS, ${failed.length} FAIL`);
+          if (failed.length > 0) process.exitCode = 1;
           NODE
 
       - name: Upload visual QA evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rpg-map-visual-qa-staging
-          path: backend/artifacts/
+          name: rpg-map-visual-qa-feature-preview
+          path: app/backend/artifacts/
           if-no-files-found: warn
           retention-days: 14
