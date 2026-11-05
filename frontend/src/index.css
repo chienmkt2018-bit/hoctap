@@ -996,9 +996,11 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   filter:drop-shadow(0 0 10px #ffd76a) drop-shadow(0 5px 8px #05050d99);
 }
 .rpg-node-copy { backdrop-filter:blur(5px); }
+ .rpg-route-mobile { display:none; }
 @media (max-width:760px) {
-  .rpg-route-art { display:none; }
-  .rpg-route-art::after { content:none; }
+  .rpg-route-desktop { display:none; }
+  .rpg-route-mobile { display:inline; }
+  .rpg-route-art { display:block; }
   .rpg-stone-map { isolation:isolate; }
   .rpg-stone-map::after {
     content:"";
