@@ -1,0 +1,61 @@
+name: RPG map visual QA (Playwright)
+
+on:
+  push:
+    branches: ["feat/fantasy-game-assets-v1"]
+    paths:
+      - "frontend/src/**"
+      - "frontend/public/assets/incoming/**"
+      - "frontend/tests/rpg-dashboard/rpg-assets-visual.spec.ts"
+      - "frontend/playwright.rpg-assets.config.ts"
+      - ".github/workflows/rpg-assets-visual.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-assets-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual-qa:
+    name: Build feature branch and capture RPG map
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install frontend dependencies and Playwright runner
+        run: |
+          npm install --no-package-lock
+          npm install --no-save --no-package-lock @playwright/test@1.56.1
+
+      - name: Build feature branch
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture desktop and mobile RPG map screenshots
+        run: npx playwright test --config=playwright.rpg-assets.config.ts
+
+      - name: Upload screenshots, image report and Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-map-visual-evidence-${{ github.sha }}
+          path: |
+            frontend/test-results-rpg-visual/
+            frontend/playwright-report-rpg-visual/
+          if-no-files-found: warn
+          retention-days: 14

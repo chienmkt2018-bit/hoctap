@@ -790,3 +790,166 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   .rpg-node-copy { padding:6px 7px; }
   .rpg-node-copy strong { font-size:11px; }
 }
+
+/* RPG Fantasy v1.1 — use the existing world backgrounds (no image generation/inpainting). */
+.rpg-stone-map {
+  background-image:
+    linear-gradient(180deg, rgba(10, 11, 28, .24), rgba(10, 11, 28, .46)),
+    url('/assets/incoming/bg-world-main.webp');
+  background-size: cover;
+  background-position: center 48%;
+  background-repeat: no-repeat;
+}
+.rpg-stone-map::before { opacity: .34; }
+
+@media (max-width: 760px) {
+  .rpg-stone-map {
+    background-image:
+      linear-gradient(180deg, rgba(10, 11, 28, .26), rgba(10, 11, 28, .50)),
+      url('/assets/incoming/bg_mobile_9x16.webp');
+    background-position: center center;
+  }
+  .rpg-stone-map::before { opacity: .22; }
+}
+
+
+/* RPG map incoming art assets — scoped only to the RPG map. */
+.rpg-node-button {
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.rpg-node-button.active,
+.rpg-quest-4 .rpg-node-button,
+.rpg-node-button.locked {
+  border: 0;
+  background: transparent;
+}
+.rpg-node-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 5px 8px #05050d99);
+}
+.rpg-node-button.active .rpg-node-art {
+  filter: drop-shadow(0 0 9px #8b7cf6aa) drop-shadow(0 5px 8px #05050d99);
+}
+.rpg-companion-art {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(0 4px 5px #0008);
+}
+.rpg-start-button {
+  display: grid;
+  place-items: center;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #fff8df;
+  text-shadow: 0 2px 3px #492b16, 0 0 5px #492b16;
+}
+.rpg-start-button:active {
+  box-shadow: none;
+}
+.rpg-start-button-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+.rpg-start-button > span {
+  position: relative;
+  z-index: 1;
+  padding: 0 18px;
+}
+.rpg-side-stat-icon.xp img,
+.rpg-side-stat-icon.gems img {
+  display: block;
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+.rpg-challenge-cup {
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+@media (max-width: 760px) {
+  .rpg-node-art { width: 100%; height: 100%; }
+  .rpg-companion-art { width: 100%; height: 100%; }
+  .rpg-start-button > span { padding: 0 12px; font-size: 12px; }
+}
+
+
+/* RPG companion + map composition v1.2 — avoid node overlap and enlarge visible artwork. */
+.rpg-companion {
+  left:auto;
+  right:18px;
+  bottom:8px;
+  width:210px;
+  height:290px;
+  z-index:3;
+}
+.rpg-companion-art {
+  left:-34%;
+  bottom:-2%;
+  width:168%;
+  height:168%;
+  max-width:none;
+  object-position:bottom center;
+}
+.rpg-speech {
+  position:absolute;
+  top:18px;
+  right:18px;
+  left:auto;
+  z-index:4;
+  font-size:13px;
+  padding:8px 12px;
+  white-space:nowrap;
+}
+@media (max-width:760px) {
+  .rpg-companion {
+    right:4px;
+    bottom:4px;
+    width:164px;
+    height:232px;
+  }
+  .rpg-companion-art {
+    left:-34%;
+    width:168%;
+    height:168%;
+  }
+  .rpg-speech {
+    top:14px;
+    right:12px;
+    font-size:11px;
+    padding:7px 10px;
+  }
+}
+@media (max-width:390px) {
+  .rpg-companion {
+    right:2px;
+    width:150px;
+    height:216px;
+  }
+  .rpg-speech { right:10px; }
+}
+
+/* The map itself is the chapter selector; do not render a second legacy list. */
+.rpg-map-screen + .alternate-panel { display:none; }

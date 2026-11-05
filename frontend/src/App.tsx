@@ -606,7 +606,7 @@ function App() {
                   {[...quests].reverse().map((quest) => (
                     <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
                       <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
-                        {quest.status === 'done' ? '✓' : quest.status === 'locked' ? <UIIcon name="lock" size={25}/> : quest.id === 4 ? <UIIcon name="crown" size={30}/> : <UIIcon name="compass" size={27}/>}
+                        <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
                       </button>
                       <div className="rpg-node-copy">
                         <small>{quest.status === 'done' ? 'HOÀN THÀNH' : quest.status === 'active' ? 'ĐANG MỞ' : 'ĐANG KHÓA'}</small>
@@ -615,24 +615,13 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  <div className="rpg-companion" aria-label="Bạn đồng hành cổ vũ: Bắt đầu nào!">
-                    <span className="rpg-speech">Bắt đầu nào!</span>
-                    <svg viewBox="0 0 100 150" role="img" aria-label="Cậu bé tóc nâu, áo sọc cam kem, quần jean và giày nâu">
-                      <ellipse cx="50" cy="143" rx="30" ry="5" fill="#05050d" opacity=".55"/>
-                      <path d="M29 75Q50 63 71 75L76 112H24Z" fill="#e8a05c" stroke="#f5d5aa" strokeWidth="2"/>
-                      <path d="M34 76v35m10-36v37m11-37v37m10-36v35" stroke="#f8dfbd" strokeWidth="5"/>
-                      <path d="M29 83Q15 83 20 103l12 8 6-8-8-8m40-12q15 0 10 20l-12 8-6-8 8-8" fill="#e7ad78" stroke="#d28b57" strokeWidth="2"/>
-                      <path d="M31 110l-4 25h18l5-22m4-1 5 23h18l-7-28" fill="#426a91" stroke="#83a7c8" strokeWidth="2"/>
-                      <path d="M26 134h20q5 0 5 7H24q-3-3 2-7m32 0h18q5 0 5 7H59q-3-3-1-7" fill="#754b35"/>
-                      <circle cx="50" cy="48" r="25" fill="#efbd91" stroke="#d18d63" strokeWidth="2"/>
-                      <path d="M26 46Q20 20 43 17q7-14 19-2 17 2 14 24l-9-8-8 3-6-9-8 10-12-1z" fill="#5b392b"/>
-                      <path d="M39 50h2m17 0h2" stroke="#3a2a28" strokeWidth="3" strokeLinecap="round"/>
-                      <path d="M45 61q5 4 10 0" stroke="#a95e50" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                    </svg>
+                  <div className="rpg-companion" aria-label="Bạn đồng hành">
+                    <img className="rpg-companion-art" src="/assets/incoming/nhan_vat_dong_hanh.png" alt="Nhân vật đồng hành" />
                   </div>
+                  <span className="rpg-speech">Bắt đầu nào!</span>
+                  </div>
+                {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}><img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" /><span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span></button>}
                 </div>
-                {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</button>}
-              </div>
 
               <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
                 <section className="rpg-side-profile">
@@ -640,12 +629,12 @@ function App() {
                   <div><small>NHÀ THÁM HIỂM</small><strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
                 </section>
                 <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
-                  <div><span className="rpg-side-stat-icon xp"><UIIcon name="sparkles" size={17}/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
+                  <div><span className="rpg-side-stat-icon xp"><img src="/assets/incoming/the_xp_18.png" alt="" aria-hidden="true"/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
                   <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
-                  <div><span className="rpg-side-stat-icon gems"><UIIcon name="gem" size={17}/></span><small>GEMS</small><strong>120</strong></div>
+                  <div><span className="rpg-side-stat-icon gems"><img src="/assets/incoming/kim_cuong_gems.png" alt="" aria-hidden="true"/></span><small>GEMS</small><strong>120</strong></div>
                 </section>
                 <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
-                  <span><UIIcon name="sparkles" size={18}/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
+                  <span><img className="rpg-challenge-cup" src="/assets/incoming/cup_thu_thach.png" alt="" aria-hidden="true"/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
                 </button>
                 {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
                   <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
@@ -695,9 +684,6 @@ function App() {
 
           {activeNav === 'lessons' && <LessonLibrary onNotice={setNotice} onQuizComplete={handleQuizComplete} completedLessonIds={Object.keys(completedLessons).filter((id) => completedLessons[Number(id)]).map(Number)} />}
 
-          {activeNav === 'map' && (
-            <section className="alternate-panel"><div className="section-heading"><div><p className="section-kicker">CHAPTER SELECT</p><h2>Chọn chặng tiếp theo</h2><p className="section-description">Nhấn vào nhiệm vụ đang mở hoặc đã hoàn thành để xem chi tiết.</p></div></div><div className="alternate-quests">{quests.map((quest) => <button type="button" key={quest.id} className="alternate-quest" disabled={quest.status === 'locked'} aria-disabled={quest.status === 'locked'} onClick={() => startQuest(quest)}><span className={`quest-node ${quest.status}`}>{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '⌑' : quest.icon}</span><span className="alternate-quest-copy"><strong>{quest.title}</strong><small>{quest.subtitle}</small></span><span className="daily-reward">Tối đa +{quest.xp} XP</span><span className="alternate-status">{quest.status === 'done' ? 'ĐÃ XONG' : quest.status === 'active' ? 'TIẾP TỤC' : 'ĐANG KHÓA'}</span></button>)}</div></section>
-          )}
           {activeNav === 'practice' && <section className="alternate-panel"><p className="section-kicker">PRACTICE HUB</p><h2>Chọn cách bạn muốn luyện tập</h2><div className="practice-grid"><button type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}><span>✧</span><strong>Luyện tập nhanh</strong><small>Ôn lại kiến thức trong vài phút</small></button><button type="button" onClick={() => setNotice('Chế độ thử thách sẽ được phát triển ở P2 — Learning Core.')}><span>⚡</span><strong>Thử thách kiến thức</strong><small>Kiểm tra mức độ ghi nhớ</small></button><button type="button" onClick={() => setNotice('Lịch sử học tập sẽ được kết nối với dữ liệu thực ở giai đoạn backend.')}><span>◷</span><strong>Lịch sử học tập</strong><small>Theo dõi những gì bạn đã học</small></button></div></section>}
           {activeNav === 'achievements' && <section className="alternate-panel"><p className="section-kicker">YOUR COLLECTION · P4.1</p><div className="achievement-heading"><div><h2>Thành tựu của nhà thám hiểm</h2><p className="section-description">Thành tựu được mở khóa tự động theo tiến độ quiz đã lưu; không có nút nhận thưởng nên không thể cộng XP trùng.</p></div><span className="achievement-counter">{unlockedAchievementCount}/{achievements.length} ĐÃ MỞ</span></div><div className="achievement-grid">{achievements.map((achievement) => <article key={achievement.id} className={`achievement-card ${achievement.unlocked ? 'achievement-unlocked' : 'achievement-locked'}`} aria-label={`${achievement.title}: ${achievement.unlocked ? 'đã mở khóa' : 'chưa mở khóa'}`}><span aria-hidden="true">{achievement.unlocked ? achievement.icon : '◇'}</span><strong>{achievement.title}</strong><small>{achievement.description}</small><div className="achievement-progress"><span>{achievement.progress}</span><span className={achievement.unlocked ? 'achievement-state is-unlocked' : 'achievement-state'}>{achievement.unlocked ? '✓ ĐÃ MỞ KHÓA' : 'ĐANG TIẾN TỚI'}</span></div></article>)}</div></section>}
 

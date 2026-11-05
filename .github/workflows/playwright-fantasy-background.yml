@@ -1,0 +1,150 @@
+name: Playwright fantasy background visual check
+
+on:
+  push:
+    branches:
+      - feat/fantasy-game-assets-v1
+    paths:
+      - ".github/workflows/playwright-fantasy-background.yml"
+      - "frontend/public/assets/game/backgrounds/world/bg-world-main.svg"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fantasy-background-playwright-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  background-render:
+    name: Render SVG at desktop and mobile viewports
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout asset branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Render and inspect background
+        env:
+          SVG_PATH: frontend/public/assets/game/backgrounds/world/bg-world-main.svg
+        run: |
+          mkdir -p artifacts
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import { readFile } from 'node:fs/promises';
+          import { resolve } from 'node:path';
+
+          const svgBase64 = (await readFile(resolve(process.env.SVG_PATH))).toString('base64');
+          const assetUrl = `data:image/svg+xml;base64,${svgBase64}`;
+          const results = [];
+          const check = (name, ok, detail) => {
+            results.push({ name, status: ok ? 'PASS' : 'FAIL', detail });
+            console.log(`${ok ? 'PASS' : 'FAIL'} | ${name} | ${detail}`);
+          };
+
+          const browser = await chromium.launch({ headless: true });
+          try {
+            for (const viewport of [
+              { name: 'desktop-1920x1080', width: 1920, height: 1080 },
+              { name: 'mobile-390x844', width: 390, height: 844 },
+            ]) {
+              const page = await browser.newPage({
+                viewport: { width: viewport.width, height: viewport.height },
+                deviceScaleFactor: 1,
+              });
+              const pageErrors = [];
+              const consoleErrors = [];
+              page.on('pageerror', error => pageErrors.push(error.message));
+              page.on('console', message => {
+                if (message.type() === 'error') consoleErrors.push(message.text());
+              });
+
+              await page.setContent(`<!doctype html>
+                <html lang="vi"><head><meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Fantasy background visual QA</title>
+                <style>
+                  * { box-sizing: border-box; }
+                  html, body { margin: 0; width: 100%; min-height: 100%; overflow: hidden; background: #100d3d; }
+                  main { width: 100vw; height: 100vh; position: relative; overflow: hidden; background: #100d3d; }
+                  img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+                </style></head>
+                <body><main><img id="world-bg" alt="Fantasy world background" src="${assetUrl}"></main></body></html>`, {
+                waitUntil: 'load',
+              });
+
+              const image = page.locator('#world-bg');
+              await image.waitFor({ state: 'visible' });
+              await page.waitForFunction(() => {
+                const img = document.querySelector('#world-bg');
+                return img && img.complete;
+              });
+
+              const metrics = await image.evaluate(img => {
+                const rect = img.getBoundingClientRect();
+                const style = getComputedStyle(img);
+                return {
+                  complete: img.complete,
+                  naturalWidth: img.naturalWidth,
+                  naturalHeight: img.naturalHeight,
+                  renderedWidth: Math.round(rect.width),
+                  renderedHeight: Math.round(rect.height),
+                  objectFit: style.objectFit,
+                  documentWidth: document.documentElement.scrollWidth,
+                  documentHeight: document.documentElement.scrollHeight,
+                };
+              });
+
+              check(`${viewport.name} SVG loaded`,
+                metrics.complete && metrics.naturalWidth === 2560 && metrics.naturalHeight === 1440,
+                `natural=${metrics.naturalWidth}x${metrics.naturalHeight}, complete=${metrics.complete}`);
+              check(`${viewport.name} fills viewport`,
+                metrics.renderedWidth === viewport.width && metrics.renderedHeight === viewport.height,
+                `rendered=${metrics.renderedWidth}x${metrics.renderedHeight}, expected=${viewport.width}x${viewport.height}`);
+              check(`${viewport.name} cover crop mode`,
+                metrics.objectFit === 'cover',
+                `object-fit=${metrics.objectFit}`);
+              check(`${viewport.name} no page overflow`,
+                metrics.documentWidth <= viewport.width && metrics.documentHeight <= viewport.height,
+                `document=${metrics.documentWidth}x${metrics.documentHeight}`);
+
+              await page.screenshot({
+                path: `artifacts/${viewport.name}.png`,
+                fullPage: false,
+              });
+              check(`${viewport.name} browser runtime`,
+                pageErrors.length === 0 && consoleErrors.length === 0,
+                pageErrors.length || consoleErrors.length
+                  ? [...pageErrors, ...consoleErrors].join(' | ').slice(0, 1000)
+                  : 'No page or console errors');
+              await page.close();
+            }
+          } finally {
+            await browser.close();
+          }
+
+          const failed = results.filter(item => item.status === 'FAIL');
+          console.log(`\\nResult: ${results.length - failed.length} PASS, ${failed.length} FAIL`);
+          console.log(JSON.stringify(results, null, 2));
+          if (failed.length) process.exit(1);
+          NODE
+
+      - name: Upload viewport screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasy-background-playwright-screenshots
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 7

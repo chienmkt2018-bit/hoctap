@@ -1,0 +1,51 @@
+name: Fantasy background — Round 1 Mask QA
+
+on:
+  push:
+    branches:
+      - feat/fantasy-game-assets-v1
+    paths:
+      - ".github/workflows/experimental-world-background-mask-qa.yml"
+      - "tools/background-lab/**"
+      - "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mask-qa:
+    name: Generate mask preview only (no LaMa)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/fantasy-game-assets-v1
+      - name: Validate approved source image
+        run: |
+          test "frontend/public/assets/game/backgrounds/world/world_final.jpg" = "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+          test -f "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+          file "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: tools/background-lab/requirements-mask-qa.txt
+      - name: Install mask QA dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/background-lab/requirements-mask-qa.txt
+      - name: Generate previews only
+        env:
+          SOURCE_IMAGE: frontend/public/assets/game/backgrounds/world/world_final.jpg
+          OUTPUT_DIR: artifacts/world-background-mask-qa
+        run: |
+          python tools/background-lab/inpaint_world.py --stage mask-qa
+      - name: Upload mask QA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-background-mask-qa
+          path: artifacts/world-background-mask-qa/
+          if-no-files-found: error
+          retention-days: 7
