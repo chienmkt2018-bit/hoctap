@@ -1,0 +1,214 @@
+name: RPG map visual QA — read-only staging
+
+on:
+  push:
+    branches:
+      - "test/playwright-readonly-staging"
+    paths:
+      - ".github/workflows/rpg-map-visual-staging.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-map-visual-staging-readonly
+  cancel-in-progress: false
+
+jobs:
+  visual-qa:
+    name: Playwright desktop and mobile visual checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      STAGING_FRONTEND_URL: https://hoctap-staging-frontend.onrender.com/
+    steps:
+      - name: Checkout isolated QA branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playwright Chromium
+        working-directory: backend
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: Inspect RPG map on staging (read-only)
+        working-directory: backend
+        run: |
+          mkdir -p artifacts
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          import { writeFile } from 'node:fs/promises';
+
+          const results = [];
+          const record = (id, status, detail) => {
+            results.push({ id, status, detail });
+            console.log(`${status} | ${id} | ${detail}`);
+          };
+          const baseUrl = process.env.STAGING_FRONTEND_URL;
+          const viewports = [
+            { name: 'desktop', width: 1440, height: 1000, expectedAsset: 'bg-world-main.webp' },
+            { name: 'mobile', width: 390, height: 844, expectedAsset: 'bg_mobile_9x16.webp' },
+          ];
+          let browser;
+
+          try {
+            browser = await chromium.launch({ headless: true });
+
+            for (const viewport of viewports) {
+              const context = await browser.newContext({
+                viewport: { width: viewport.width, height: viewport.height },
+                deviceScaleFactor: 1,
+              });
+              const page = await context.newPage();
+              const pageErrors = [];
+              const consoleErrors = [];
+              const attemptedWrites = [];
+
+              // Strict read-only guard: block every browser request other than GET/HEAD/OPTIONS.
+              await page.route('**/*', async route => {
+                const req = route.request();
+                if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method())) {
+                  attemptedWrites.push(`${req.method()} ${new URL(req.url()).pathname}`);
+                  await route.abort('blockedbyclient');
+                  return;
+                }
+                await route.continue();
+              });
+              page.on('pageerror', error => pageErrors.push(error.message));
+              page.on('console', message => {
+                if (message.type() === 'error') consoleErrors.push(message.text());
+              });
+
+              let response;
+              try {
+                response = await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+                const ok = Boolean(response && response.status() >= 200 && response.status() < 400);
+                record(`MAP-${viewport.name.toUpperCase()}-01`, ok,
+                  `GET ${baseUrl} -> HTTP ${response?.status() ?? 'no response'}`);
+                if (!ok) {
+                  record(`MAP-${viewport.name.toUpperCase()}-02`, 'BLOCKED', 'Không thể kiểm tra bản đồ vì trang staging không tải thành công');
+                  await context.close();
+                  continue;
+                }
+
+                await page.locator('body').waitFor({ state: 'visible', timeout: 15000 });
+                const mapNav = page.getByRole('button', { name: /Bản đồ nhiệm vụ/ }).first();
+                await mapNav.waitFor({ state: 'visible', timeout: 15000 });
+                await mapNav.click();
+                const map = page.locator('.rpg-stone-map');
+                await map.waitFor({ state: 'visible', timeout: 15000 });
+                await page.locator('#rpg-chapter-title').waitFor({ state: 'visible', timeout: 10000 });
+
+                const visual = await map.evaluate(element => {
+                  const rect = element.getBoundingClientRect();
+                  const style = getComputedStyle(element);
+                  const labels = [...element.querySelectorAll('.rpg-node-copy strong')].map(label => {
+                    const labelRect = label.getBoundingClientRect();
+                    const labelStyle = getComputedStyle(label);
+                    return {
+                      text: label.textContent?.trim() ?? '',
+                      visible: labelRect.width > 0 && labelRect.height > 0 && labelStyle.visibility !== 'hidden',
+                      fontSize: Number.parseFloat(labelStyle.fontSize),
+                      color: labelStyle.color,
+                      x: labelRect.x,
+                      right: labelRect.right,
+                    };
+                  });
+                  return {
+                    backgroundImage: style.backgroundImage,
+                    width: rect.width,
+                    height: rect.height,
+                    aspectRatio: rect.width / rect.height,
+                    viewportWidth: window.innerWidth,
+                    documentWidth: document.documentElement.scrollWidth,
+                    labels,
+                    questCount: element.querySelectorAll('.rpg-quest-row').length,
+                    title: document.querySelector('#rpg-chapter-title')?.textContent?.trim() ?? '',
+                  };
+                });
+
+                const expectedBackground = visual.backgroundImage.includes(viewport.expectedAsset);
+                record(`MAP-${viewport.name.toUpperCase()}-02`, expectedBackground,
+                  `background-image=${visual.backgroundImage}; expected asset=${viewport.expectedAsset}`);
+
+                let imageLoaded = false;
+                let imageDetail = 'Không có URL ảnh nền đúng trong computed background-image';
+                if (expectedBackground) {
+                  const match = visual.backgroundImage.match(/url\(["']?(.*?)["']?\)/);
+                  const imageUrl = match?.[1] ? new URL(match[1], page.url()).toString() : '';
+                  if (imageUrl) {
+                    try {
+                      const imageResponse = await page.request.get(imageUrl, { timeout: 30000 });
+                      const contentType = imageResponse.headers()['content-type'] ?? '';
+                      imageLoaded = imageResponse.status() === 200 && contentType.startsWith('image/');
+                      imageDetail = `GET ${new URL(imageUrl).pathname} -> HTTP ${imageResponse.status()}, content-type=${contentType || 'missing'}`;
+                    } catch (error) {
+                      imageDetail = String(error).slice(0, 700);
+                    }
+                  }
+                }
+                record(`MAP-${viewport.name.toUpperCase()}-03`, imageLoaded, imageDetail);
+
+                const noOverflow = visual.documentWidth <= visual.viewportWidth + 1;
+                const mapFits = visual.width > 0 && visual.height > 0 &&
+                  visual.width <= visual.viewportWidth + 1;
+                record(`MAP-${viewport.name.toUpperCase()}-04`, noOverflow && mapFits,
+                  `viewport=${visual.viewportWidth}px; document=${visual.documentWidth}px; map=${Math.round(visual.width)}x${Math.round(visual.height)}px; ratio=${visual.aspectRatio.toFixed(3)}`);
+
+                const labelsReadable = visual.questCount === 4 &&
+                  visual.labels.length === 4 &&
+                  visual.labels.every(label => label.visible && label.text.length > 0 && label.fontSize >= 10);
+                record(`MAP-${viewport.name.toUpperCase()}-05`, labelsReadable,
+                  `quest nodes=${visual.questCount}; titles=${visual.labels.map(label => `${label.text} (${label.fontSize}px, ${label.color})`).join('; ')}`);
+
+                // Preserve screenshots for human review of crop, contrast, and text legibility.
+                await map.scrollIntoViewIfNeeded();
+                await map.screenshot({ path: `artifacts/rpg-map-${viewport.name}.png` });
+                await page.screenshot({ path: `artifacts/rpg-map-${viewport.name}-page.png`, fullPage: true });
+                record(`MAP-${viewport.name.toUpperCase()}-06`, true,
+                  `Đã lưu ảnh bản đồ và toàn trang ở viewport ${viewport.width}x${viewport.height}`);
+
+                record(`MAP-${viewport.name.toUpperCase()}-07`, pageErrors.length === 0,
+                  pageErrors.length ? pageErrors.join(' | ').slice(0, 1000) : 'Không quan sát thấy uncaught page error');
+                record(`MAP-${viewport.name.toUpperCase()}-08`, consoleErrors.length === 0,
+                  consoleErrors.length ? consoleErrors.join(' | ').slice(0, 1000) : 'Không quan sát thấy console.error');
+                record(`MAP-${viewport.name.toUpperCase()}-09`, attemptedWrites.length === 0,
+                  attemptedWrites.length ? attemptedWrites.join(' | ').slice(0, 1000) : 'Không phát sinh request ghi; mọi thao tác ngoài GET/HEAD/OPTIONS đều bị chặn');
+
+                // Store measurements separately so the artifact is machine-readable.
+                await writeFile(`artifacts/rpg-map-${viewport.name}-metrics.json`,
+                  JSON.stringify(visual, null, 2));
+              } catch (error) {
+                record(`MAP-${viewport.name}-RUN`, false, String(error).slice(0, 1500));
+              } finally {
+                await context.close();
+              }
+            }
+          } catch (error) {
+            record('MAP-RUNNER', false, String(error).slice(0, 1500));
+          } finally {
+            if (browser) await browser.close();
+          }
+
+          await writeFile('artifacts/results.json', JSON.stringify(results, null, 2));
+          const failures = results.filter(result => result.status === false || result.status === 'FAIL');
+          const blocked = results.filter(result => result.status === 'BLOCKED');
+          const passed = results.filter(result => result.status === true || result.status === 'PASS');
+          console.log(`\\nSummary: ${passed.length} PASS, ${failures.length} FAIL, ${blocked.length} BLOCKED`);
+          if (failures.length > 0) process.exitCode = 1;
+          NODE
+
+      - name: Upload visual QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-map-visual-qa-staging
+          path: backend/artifacts/
+          if-no-files-found: warn
+          retention-days: 14
