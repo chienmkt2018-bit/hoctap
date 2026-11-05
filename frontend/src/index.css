@@ -1262,3 +1262,67 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
   .rpg-route-glow { animation:none; }
   .rpg-node-button { transition:none; }
 }
+
+
+/* Node medallions: do not depend on empty placeholder PNG files. */
+.rpg-node-button {
+  border:2px solid #f2ce82;
+  background:radial-gradient(circle at 34% 25%,#8b6aa8 0%,#40335e 56%,#1b1b35 100%);
+  box-shadow:0 7px 18px #080817b8,inset 0 0 0 4px #201b3b,inset 0 0 0 7px #f4d28a55;
+}
+.rpg-node-button::before {
+  content:"";
+  position:absolute;
+  inset:-7px;
+  border:1px solid #f4d28a99;
+  border-radius:50%;
+  box-shadow:0 0 0 4px #211a3a88;
+  pointer-events:none;
+}
+.rpg-node-button::after {
+  content:"";
+  position:absolute;
+  inset:7px;
+  border:1px dashed #f5dfaa99;
+  border-radius:50%;
+  pointer-events:none;
+}
+.rpg-node-glyph {
+  position:relative;
+  z-index:1;
+  display:grid;
+  place-items:center;
+  width:100%;
+  height:100%;
+  color:#fff7df;
+  font-family:'Baloo 2',sans-serif;
+  font-size:34px;
+  font-weight:900;
+  line-height:1;
+  text-shadow:0 2px 7px #090817bb;
+}
+.rpg-node-button.done {
+  border-color:#82e4c1;
+  background:radial-gradient(circle at 35% 25%,#3e9d85,#164c55 65%,#102b3c);
+  box-shadow:0 0 22px #57e5bd77,inset 0 0 0 4px #143b43,inset 0 0 0 7px #a7f3d066;
+}
+.rpg-node-button.active {
+  border-color:#ffe08a;
+  background:radial-gradient(circle at 35% 25%,#f5bd62,#8d4f43 58%,#3b263d);
+  box-shadow:0 0 0 5px #f7c76b33,0 0 28px #f6c66b99,inset 0 0 0 4px #4a2b3b,inset 0 0 0 7px #ffe5a477;
+  animation:rpg-node-pulse 2.6s ease-in-out infinite;
+}
+.rpg-node-button.locked {
+  border-color:#9695a9;
+  color:#c0bfd0;
+  background:radial-gradient(circle at 35% 25%,#66667a,#303044 65%,#171725);
+  filter:saturate(.55);
+}
+.rpg-point-4 .rpg-node-glyph { font-size:42px; }
+@media (max-width:760px) {
+  .rpg-node-glyph { font-size:29px; }
+  .rpg-point-4 .rpg-node-glyph { font-size:35px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .rpg-node-button.active { animation:none; }
+}
