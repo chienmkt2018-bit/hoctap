@@ -235,8 +235,7 @@ jobs:
 
           const failed = results.filter(result => !result.ok);
           const skipped = results.filter(result => result.skipped);
-          console.log(\`
-Summary: \${results.length - failed.length - skipped.length} PASS, \${failed.length} FAIL, \${skipped.length} SKIP\`);
+          console.log('Summary: ' + (results.length - failed.length - skipped.length) + ' PASS, ' + failed.length + ' FAIL, ' + skipped.length + ' SKIP');
           console.log(JSON.stringify(results, null, 2));
           if (failed.length) process.exitCode = 1;
           NODE
