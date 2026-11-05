@@ -1,0 +1,65 @@
+name: Experimental fantasy background inpainting
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_image:
+        description: Repository-relative source image (must remain world_final.jpg)
+        required: true
+        default: frontend/public/assets/game/backgrounds/world/world_final.jpg
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fantasy-background-inpaint
+  cancel-in-progress: false
+
+jobs:
+  inpaint:
+    name: Inpaint flattened mockup (CPU experiment)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout asset branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/fantasy-game-assets-v1
+
+      - name: Validate source is the approved reference image
+        env:
+          SOURCE_IMAGE: ${{ inputs.source_image }}
+        run: |
+          test "$SOURCE_IMAGE" = "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+          test -f "$SOURCE_IMAGE"
+          file "$SOURCE_IMAGE"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: tools/background-lab/requirements.txt
+
+      - name: Install CPU inpainting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/background-lab/requirements.txt
+
+      - name: Generate mask preview and inpaint
+        env:
+          SOURCE_IMAGE: ${{ inputs.source_image }}
+          OUTPUT_DIR: artifacts/world-background-experiment
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          python tools/background-lab/inpaint_world.py
+
+      - name: Upload experiment outputs (no repository write)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: world-background-inpaint-experiment
+          path: artifacts/world-background-experiment/
+          if-no-files-found: error
+          retention-days: 7
