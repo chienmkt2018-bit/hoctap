@@ -1,6 +1,13 @@
 name: Experimental fantasy background inpainting
 
 on:
+  push:
+    branches:
+      - feat/fantasy-game-assets-v1
+    paths:
+      - ".github/workflows/experimental-world-background-inpaint.yml"
+      - "tools/background-lab/**"
+      - "frontend/public/assets/game/backgrounds/world/world_final.jpg"
   workflow_dispatch:
     inputs:
       source_image:
@@ -42,9 +49,13 @@ jobs:
           cache: pip
           cache-dependency-path: tools/background-lab/requirements.txt
 
-      - name: Install CPU inpainting dependencies
+      - name: Install CPU-only PyTorch
         run: |
           python -m pip install --upgrade pip
+          python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install CPU inpainting dependencies
+        run: |
           python -m pip install -r tools/background-lab/requirements.txt
 
       - name: Generate mask preview and inpaint
