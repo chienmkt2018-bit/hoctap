@@ -256,34 +256,118 @@ Link workflow/run cần tra cứu tại tab Actions của repository và đối 
 
 **Ghi chú P5.4-B cleanup verification (04/11/2026):** GitHub Actions đã nạp được Environment secret và worker chạy tới MongoDB Atlas staging. Dry-run tìm theo định danh tổng hợp gắn với Quiz API E2E Run ID `41767411947`, attempt `1`, nhưng không tìm thấy user hoặc bản ghi liên kết phù hợp. Worker kết luận không có gì cần cleanup. Đây là bằng chứng cho truy vấn theo đúng bộ định danh; không phải xác nhận toàn bộ collection staging rỗng. Vì không có tài liệu phù hợp, không chạy `apply` và không thực hiện thao tác xóa.
 
-## 9. Roadmap và trạng thái xác minh
+## 9. ROADMAP DUY NHẤT — HOC TAP QUEST / FANTASY RPG
 
-Bảng dưới đây là snapshot định hướng theo thông tin dự án được ghi nhận đến 04/11/2026. Trạng thái phải được cập nhật sau khi kiểm tra branch, PR, CI và môi trường tương ứng.
+**Đây là nguồn roadmap chuẩn duy nhất của repository ứng dụng.** Mọi kế hoạch Fantasy RPG cũ trong branch/README khác chỉ là tài liệu lịch sử hoặc bản nháp; khi có khác biệt, mục 9 trên `main` sau khi được phê duyệt là chuẩn. Không tạo roadmap song song hoặc tự đánh số P0–P6 cho từng nhánh.
 
-| Mã | Hạng mục | Trạng thái ghi nhận | Điều kiện/ghi chú |
+### 9.1 Mục tiêu sản phẩm
+
+Chuyển HOC TAP QUEST từ giao diện học tập dạng dashboard sang trải nghiệm **Fantasy RPG / Fantasy Adventure** bám sát concept gốc `frontend/concept.png`, nhưng vẫn là ứng dụng học tập thật:
+
+- World Map là trung tâm trải nghiệm, có địa hình, chapter banner, quest path, quest node, nhân vật đồng hành và CTA.
+- Desktop: sidebar trái, bản đồ trung tâm, thông tin người chơi và nhiệm vụ phụ ở vùng phải/dưới.
+- Mobile: bố cục dọc, bản đồ là nội dung chính, thông tin người chơi/chapter gọn ở trên, bottom navigation ở dưới.
+- Design system, asset 2D, typography, ánh sáng và component phải nhất quán; không trộn phong cách 3D, pixel-art, realistic và chibi tùy tiện.
+- UI chỉ trình bày trạng thái từ nghiệp vụ hiện có; không tự quyết định XP, mở khóa quest, kết quả quiz hoặc ghi tiến độ.
+- Giữ nguyên auth, API, bài học, quiz, progress, XP, streak, gems và achievements, trừ khi có yêu cầu riêng được phê duyệt.
+
+**Visual source of truth:** [`frontend/concept.png` trên branch concept đã xác minh](https://github.com/chienmkt2018-bit/hoctap/blob/feat/fantasy-game-assets-v1/frontend/concept.png). Không suy diễn ảnh tham chiếu từ ảnh minh họa ngẫu nhiên hoặc screenshot của bản UI hiện tại.
+
+### 9.2 Roadmap thống nhất và trạng thái
+
+Các mã R0–R8 dưới đây là mã giai đoạn duy nhất cho toàn bộ phần nâng cấp Fantasy RPG. Trạng thái được ghi theo bằng chứng đã quan sát, không theo ý định hoặc việc chỉ tạo file.
+
+| Mã | Giai đoạn | Phạm vi và đầu ra bắt buộc | Trạng thái ghi nhận ngày 05/11/2026 |
 |---|---|---|---|
-| P0 | Kiến trúc và kế hoạch | Hoàn thành | Kiến trúc frontend/backend/database và roadmap đã hình thành |
-| P1 | Nền tảng, Dashboard, Quest Map | Đã triển khai | Cần regression theo từng thay đổi UI |
-| P2 | Lesson, Quiz, kết quả và local progress | Đã triển khai | Cần tiếp tục kiểm tra hồi quy |
-| P3 | Backend, auth, progress, quiz API | Đã triển khai nhiều phần | API contract và server-authoritative XP; tiếp tục xác minh integration trên môi trường được phép |
-| P4 | Gamification | Đã triển khai nhiều phần | Thành tựu, daily quests, streak và đồng bộ tài khoản phải theo dõi riêng; không mặc định mọi phần đã PASS end-to-end |
-| P5 | QA, idempotency, concurrency và production verification | Đã có bằng chứng theo từng phạm vi; tiếp tục theo dõi | Staging read-only, Quiz API E2E, cleanup dry-run và production read-only đã có kết quả riêng; không suy rộng thành xác minh toàn bộ production |
-| P5.4-A | Production read-only verification | Hoàn thành theo phạm vi đã chạy | Run ID `41621599091`: 10 PASS, 0 FAIL; chỉ gồm frontend load, lesson navigation/lock và mobile viewport |
-| P5.4-B | Staging authenticated Quiz API E2E và cleanup verification | Hoàn thành phần cleanup verification | Run ID `41767411947`: 40 PASS, 0 FAIL; staging Atlas dry-run PASS, không tìm thấy synthetic learner hoặc linked records; không cần và không thực hiện xóa |
-| P5.4-C | Browser authenticated quiz E2E | **CHƯA ĐƯỢC CẤP PHÉP – CHƯA BẮT ĐẦU** | Không thực hiện cho tới khi có phê duyệt riêng về phạm vi, tài khoản giả, dữ liệu và thao tác được phép |
-| P6 | AI và học tập thích ứng | Chưa bắt đầu | Chỉ triển khai sau khi nền tảng và dữ liệu được ổn định |
+| **R0** | Baseline và khảo sát | Xác minh branch/commit, cấu trúc frontend, route, component, CSS, asset, scripts, workflow; ánh xạ luồng auth/lesson/quiz/progress/XP; lưu baseline desktop/mobile; chốt file tích hợp và rủi ro. | **IN PROGRESS** — concept và hướng thiết kế đã ghi nhận; chưa có bằng chứng hoàn tất khảo sát toàn bộ mã nguồn và baseline. |
+| **R1** | Design system và asset foundation | Tokens màu/typography/spacing/layer; button, panel, badge, progress, icon; quy tắc trạng thái locked/available/active/completed; manifest, style guide, nguồn và license asset. | **PARTIAL** — đã có nhánh asset và tài liệu manifest/style guide/license; CI frontend/backend của nhánh UI có build thành công. Chưa có visual acceptance chứng minh design system hoàn chỉnh. |
+| **R2** | Fantasy World Map | Background thế giới có chiều sâu; địa hình/lâu đài/đảo bay; chapter parchment; quest path; node theo trạng thái thật; nhân vật 2D; reward và CTA. | **NOT VERIFIED** — chưa có screenshot/artifact đủ để xác nhận bản đồ đạt concept. Đây là ưu tiên triển khai tiếp theo sau khi chốt baseline tích hợp. |
+| **R3** | Responsive game shell | Desktop sidebar; mobile bottom navigation; player profile; XP/currency; daily quest; bố cục tablet; không che/cắt nội dung. | **NOT VERIFIED** — chưa có bằng chứng nghiệm thu trực quan đầy đủ trên các viewport mục tiêu. |
+| **R4** | Đồng bộ màn hình học tập | Áp dụng design system cho Dashboard, Lesson, Quiz/Practice, Results, Achievements, Profile theo đúng route/component thực tế; bảo toàn hành vi và API. | **NOT VERIFIED** — chưa có báo cáo đối chiếu từng màn hình. |
+| **R5** | Animation và interaction | Chuyển trạng thái quest, glow/particle có kiểm soát, feedback, hover/focus, keyboard/touch, reduced motion; không cản thao tác hoặc làm giảm hiệu năng mobile. | **NOT STARTED / NOT VERIFIED** — chưa có bằng chứng animation đã tích hợp và kiểm thử. |
+| **R6** | Visual và functional QA | So sánh trực tiếp concept; Playwright desktop/mobile; navigation, quest states, asset loading, console/page errors, responsive, keyboard/touch; build/type-check và regression. | **BLOCKED FOR ACCEPTANCE** — CI build thành công không thay thế screenshot và browser evidence. Cần workflow/artifact QA phù hợp. |
+| **R7** | Review và release gate | Review diff, bảo mật, API/data invariants; PR theo phạm vi; người dùng duyệt; kiểm tra staging deployed SHA và rollback plan. | **NOT STARTED FOR FANTASY RELEASE** — không tự merge hoặc deploy. |
+| **R8** | Mở rộng sau nghiệm thu | Chỉ sau khi R0–R7 đạt yêu cầu: mở rộng artwork, chapter, quest content và cải tiến trải nghiệm dựa trên phản hồi. | **NOT STARTED**. |
 
-**Gate P5.4-C:** trạng thái hiện tại là chưa được cấp phép. Việc P5.4-A/P5.4-B hoàn thành không tạo quyền mặc định để chạy P5.4-C. Cần người dùng phê duyệt riêng trước khi tạo tài khoản/dữ liệu, gửi quiz hoặc thực hiện browser E2E có xác thực.
+**Thứ tự chuẩn:** R0 → R1 → R2 → R3 → R4 → R5 → R6 → R7 → R8. Có thể thực hiện asset preparation song song với R0 nếu không sửa UI nghiệp vụ; không được bỏ qua baseline, visual QA hoặc release gate.
 
-### Điều kiện trước khi mở rộng QA production
+### 9.3 Tiêu chí nghiệm thu bắt buộc
 
-1. Xác minh commit SHA đang deploy trên production frontend và backend.
-2. Xác định rõ test case, expected result và dữ liệu được phép quan sát.
-3. Ưu tiên browser QA read-only; không gửi quiz hoặc ghi dữ liệu học tập.
-4. Nếu cần test API có ghi, chỉ dùng database test cô lập, tài khoản giả và phê duyệt rõ ràng.
-5. Có Playwright/browser, quyền truy cập và artifact/log phù hợp.
-6. Báo cáo PASS/FAIL/BLOCKED theo bằng chứng; không suy rộng kết quả từ một test case.
+**Visual fidelity**
+- [ ] Desktop và mobile bám đúng bố cục concept gốc, không chỉ đổi màu dashboard cũ.
+- [ ] World Map có địa hình, chiều sâu, đường dẫn và quest node nhìn thấy rõ.
+- [ ] Nhân vật 2D, background, icon, parchment và effects cùng một art direction.
+- [ ] Chapter banner, trạng thái node, reward và CTA có phân cấp thị giác rõ ràng.
+- [ ] Không dùng screenshot concept làm một ảnh nền thay cho UI/component thật.
 
+**Responsive và accessibility**
+- [ ] Kiểm tra tối thiểu 390×844, 768×1024, 1440×900 và 1920×1080 khi môi trường cho phép.
+- [ ] Không tràn chữ, vỡ ảnh, chồng lấn, cắt CTA hoặc vùng tương tác.
+- [ ] Touch target đủ lớn; chức năng không phụ thuộc hover.
+- [ ] Keyboard focus nhìn thấy được; có hỗ trợ reduced motion.
+
+**Functional và data integrity**
+- [ ] Quest state hiển thị từ nguồn dữ liệu/logic hiện có.
+- [ ] Auth, lesson, quiz, result, progress, XP, streak, gems và achievements không bị thay đổi ngoài phạm vi.
+- [ ] Không phát sinh request ghi dữ liệu ngoài hành vi đã được cho phép.
+- [ ] Không tạo dữ liệu học tập/XP/attempt giả để làm screenshot đẹp hơn.
+
+**Build và QA**
+- [ ] Frontend type-check/build thành công trên branch đề xuất.
+- [ ] Playwright test report có Test ID, URL/môi trường, steps, expected, actual, trạng thái và bằng chứng.
+- [ ] Có screenshot/artifact desktop và mobile; lỗi phải có bước tái hiện.
+- [ ] Báo cáo PASS/FAIL/BLOCKED; không suy rộng build PASS thành UI PASS.
+
+### 9.4 Mốc CI đã xác minh — không nhầm với nghiệm thu giao diện
+
+- Nhánh UI được kiểm tra: `feat/fantasy-rpg-ui-v1`.
+- Commit được ghi nhận: `6352bf860fb51cdce410e73b6c4603b9196bfdd5`.
+- GitHub Actions run: [42025414032](https://github.com/chienmkt2018-bit/hoctap/actions/runs/42025414032).
+- Backend type-check/build, backend unit/integration test, OpenAPI validation, frontend type-check/build và staging frontend build đều có kết quả **SUCCESS** ở job đã kiểm tra.
+- Run trên không cung cấp artifact screenshot Fantasy RPG. Vì vậy chỉ xác nhận CI/build/test job tương ứng; **không xác nhận R1 hoàn tất về mặt thị giác, không xác nhận R2–R6 PASS**.
+- Asset preparation đã được ghi nhận trên branch `feat/fantasy-game-assets-v1`; không được coi các tài liệu manifest/style guide là bằng chứng artwork đã hoàn thành hoặc đã được tích hợp vào UI.
+
+### 9.5 Roadmap sản phẩm và QA nền tảng hiện hữu
+
+Các hạng mục dưới đây là năng lực sản phẩm/QA đã có trước hoặc chạy song song với Fantasy RPG; chúng là điều kiện bảo toàn và regression, không phải roadmap giao diện thứ hai:
+
+| Nhóm nền tảng | Trạng thái ghi nhận | Cách xử lý trong roadmap thống nhất |
+|---|---|---|
+| Dashboard, Quest Map, Lesson, Quiz, Results, progress | Đã có nhiều phần triển khai trong sản phẩm | R0 lập baseline; R4 regression sau khi đổi UI. |
+| Backend auth, progress, quiz API và server-authoritative XP | Đã triển khai nhiều phần; có OpenAPI và integration test | Bảo toàn hợp đồng; không viết lại backend trong task UI. |
+| Gamification: daily quest, streak, achievements, gems | Đã triển khai nhiều phần, cần xác minh theo từng chức năng | Chỉ hiển thị trạng thái backend hiện có; regression ở R4/R6. |
+| Staging read-only E2E | README hiện ghi nhận 15 PASS, 0 FAIL ở Run #34 | Dùng làm bằng chứng của đúng run/phạm vi; không suy rộng. |
+| Quiz API idempotency/concurrency | README hiện ghi nhận workflow integration thành công trên MongoDB replica set test cô lập | Là kiểm thử backend; không chứng minh giao diện Fantasy RPG. |
+| Production read-only Playwright | Run `41621599091`: 10 PASS, 0 FAIL theo phạm vi đã ghi | Chỉ xác nhận frontend load, lesson navigation/lock và mobile viewport. |
+| Staging authenticated Quiz API E2E | Run `41767411947`: 40 PASS, 0 FAIL theo phạm vi đã ghi | Kiểm thử API có dữ liệu tổng hợp; không phải browser visual QA. |
+| Staging cleanup dry-run | Đã ghi nhận không tìm thấy synthetic learner/linked records theo định danh của run | Không chạy apply/xóa nếu không có dữ liệu phù hợp và phê duyệt. |
+| P5.4-C authenticated browser quiz E2E | Chưa được cấp phép theo snapshot vận hành hiện có | Giữ nguyên gate; không tự tạo tài khoản, gửi quiz hoặc ghi tiến độ. |
+| AI/adaptive learning | Chưa bắt đầu theo snapshot hiện có | Chỉ xem xét sau khi nền tảng và dữ liệu ổn định. |
+
+Các số liệu QA ở bảng này là snapshot từ sổ tay vận hành đã ghi trong README, không phải kết quả vừa chạy lại trong lần cập nhật roadmap này. Khi cần dùng làm gate phát hành, phải mở run/artifact gốc và xác minh lại tính sẵn có.
+
+### 9.6 Quy tắc branch, quyền và phát hành
+
+- Tạo branch công việc từ base đã kiểm tra; không triển khai trực tiếp lên `main` hoặc `staging`.
+- Branch asset/UI hiện có là nguồn tham khảo và lịch sử triển khai; không mặc định branch đã merge hoặc deploy.
+- Chỉ thay đổi các file thuộc giai đoạn được duyệt; không viết lại dự án nếu chỉ cần sửa một phần.
+- Ưu tiên GitHub, GitHub Actions và công cụ miễn phí theo ràng buộc dự án.
+- Read-only là mặc định khi kiểm tra staging/production; không gửi quiz, ghi progress/XP, thay đổi tài khoản hoặc xóa dữ liệu nếu chưa được cho phép riêng.
+- Không tự ý merge, deploy, thay đổi Render, secrets, database hoặc production.
+- Sau mỗi giai đoạn, cập nhật **chính mục 9 này** với branch, commit, PR, workflow run, artifact, kết quả PASS/FAIL/BLOCKED và phần chưa xác minh.
+- Không duy trì bảng roadmap Fantasy RPG riêng trong README khác. Nếu tài liệu branch cần kế hoạch chi tiết, phải ghi rõ là bản làm việc và liên kết về mục 9 này.
+
+### 9.7 Cách xác định trạng thái
+
+- **PASS:** đầu ra giai đoạn đã được kiểm tra theo tiêu chí và có bằng chứng trực tiếp.
+- **PARTIAL:** chỉ một phần đầu ra có bằng chứng; phải ghi rõ phần còn thiếu.
+- **FAIL:** có bằng chứng lỗi hoặc không đạt tiêu chí.
+- **BLOCKED:** thiếu quyền, môi trường, công cụ hoặc bằng chứng cần thiết.
+- **NOT STARTED:** chưa có bằng chứng bắt đầu triển khai.
+- **NOT VERIFIED:** có thể đã có code/tài liệu nhưng chưa kiểm tra đủ để kết luận.
+
+Không đổi trạng thái thành PASS chỉ vì có commit, PR được tạo, CI xanh hoặc trang tải được.
+ 
 ## 10. Quy trình thay đổi và phát hành
 
 1. **Khảo sát:** kiểm tra repository, branch, commit, PR, workflow, package scripts và file liên quan.
