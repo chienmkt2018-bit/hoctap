@@ -41,7 +41,7 @@ for (const viewport of viewports) {
     const response = await page.goto('/');
     expect(response?.status(), 'staging frontend root should return HTTP 200').toBe(200);
     await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
-    await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Bản đồ nhiệm vụ.', level: 1 })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
 
     const dimensions = await page.evaluate(() => ({
@@ -72,7 +72,7 @@ for (const viewport of viewports) {
     await page.getByRole('button', { name: 'Bài học', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Bài học.', level: 1 })).toBeVisible();
     await page.getByRole('button', { name: 'Bản đồ nhiệm vụ' }).click();
-    await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Bản đồ nhiệm vụ.' })).toBeVisible();
 
     // Verify keyboard focus is visible on a real navigation control.
     const navButton = page.getByRole('button', { name: 'Bản đồ nhiệm vụ' });
@@ -129,7 +129,7 @@ test('active quest opens its preview without submitting learning data', async ({
   const attemptedWrites = await installReadOnlyGuards(page);
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
-  await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bản đồ nhiệm vụ.', level: 1 })).toBeVisible();
 
   const activeQuest = page.getByRole('button', { name: 'Khởi động tư duy, đang mở, bắt đầu nhiệm vụ' });
   await expect(activeQuest).toBeVisible();
@@ -149,7 +149,7 @@ test('locked quest is disabled and pointer interaction sends no write request', 
   const attemptedWrites = await installReadOnlyGuards(page);
   await page.goto('/');
   await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
-  await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bản đồ nhiệm vụ.', level: 1 })).toBeVisible();
 
   const lockedQuest = page.getByRole('button', { name: 'Mở khóa kiến thức, đang khóa' });
   await expect(lockedQuest).toBeVisible();
