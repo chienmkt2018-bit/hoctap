@@ -1,0 +1,65 @@
+name: RPG Dashboard Local Playwright CI
+
+on:
+  push:
+    branches: ["feat/ui-02-rpg-dashboard"]
+    paths:
+      - ".github/workflows/rpg-dashboard-local-ci.yml"
+      - "frontend/playwright.rpg.local-ci.config.ts"
+      - "frontend/tests/rpg-dashboard/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-dashboard-local-playwright-ci
+  cancel-in-progress: true
+
+jobs:
+  rpg-dashboard-local:
+    name: Build app and run read-only Playwright locally
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Keep all frontend API traffic away from production and staging.
+      VITE_API_BASE_URL: http://127.0.0.1:4174
+    steps:
+      - name: Checkout feature branch source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies
+        run: npm install --no-package-lock
+
+      - name: Install ephemeral Playwright runner
+        run: npm install --no-save --no-package-lock @playwright/test@1.56.1
+
+      - name: Build the feature-branch application
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run read-only Playwright against local Vite preview
+        run: npx playwright test --config=playwright.rpg.local-ci.config.ts
+
+      - name: Upload local CI screenshots, traces and HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-dashboard-local-playwright-evidence
+          path: |
+            frontend/test-results-local-ci/
+            frontend/playwright-report-local-ci/
+          if-no-files-found: warn
+          retention-days: 7
