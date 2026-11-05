@@ -21,7 +21,7 @@
 
   /* Existing compatibility aliases */
   --bg: var(--color-bg-cosmic);
-  --muted: var(--color-text-muted);
+  --muted: #9695b2; /* legacy UI alias: preserve existing contrast */
   --purple: var(--color-purple-soft);
   --cyan: #67e8f9;
   --line: rgba(180, 174, 255, .13);
