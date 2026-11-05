@@ -60,6 +60,7 @@ jobs:
           };
           try {
             for (const viewport of [
+              { name: 'mobile-320x720', width: 320, height: 720, mobile: true },
               { name: 'mobile-390x844', width: 390, height: 844, mobile: true },
               { name: 'tablet-768x1024', width: 768, height: 1024, mobile: false },
               { name: 'desktop-1440x900', width: 1440, height: 900, mobile: false },
