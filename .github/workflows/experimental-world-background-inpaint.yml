@@ -36,7 +36,7 @@ jobs:
 
       - name: Validate source is the approved reference image
         env:
-          SOURCE_IMAGE: ${{ inputs.source_image }}
+          SOURCE_IMAGE: ${{ inputs.source_image || 'frontend/public/assets/game/backgrounds/world/world_final.jpg' }}
         run: |
           test "$SOURCE_IMAGE" = "frontend/public/assets/game/backgrounds/world/world_final.jpg"
           test -f "$SOURCE_IMAGE"
@@ -60,7 +60,7 @@ jobs:
 
       - name: Generate mask preview and inpaint
         env:
-          SOURCE_IMAGE: ${{ inputs.source_image }}
+          SOURCE_IMAGE: ${{ inputs.source_image || 'frontend/public/assets/game/backgrounds/world/world_final.jpg' }}
           OUTPUT_DIR: artifacts/world-background-experiment
         run: |
           mkdir -p "$OUTPUT_DIR"
