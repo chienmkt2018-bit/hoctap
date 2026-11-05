@@ -68,8 +68,18 @@ for (const viewport of viewports) {
       const rect = element.getBoundingClientRect();
       return { width: Math.round(rect.width), height: Math.round(rect.height), left: Math.round(rect.left), top: Math.round(rect.top) };
     });
-    expect(companionBounds.width, 'companion should be visually prominent at this viewport').toBeGreaterThanOrEqual(viewport.width <= 390 ? 100 : 140);
-    expect(companionBounds.height, 'companion should have sufficient vertical presence').toBeGreaterThanOrEqual(viewport.width <= 390 ? 150 : 200);
+    expect(companionBounds.width, 'companion layout box should be prominent at this viewport').toBeGreaterThanOrEqual(viewport.width <= 390 ? 145 : 200);
+    expect(companionBounds.height, 'companion layout box should have sufficient vertical presence').toBeGreaterThanOrEqual(viewport.width <= 390 ? 210 : 280);
+    const companionImageScale = await page.locator('.rpg-companion-art').evaluate(element => {
+      const style = getComputedStyle(element);
+      return { width: Math.round(element.getBoundingClientRect().width), parentWidth: Math.round(element.parentElement!.getBoundingClientRect().width), objectFit: style.objectFit };
+    });
+    expect(companionImageScale.width, 'companion artwork must be scaled beyond its transparent image canvas').toBeGreaterThan(companionImageScale.parentWidth * 1.5);
+    expect(companionImageScale.objectFit).toBe('contain');
+    await expect(page.getByRole('heading', { name: 'Chọn chặng tiếp theo' })).toHaveCount(0);
+    const mapBounds = await map.boundingBox();
+    expect(mapBounds).not.toBeNull();
+    expect(companionBounds.left, 'companion should occupy the right side of the map, away from the active node').toBeGreaterThan(mapBounds!.x + mapBounds!.width * 0.45);
     await expect(page.locator('.rpg-start-button-art')).toBeVisible();
     const startButtonLayout = await page.locator('.rpg-start-button').evaluate(element => {
       const map = element.closest('.rpg-stone-map');
@@ -101,7 +111,7 @@ for (const viewport of viewports) {
     expect(pageErrors, 'no uncaught browser exceptions').toEqual([]);
     expect(consoleErrors, 'no browser console errors').toEqual([]);
     await testInfo.attach('rpg-image-load-report.json', {
-      body: JSON.stringify({ viewport, backgroundImage, imageReport, companionBounds, dimensions }, null, 2),
+      body: JSON.stringify({ viewport, backgroundImage, imageReport, companionBounds, companionImageScale, dimensions }, null, 2),
       contentType: 'application/json',
     });
   });
