@@ -42,10 +42,11 @@ jobs:
           mkdir -p artifacts
           node --input-type=module <<'NODE'
           import { chromium } from 'playwright';
-          import { pathToFileURL } from 'node:url';
+          import { readFile } from 'node:fs/promises';
           import { resolve } from 'node:path';
 
-          const assetUrl = pathToFileURL(resolve(process.env.SVG_PATH)).href;
+          const svgBase64 = (await readFile(resolve(process.env.SVG_PATH))).toString('base64');
+          const assetUrl = `data:image/svg+xml;base64,${svgBase64}`;
           const results = [];
           const check = (name, ok, detail) => {
             results.push({ name, status: ok ? 'PASS' : 'FAIL', detail });
