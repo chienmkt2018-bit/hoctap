@@ -212,15 +212,20 @@ app.get('/api/v1/progress', requireAuthentication, async (_request, response, ne
   try {
     if (getDatabaseStatus() !== 'connected') return databaseUnavailable(response);
     const learnerId = response.locals.userId as string;
-    const progress = await ProgressModel.findOneAndUpdate(
-      { learnerId },
-      { $setOnInsert: { learnerId } },
-      { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true },
-    );
-    if (!progress) return databaseUnavailable(response);
+    // GET must remain side-effect free: do not upsert a progress document here.
+    const progress = await ProgressModel.findOne({ learnerId });
     const quizAttempts = await QuizAttemptModel.find({ learnerId }).select('lessonId').lean();
     const authoritativeCompletedLessonIds = [...new Set(quizAttempts.map((attempt) => attempt.lessonId))].sort((a, b) => a - b);
-    response.status(200).json(toProgressResponse(progress, authoritativeCompletedLessonIds));
+    const responseProgress = progress ?? {
+      totalXp: 0,
+      completedLessonIds: [],
+      learningDates: [],
+      dailyActivity: null,
+      bestXpByLesson: new Map<string, number>(),
+      questStatuses: new Map<string, 'done' | 'active' | 'locked'>(),
+      updatedAt: new Date(),
+    };
+    response.status(200).json(toProgressResponse(responseProgress, authoritativeCompletedLessonIds));
   } catch (error) {
     next(error);
   }
