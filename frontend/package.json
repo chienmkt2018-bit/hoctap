@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:staging": "tsc -b && vite build --mode staging --outDir dist-staging --emptyOutDir",
+    "build:staging": "tsc -b && vite build --mode staging --outDir dist-staging --emptyOutDir && node --input-type=module -e \"import { copyFileSync, existsSync } from 'node:fs'; if (!existsSync('dist-staging/staging.html')) throw new Error('Vite staging entry staging.html is missing'); copyFileSync('dist-staging/staging.html', 'dist-staging/index.html'); if (!existsSync('dist-staging/index.html')) throw new Error('Render root entry index.html is missing');\"",
     "preview": "vite preview",
     "typecheck": "tsc -b --pretty"
   },

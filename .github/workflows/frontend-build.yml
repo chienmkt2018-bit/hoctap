@@ -41,6 +41,11 @@ jobs:
         run: npm run build
       - name: Build isolated staging frontend
         run: npm run build:staging
+      - name: Verify Render staging root entry
+        run: |
+          test -s dist-staging/index.html
+          grep -Eq 'src="/assets/index-[^"]+\.js"' dist-staging/index.html
+          grep -Rq 'KHÔNG GHI TIẾN ĐỘ' dist-staging/assets
 
   backend:
     name: Backend type-check and build
