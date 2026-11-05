@@ -2,7 +2,7 @@ name: Playwright read-only staging E2E
 
 on:
   push:
-    branches: ["staging"]
+    branches: ["staging", "chore/playwright-p1-p3"]
     paths:
       - ".github/workflows/playwright-staging-readonly.yml"
       - "frontend/**"
@@ -39,17 +39,49 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: backend/.playwright/package-lock.json
 
-      - name: Install Playwright
-        working-directory: backend
+      - name: Install isolated Playwright dependency
+        working-directory: backend/.playwright
         run: |
-          npm install --no-save playwright@1.56.1
-          npx playwright install --with-deps chromium
+          npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Install Chromium system dependencies
+        working-directory: backend/.playwright
+        run: |
+          npx playwright install-deps chromium
+
+      - name: Install Chromium browser
+        working-directory: backend/.playwright
+        run: |
+          npx playwright install chromium
+
+      - name: Verify Chromium runtime
+        working-directory: backend/.playwright
+        run: |
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+
+          let browser;
+
+          try {
+            browser = await chromium.launch({ headless: true });
+            console.log('PASS | Chromium launch');
+          } catch (error) {
+            console.error('FAIL | Chromium launch:', error);
+            process.exitCode = 1;
+          } finally {
+            if (browser) {
+              await browser.close();
+            }
+          }
+          NODE
 
       - name: Run read-only staging checks
-        working-directory: backend
+        working-directory: backend/.playwright
         run: |
-          mkdir -p artifacts
+          mkdir -p ../artifacts
           node --input-type=module <<'NODE'
           import { chromium, request } from 'playwright';
 
@@ -180,7 +212,7 @@ jobs:
                 `viewport=${layout.viewportWidth}px, document=${layout.documentWidth}px, body=${layout.bodyWidth}px, mapWidth=${layout.mapWidth}px, questNodes=${layout.questNodes}, mapVisible=${layout.mapVisible}, companionVisible=${layout.companionVisible}`
               );
 
-              await page.screenshot({ path: `artifacts/${screenshotName}-home.png`, fullPage: true });
+              await page.screenshot({ path: `../artifacts/${screenshotName}-home.png`, fullPage: true });
             }
 
             async function inspectQuestMap(session) {
@@ -206,7 +238,7 @@ jobs:
                 await page.locator('.lesson-panel').waitFor({ state: 'hidden', timeout: 8000 });
                 record(screenshotName + ' quest map nodes', true, 'Four quest nodes rendered');
                 record(screenshotName + ' read-only quest detail interaction', true, 'Active node opens and closes local detail panel; no learning data is submitted');
-                await page.screenshot({ path: 'artifacts/' + screenshotName + '-quest-map.png', fullPage: true });
+                await page.screenshot({ path: '../artifacts/' + screenshotName + '-quest-map.png', fullPage: true });
               } catch (error) {
                 record(screenshotName + ' quest map interaction', false, String(error).slice(0, 1200));
               }
