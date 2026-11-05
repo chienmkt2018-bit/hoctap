@@ -132,6 +132,18 @@ jobs:
               }
 
               await page.locator('body').waitFor({ state: 'visible', timeout: 12000 });
+              if (process.env.GITHUB_EVENT_NAME === 'push') {
+                let deployedQuestPoints = await page.locator('.rpg-quest-point').count();
+                for (let attempt = 1; attempt <= 12 && deployedQuestPoints !== 4; attempt += 1) {
+                  await page.waitForTimeout(20000);
+                  await page.reload({ waitUntil: 'domcontentloaded', timeout: 40000 });
+                  await page.locator('body').waitFor({ state: 'visible', timeout: 12000 });
+                  deployedQuestPoints = await page.locator('.rpg-quest-point').count();
+                }
+                if (deployedQuestPoints !== 4) {
+                  throw new Error('Render staging did not publish the redesigned RPG map within the 4-minute verification window.');
+                }
+              }
               const title = (await page.title()).trim();
               const heading = await page.locator('h1').first().innerText().catch(() => '');
               const isStagingPath = new URL(page.url()).pathname === '/staging.html';
