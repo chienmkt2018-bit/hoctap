@@ -214,8 +214,9 @@ app.get('/api/v1/progress', requireAuthentication, async (_request, response, ne
     const learnerId = response.locals.userId as string;
     // GET must remain side-effect free: do not upsert a progress document here.
     const progress = await ProgressModel.findOne({ learnerId });
-    const quizAttempts = await QuizAttemptModel.find({ learnerId }).select('lessonId').lean();
-    const authoritativeCompletedLessonIds = [...new Set(quizAttempts.map((attempt) => attempt.lessonId))].sort((a, b) => a - b);
+    // Return only unique lesson identifiers instead of materializing every attempt in Node.js.
+    const authoritativeCompletedLessonIds = (await QuizAttemptModel.distinct('lessonId', { learnerId }))
+      .sort((a, b) => a - b);
     const responseProgress = progress ?? {
       totalXp: 0,
       completedLessonIds: [],
