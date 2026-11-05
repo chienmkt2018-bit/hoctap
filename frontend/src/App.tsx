@@ -615,10 +615,10 @@ function App() {
                       </div>
                     </div>
                   ))}
-                  <div className="rpg-companion" aria-label="Bạn đồng hành cổ vũ: Bắt đầu nào!">
-                    <span className="rpg-speech">Bắt đầu nào!</span>
+                  <div className="rpg-companion" aria-label="Bạn đồng hành">
                     <img className="rpg-companion-art" src="/assets/incoming/nhan_vat_dong_hanh.png" alt="Nhân vật đồng hành" />
-                    </div>
+                  </div>
+                  <span className="rpg-speech">Bắt đầu nào!</span>
                   </div>
                 {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}><img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" /><span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span></button>}
                 </div>
