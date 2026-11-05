@@ -1326,3 +1326,212 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
 @media (prefers-reduced-motion:reduce) {
   .rpg-node-button.active { animation:none; }
 }
+
+
+/* Fantasy neon concept alignment — scoped to the RPG world map. */
+.rpg-chapter-heading {
+  position:relative;
+  isolation:isolate;
+  max-width:1480px;
+  margin:0 auto 18px;
+  padding:18px 30px;
+  overflow:visible;
+  border:1px solid #b9823f;
+  border-radius:18px 8px 18px 8px;
+  color:#3a2441;
+  background:
+    linear-gradient(90deg,rgba(114,66,35,.13),transparent 12%,transparent 88%,rgba(114,66,35,.13)),
+    repeating-linear-gradient(0deg,#f7dca0 0 2px,#edc783 2px 4px,#f4d69a 4px 7px);
+  box-shadow:inset 0 0 0 3px #ffedc1,inset 0 0 0 5px #c18a4d,0 10px 24px #03030b88;
+}
+.rpg-chapter-heading::before,
+.rpg-chapter-heading::after {
+  content:"";
+  position:absolute;
+  z-index:-1;
+  top:7px;
+  bottom:7px;
+  width:18px;
+  border:1px solid #a96e37;
+  border-radius:50%;
+  background:linear-gradient(90deg,#b77c43,#f7d99b 45%,#d39a57);
+  box-shadow:inset 0 0 0 3px #f5d9a0,0 2px 5px #4b2b1d66;
+}
+.rpg-chapter-heading::before { left:-8px; }
+.rpg-chapter-heading::after { right:-8px; }
+.rpg-chapter-heading span { color:#8b552e; }
+.rpg-chapter-heading h1 { color:#38234a; text-shadow:0 1px #fff9; }
+.rpg-chapter-heading > strong { color:#754321; }
+.rpg-map-stamp { display:none; }
+
+/* The chapter map is the hero canvas; the three journey metrics sit beneath it. */
+.rpg-world-layout {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  max-width:1480px;
+  gap:16px;
+  margin:0 auto;
+}
+.rpg-map-column { min-width:0; }
+.rpg-world-aside {
+  display:grid;
+  grid-template-columns:minmax(170px,.8fr) minmax(0,2fr) minmax(220px,1fr);
+  align-items:stretch;
+  gap:12px;
+}
+.rpg-side-profile,
+.rpg-side-stats,
+.rpg-world-aside .rpg-daily-toggle {
+  min-width:0;
+  min-height:100%;
+  border:1px solid #6e55a0;
+  border-radius:16px;
+  background:linear-gradient(145deg,#261b4aee,#121329f2);
+  box-shadow:inset 0 1px #ffffff18,0 8px 22px #03030b66;
+}
+.rpg-side-profile { padding:14px; }
+.rpg-side-stats {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+  gap:8px;
+  padding:10px;
+}
+.rpg-side-stats > div {
+  display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  grid-template-rows:auto auto;
+  align-content:center;
+  column-gap:8px;
+  padding:10px;
+  border:1px solid #ffffff16;
+  border-radius:12px;
+  background:linear-gradient(145deg,#34245b88,#15142d99);
+}
+.rpg-side-stats > div:last-child { border-bottom:1px solid #ffffff16; }
+.rpg-side-stat-icon { grid-row:1 / span 2; }
+.rpg-side-stats small { align-self:end; }
+.rpg-side-stats strong { overflow-wrap:anywhere; }
+.rpg-world-aside .rpg-daily-toggle {
+  align-self:stretch;
+  min-height:74px;
+  margin:0;
+  padding:12px 14px;
+}
+.rpg-world-aside .rpg-daily-sheet {
+  grid-column:1 / -1;
+}
+
+/* Crown is the permanent chapter-boss identity; status remains in text and classes. */
+.rpg-point-4 .rpg-node-button {
+  border:2px solid #ffd36f;
+  color:#ffe4a0;
+  background:radial-gradient(circle at 45% 35%,#9a682c 0,#51305d 58%,#211832 100%);
+  box-shadow:inset 0 0 0 4px #f6d27a22,0 0 0 3px #ffc45c33,0 0 22px #ffba4d88;
+}
+.rpg-point-4 .rpg-node-glyph {
+  color:#ffe7a3;
+  font-size:48px;
+  line-height:1;
+  text-shadow:0 2px 0 #70431f,0 0 12px #ffc45c;
+}
+.rpg-point-4.locked .rpg-node-button { filter:saturate(.78); }
+.rpg-point-4.done .rpg-node-button { border-color:#a9f0ce; }
+
+/* Dotted golden-orange trail, retaining the existing geographic SVG anchors. */
+.rpg-route-shadow { stroke:rgba(27,15,34,.72); stroke-width:20; }
+.rpg-route-base {
+  stroke:#f6bd61;
+  stroke-width:10;
+  stroke-dasharray:1 2.2;
+  filter:drop-shadow(0 0 4px #f3a84caa);
+}
+.rpg-route-glow {
+  stroke:#fff0b2;
+  stroke-width:3.5;
+  stroke-dasharray:2 18;
+  filter:drop-shadow(0 0 5px #ffb84c) drop-shadow(0 0 10px #ff7b35aa);
+  animation:rpg-world-route-flow 3.8s linear infinite;
+}
+
+/* Keep the companion on the left edge without covering the lowest quest node. */
+.rpg-companion {
+  right:auto;
+  left:1%;
+  bottom:1%;
+  width:clamp(100px,13%,170px);
+  height:clamp(145px,24%,220px);
+}
+.rpg-companion-art {
+  left:-8%;
+  width:116%;
+  height:116%;
+  object-position:bottom left;
+}
+.rpg-speech {
+  right:auto;
+  left:7%;
+  top:auto;
+  bottom:calc(100% - 16px);
+}
+
+/* Gems are intentionally shown as unavailable until a verified source exists. */
+.rpg-gem-chip strong,
+.rpg-side-stats > div:last-child strong { color:#b7dce7; }
+
+@media (max-width:1000px) {
+  .rpg-world-layout { grid-template-columns:minmax(0,1fr); }
+  .rpg-world-aside {
+    grid-template-columns:minmax(0,1fr);
+    gap:10px;
+  }
+  .rpg-side-profile { grid-column:auto; }
+  .rpg-side-stats { grid-column:auto; }
+  .rpg-world-aside .rpg-daily-toggle,
+  .rpg-world-aside .rpg-daily-sheet { grid-column:auto; }
+}
+@media (max-width:760px) {
+  .rpg-chapter-heading { padding:13px 18px; }
+  .rpg-chapter-heading h1 { font-size:22px; }
+  .rpg-side-stats {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px;
+    padding:7px;
+  }
+  .rpg-side-stats > div {
+    grid-template-columns:1fr;
+    justify-items:center;
+    gap:5px;
+    padding:8px 4px;
+    text-align:center;
+  }
+  .rpg-side-stat-icon { grid-row:auto; margin:0; }
+  .rpg-side-stats small { font-size:8px; }
+  .rpg-side-stats strong { font-size:11px; }
+  .rpg-companion {
+    right:auto;
+    left:0;
+    bottom:1%;
+    width:22%;
+    height:15%;
+  }
+  .rpg-companion-art { left:-5%; width:110%; height:110%; }
+  .rpg-speech {
+    right:auto;
+    left:3%;
+    bottom:calc(100% - 8px);
+    top:auto;
+    max-width:38%;
+    white-space:normal;
+    font-size:9px;
+  }
+}
+@media (max-width:390px) {
+  .rpg-chapter-heading { padding:12px 15px; }
+  .rpg-chapter-heading h1 { font-size:19px; }
+  .rpg-side-stats > div { padding:7px 2px; }
+  .rpg-side-stats strong { font-size:10px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .rpg-route-glow { animation:none; }
+}

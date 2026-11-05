@@ -593,7 +593,7 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                 </div>
                 <div className="rpg-hud-chips">
                   <div className="rpg-chip rpg-streak-chip" aria-label={`Chuỗi học ${learningStreak} ngày`}><UIIcon name="flame" size={16}/><strong>{learningStreak}</strong></div>
-                  <div className="rpg-chip rpg-gem-chip" aria-label="120 gems"><UIIcon name="gem" size={16}/><strong>120</strong></div>
+                  <div className="rpg-chip rpg-gem-chip" aria-label="Gems chưa được kết nối"><UIIcon name="gem" size={16}/><strong>—</strong></div>
                 </div>
               </header>
 
@@ -637,7 +637,7 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                             onClick={() => startQuest(quest)}
                           >
                             <span className="rpg-node-glyph" aria-hidden="true">
-                              {quest.status === 'done' ? '✓' : quest.status === 'locked' ? '◇' : quest.id === 4 ? '♜' : '✦'}
+                              {quest.id === 4 ? '♛' : quest.status === 'done' ? '✓' : quest.status === 'locked' ? '◇' : '✦'}
                             </span>
                           </button>
                           <div className="rpg-node-copy">
@@ -673,7 +673,7 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                   <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
                     <div><span className="rpg-side-stat-icon xp"><img src="/assets/incoming/the_xp_18.png" alt="" aria-hidden="true"/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
                     <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
-                    <div><span className="rpg-side-stat-icon gems"><img src="/assets/incoming/kim_cuong_gems.png" alt="" aria-hidden="true"/></span><small>GEMS</small><strong>120</strong></div>
+                    <div><span className="rpg-side-stat-icon gems"><img src="/assets/incoming/kim_cuong_gems.png" alt="" aria-hidden="true"/></span><small>GEMS</small><strong>—</strong></div>
                   </section>
                   <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
                     <span><img className="rpg-challenge-cup" src="/assets/incoming/cup_thu_thach.png" alt="" aria-hidden="true"/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
