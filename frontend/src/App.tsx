@@ -575,7 +575,7 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
             <section className="lesson-panel" aria-live="polite">
               <div className="lesson-symbol">{selectedQuest.icon}</div>
               <div className="lesson-body"><span className="section-kicker">NHIỆM VỤ ĐANG CHỌN · +{selectedQuest.xp} XP</span><h2>{selectedQuest.title}</h2><p>{selectedQuest.subtitle}. Sẵn sàng bắt đầu phiên học ngắn của bạn?</p></div>
-              <button className="primary-button" type="button" onClick={() => { setActiveNav('lessons'); setSelectedQuest(null); setNotice('Chọn bài học tương ứng trong thư viện để bắt đầu quiz.'); }}>Mở bài học tương ứng <span>↗</span></button>
+              <button className="primary-button" type="button" onClick={() => { if (readOnlyPreview) { setSelectedQuest(null); return; } setActiveNav('lessons'); setSelectedQuest(null); setNotice('Chọn bài học tương ứng trong thư viện để bắt đầu quiz.'); }}>{readOnlyPreview ? 'Đóng thông tin' : 'Mở bài học tương ứng'} <span>{readOnlyPreview ? '×' : '↗'}</span></button>
               <button className="close-button" type="button" aria-label="Đóng nhiệm vụ" onClick={() => setSelectedQuest(null)}>×</button>
             </section>
           )}
@@ -603,53 +603,79 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
               </div>
 
               <div className="rpg-world-layout">
-              <div className="rpg-stone-map" aria-label="Bản đồ nhiệm vụ chương 01">
-                <div className="rpg-path-line" aria-hidden="true"><span style={{height:`${completedCount / quests.length * 100}%`}} /></div>
-                <div className="rpg-quest-stack">
-                  {[...quests].reverse().map((quest) => (
-                    <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
-                      {readOnlyPreview ? (
-                        <div className={`rpg-node-button ${quest.status}`} role="img" aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở' : 'đang khóa'}`}>
-                          <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
-                        </div>
-                      ) : (
-                        <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
-                          <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
-                        </button>
-                      )}
-                      <div className="rpg-node-copy">
-                        <small>{quest.status === 'done' ? 'HOÀN THÀNH' : quest.status === 'active' ? 'ĐANG MỞ' : 'ĐANG KHÓA'}</small>
-                        <strong>{quest.title}</strong>
-                        <span>+{quest.xp} XP</span>
-                      </div>
+                <div className="rpg-map-column">
+                  <div className="rpg-stone-map" aria-label="Bản đồ thế giới chương 01">
+                    <div className="rpg-map-stamp">
+                      <span>THE KNOWLEDGE KINGDOM</span>
+                      <strong>CHƯƠNG 01 · KHỞI NGUYÊN TRI THỨC</strong>
                     </div>
-                  ))}
-                  <div className="rpg-companion" aria-label="Bạn đồng hành">
-                    <img className="rpg-companion-art" src="/assets/incoming/nhan_vat_dong_hanh.png" alt="Nhân vật đồng hành" />
+                    <svg className="rpg-route-art" viewBox="0 0 1000 760" preserveAspectRatio="none" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="rpg-route-gradient" x1="0" y1="1" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#f3c66b" />
+                          <stop offset="52%" stopColor="#80e7df" />
+                          <stop offset="100%" stopColor="#c9a6ff" />
+                        </linearGradient>
+                      </defs>
+                      <path className="rpg-route-shadow" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
+                      <path className="rpg-route-base" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
+                      <path className="rpg-route-glow" d="M130 600 C205 560 265 520 355 450 S510 340 625 275 S755 175 835 105" />
+                    </svg>
+                    <div className="rpg-quest-stack">
+                      {quests.map((quest) => (
+                        <div className={'rpg-quest-point rpg-point-' + quest.id + ' ' + quest.status} key={quest.id}>
+                          <button
+                            className={'rpg-node-button ' + quest.status}
+                            type="button"
+                            aria-pressed={selectedQuest?.id === quest.id}
+                            aria-label={quest.title + ', ' + (quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, xem nhiệm vụ' : 'đang khóa, xem điều kiện')}
+                            onClick={() => startQuest(quest)}
+                          >
+                            <span className="rpg-node-glyph" aria-hidden="true">{quest.status === 'done' ? '✓' : quest.status === 'locked' ? '◇' : quest.id === 4 ? '♜' : '✦'}</span>
+                          </button>
+                          <div className="rpg-node-copy">
+                            <small>{quest.status === 'done' ? '✓ ĐÃ HOÀN THÀNH' : quest.status === 'active' ? '✦ ĐANG MỞ' : '▣ ĐANG KHÓA'}</small>
+                            <strong>{quest.title}</strong>
+                            <span>+{quest.xp} XP · {quest.subtitle}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rpg-companion" aria-label="Bạn đồng hành">
+                      <img className="rpg-companion-art" src="/assets/incoming/nhan_vat_dong_hanh.png" alt="Nhân vật đồng hành" />
+                    </div>
+                    <span className="rpg-speech">Cuộc phiêu lưu bắt đầu!</span>
+                    <div className="rpg-map-legend" aria-label="Chú giải bản đồ">
+                      <span><i className="done" /> Hoàn thành</span>
+                      <span><i className="active" /> Đang mở</span>
+                      <span><i className="locked" /> Bị khóa</span>
+                    </div>
                   </div>
-                  <span className="rpg-speech">Bắt đầu nào!</span>
-                  </div>
-                {!readOnlyPreview && quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}><img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" /><span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span></button>}
+                  {!readOnlyPreview && quests.find((quest) => quest.status === 'active') && (
+                    <button className="rpg-start-button" type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}>
+                      <img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" />
+                      <span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span>
+                    </button>
+                  )}
                 </div>
-
-              <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
-                <section className="rpg-side-profile">
-                  <span className="rpg-side-emblem"><UIIcon name="crown" size={24}/></span>
-                  <div><small>NHÀ THÁM HIỂM</small><strong>{readOnlyPreview ? 'Nhà thám hiểm' : user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
-                </section>
-                <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
-                  <div><span className="rpg-side-stat-icon xp"><img src="/assets/incoming/the_xp_18.png" alt="" aria-hidden="true"/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
-                  <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
-                  <div><span className="rpg-side-stat-icon gems"><img src="/assets/incoming/kim_cuong_gems.png" alt="" aria-hidden="true"/></span><small>GEMS</small><strong>120</strong></div>
-                </section>
-                <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
-                  <span><img className="rpg-challenge-cup" src="/assets/incoming/cup_thu_thach.png" alt="" aria-hidden="true"/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
-                </button>
-                {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
-                  <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
-                  {dailyQuests.map((quest) => <div className="rpg-daily-row" key={quest.id}><span>{quest.done ? '✓' : '◇'}</span><div><strong>{quest.title}</strong><small>{quest.description}</small></div><b>{quest.progress}/{quest.target}</b></div>)}
-                </section>}
-              </aside>
+                <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
+                  <section className="rpg-side-profile">
+                    <span className="rpg-side-emblem"><UIIcon name="crown" size={24}/></span>
+                    <div><small>NHÀ THÁM HIỂM</small><strong>{readOnlyPreview ? 'Nhà thám hiểm' : user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
+                  </section>
+                  <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
+                    <div><span className="rpg-side-stat-icon xp"><img src="/assets/incoming/the_xp_18.png" alt="" aria-hidden="true"/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
+                    <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
+                    <div><span className="rpg-side-stat-icon gems"><img src="/assets/incoming/kim_cuong_gems.png" alt="" aria-hidden="true"/></span><small>GEMS</small><strong>120</strong></div>
+                  </section>
+                  <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
+                    <span><img className="rpg-challenge-cup" src="/assets/incoming/cup_thu_thach.png" alt="" aria-hidden="true"/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
+                  </button>
+                  {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
+                    <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
+                    {dailyQuests.map((quest) => <div className="rpg-daily-row" key={quest.id}><span>{quest.done ? '✓' : '◇'}</span><div><strong>{quest.title}</strong><small>{quest.description}</small></div><b>{quest.progress}/{quest.target}</b></div>)}
+                  </section>}
+                </aside>
               </div>
             </section>
           )}
