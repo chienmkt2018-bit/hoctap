@@ -3,7 +3,7 @@ name: P2 Fantasy World Map visual QA
 on:
   push:
     branches:
-      - feat/p2-fantasy-world-map-v1
+      - feat/p2-route-alignment-v2
     paths:
       - "frontend/**"
       - ".github/workflows/p2-fantasy-world-map-qa.yml"
@@ -60,6 +60,7 @@ jobs:
           };
           try {
             for (const viewport of [
+              { name: 'mobile-320x720', width: 320, height: 720 },
               { name: 'mobile-390x844', width: 390, height: 844 },
               { name: 'tablet-768x1024', width: 768, height: 1024 },
               { name: 'desktop-1440x900', width: 1440, height: 900 },
