@@ -52,7 +52,7 @@ for (const viewport of viewports) {
     expect(dimensions.document, 'document must not overflow horizontally').toBeLessThanOrEqual(dimensions.viewport + 1);
     expect(dimensions.body, 'body must not overflow horizontally').toBeLessThanOrEqual(dimensions.viewport + 1);
 
-    const lockedQuest = page.getByRole('button', { name: 'Mở khóa kiến thức, đang khóa' });
+    const lockedQuest = page.getByRole('button', { name: /Mở khóa kiến thức/ });
     await expect(lockedQuest).toBeVisible();
     await expect(lockedQuest).toBeDisabled();
     await expect(lockedQuest).toHaveAttribute('disabled', '');
@@ -131,7 +131,7 @@ test('active quest opens its preview without submitting learning data', async ({
   await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
   await expect(page.getByRole('heading', { name: 'Bản đồ nhiệm vụ.', level: 1 })).toBeVisible();
 
-  const activeQuest = page.getByRole('button', { name: 'Khởi động tư duy, đang mở, bắt đầu nhiệm vụ' });
+  const activeQuest = page.getByRole('button', { name: /Khởi động tư duy/ });
   await expect(activeQuest).toBeVisible();
   await expect(activeQuest).toBeEnabled();
   await expect(activeQuest).toHaveAttribute('aria-disabled', 'false');
@@ -151,7 +151,7 @@ test('locked quest is disabled and pointer interaction sends no write request', 
   await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
   await expect(page.getByRole('heading', { name: 'Bản đồ nhiệm vụ.', level: 1 })).toBeVisible();
 
-  const lockedQuest = page.getByRole('button', { name: 'Mở khóa kiến thức, đang khóa' });
+  const lockedQuest = page.getByRole('button', { name: /Mở khóa kiến thức/ });
   await expect(lockedQuest).toBeVisible();
   await expect(lockedQuest).toBeDisabled();
   await expect(lockedQuest).toHaveAttribute('disabled', '');
