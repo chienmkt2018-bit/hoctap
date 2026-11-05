@@ -1,0 +1,91 @@
+/* HOC TAP QUEST — Fantasy RPG Design Tokens v1
+   Shared visual primitives. Keep application state and game rules outside this file. */
+:root {
+  /* Color palette */
+  --color-bg-cosmic: #0b0b16;
+  --color-surface: #151329;
+  --color-surface-raised: #29204c;
+  --color-surface-stone: #17172a;
+  --color-text-primary: #f2f0ff;
+  --color-text-muted: #a9a7c7;
+  --color-text-subtle: #77758f;
+  --color-purple: #8b7cf6;
+  --color-purple-soft: #a78bfa;
+  --color-cyan: #4fd1e0;
+  --color-gold: #f2b84b;
+  --color-orange: #ff9b54;
+  --color-border: #51437e;
+  --color-border-engraved: #2f2f52;
+  --color-focus: #67e8f9;
+  --color-overlay: rgba(7, 7, 18, .72);
+
+  /* Existing compatibility aliases */
+  --bg: var(--color-bg-cosmic);
+  --muted: var(--color-text-muted);
+  --purple: var(--color-purple-soft);
+  --cyan: #67e8f9;
+  --line: rgba(180, 174, 255, .13);
+  --mono: var(--font-mono);
+  --rpg-bg: var(--color-bg-cosmic);
+  --rpg-text: var(--color-text-primary);
+  --rpg-muted: var(--color-text-muted);
+  --rpg-purple: var(--color-purple);
+  --rpg-cyan: var(--color-cyan);
+  --rpg-gold: var(--color-gold);
+  --rpg-stone: var(--color-surface-stone);
+  --rpg-engrave: var(--color-border-engraved);
+
+  /* Typography */
+  --font-body: 'Be Vietnam Pro', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Baloo 2', 'Be Vietnam Pro', sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+  --text-xs: .6875rem;
+  --text-sm: .8125rem;
+  --text-md: .9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  /* Spacing: 4px base scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape and borders */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 999px;
+  --border-subtle: 1px solid rgba(180, 174, 255, .13);
+  --border-fantasy: 1px solid var(--color-border);
+
+  /* Elevation and magical light */
+  --shadow-panel: 0 10px 24px rgba(0, 0, 0, .32);
+  --shadow-map: 0 18px 42px rgba(0, 0, 0, .44);
+  --glow-purple: 0 0 22px rgba(139, 124, 246, .42);
+  --glow-cyan: 0 0 22px rgba(79, 209, 224, .38);
+  --glow-gold: 0 0 20px rgba(242, 184, 75, .34);
+
+  /* Layer order */
+  --z-base: 0;
+  --z-content: 1;
+  --z-sticky: 10;
+  --z-navigation: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* Motion */
+  --motion-fast: 140ms;
+  --motion-normal: 220ms;
+  --motion-slow: 420ms;
+  --ease-standard: cubic-bezier(.2, .7, .2, 1);
+  --ease-emphasized: cubic-bezier(.2, .85, .25, 1);
+}
