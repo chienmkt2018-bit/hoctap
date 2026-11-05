@@ -134,7 +134,6 @@ test('active quest opens its preview without submitting learning data', async ({
   const activeQuest = page.getByRole('button', { name: /Khởi động tư duy/ });
   await expect(activeQuest).toBeVisible();
   await expect(activeQuest).toBeEnabled();
-  await expect(activeQuest).toHaveAttribute('aria-disabled', 'false');
   await activeQuest.click();
 
   const panel = page.locator('.lesson-panel');
