@@ -78,23 +78,126 @@ Không coi các phương án sau là hoàn thành concept:
 - Chỉ kiểm tra desktop hoặc chỉ kiểm tra mobile.
 - Tự thay đổi nội dung, quy tắc XP, trạng thái nhiệm vụ hoặc dữ liệu học tập để làm ảnh demo đẹp hơn.
 
-## 2. Checklist nghiệm thu giao diện
+## 2. Kế hoạch triển khai Fantasy Adventure UI — kế hoạch hiện hành
 
-Một thay đổi giao diện chỉ được đánh giá đạt khi có bằng chứng cho các mục phù hợp:
+Đây là kế hoạch triển khai chính thức thay thế kế hoạch giao diện cũ. Mục tiêu là chuyển lớp trình bày HOC TAP QUEST sang trải nghiệm Fantasy RPG bám sát `frontend/concept.png`, đồng thời bảo toàn nghiệp vụ và dữ liệu hiện có.
 
-- [ ] Bố cục tổng thể bám concept tham chiếu trên cả mobile và desktop.
-- [ ] Bản đồ thế giới là trọng tâm, có địa hình, tuyến đường và điểm nhiệm vụ.
-- [ ] Nhân vật đồng hành có phong cách nhất quán và vị trí hợp lý.
-- [ ] Banner chương, nhiệm vụ, khóa, phần thưởng và CTA có phân cấp rõ.
-- [ ] Bảng màu, ánh sáng, khung fantasy và icon nhất quán.
+### 2.1 Mục tiêu và nguyên tắc triển khai
+
+- Làm sát concept gốc trước; chỉ mở rộng sáng tạo sau khi người dùng duyệt.
+- Xây dựng giao diện thật bằng React/CSS và asset 2D có thể tái sử dụng; không dùng ảnh chụp concept làm toàn bộ giao diện.
+- Desktop và Mobile phải dùng chung ngôn ngữ thiết kế, nhưng được bố trí phù hợp từng kích thước.
+- Giữ nguyên đăng nhập, XP, quiz, tiến độ, quest, streak, gems, thành tựu và API.
+- Chia thành các phần nhỏ, có tiêu chí nghiệm thu và bằng chứng riêng.
+- Ưu tiên GitHub/GitHub Actions và công cụ miễn phí; không yêu cầu quy trình local/PowerShell hoặc dịch vụ trả phí nếu người dùng chưa đổi ràng buộc.
+
+### 2.2 Lộ trình theo giai đoạn
+
+| Giai đoạn | Phạm vi công việc | Đầu ra / điều kiện hoàn thành |
+|---|---|---|
+| **P0 — Khảo sát và đóng băng hiện trạng** | Kiểm tra nhánh, trạng thái Git, cấu trúc frontend, component, CSS, assets, scripts, workflow; xác định luồng XP, quest, quiz, bài học và điều hướng; ghi nhận ảnh baseline. | Báo cáo hiện trạng có đường dẫn file thực tế; sơ đồ phụ thuộc UI/logic; danh sách file dự kiến sửa; rủi ro và baseline để so sánh. Chưa sửa code. |
+| **P1 — Design System** | Xây dựng tokens màu, typography, spacing, layer, border, shadow/glow; button, badge, icon, progress bar, panel; trạng thái locked/available/active/completed. | Bộ quy chuẩn và component nền nhất quán, có thể tái sử dụng. |
+| **P2 — Fantasy World Map** | Dựng background thế giới, địa hình, lâu đài/đảo bay, tuyến đường nhiệm vụ, quest nodes, nhân vật chibi, banner chương, phần thưởng và CTA. | Màn hình bản đồ là trọng tâm, đối chiếu trực tiếp với concept gốc; trạng thái node lấy từ dữ liệu/logic hiện có. |
+| **P3 — Desktop/Mobile Shell** | Desktop sidebar; Mobile bottom navigation; player profile; XP/currency panel; daily quest; responsive layout. | Khung ứng dụng nhất quán trên mobile, tablet và desktop; không chồng lấn hoặc cắt nội dung. |
+| **P4 — Đồng bộ các màn hình học tập** | Áp dụng design system cho Dashboard, Lesson, Quiz/Practice, Results, Achievements và Profile theo các màn hình thực tế có trong repository. | Các màn hình cùng phong cách; giữ nguyên hành vi, API và dữ liệu. Chỉ xử lý những màn hình đã xác minh tồn tại. |
+| **P5 — Animation và tương tác** | Hiệu ứng trạng thái nhiệm vụ, ánh sáng, chuyển cảnh, hover/focus, phản hồi hoàn thành; animation nhân vật nếu asset hỗ trợ. | Animation có chủ đích, nhẹ, không cản thao tác; hỗ trợ reduced motion và thiết bị di động. |
+| **P6 — QA và nghiệm thu** | So sánh concept, responsive, điều hướng, trạng thái, keyboard/touch, console/network khi công cụ cho phép; build/type-check và hồi quy. | Báo cáo PASS/FAIL/BLOCKED kèm test case, ảnh/artifact và bằng chứng thực tế; danh sách lỗi còn lại. |
+
+**Thứ tự ưu tiên:** P0 → P1 → P2 → P3 → P4 → P5 → P6. P2 là trọng tâm thị giác, nhưng không bỏ qua P0/P1 vì cần hiểu hiện trạng và thống nhất nền tảng trước khi xây bản đồ.
+
+### 2.3 Kiến trúc component mục tiêu (đề xuất)
+
+Cấu trúc dưới đây là định hướng, không khẳng định các file đã tồn tại. Chỉ tạo hoặc di chuyển file sau khi P0 khảo sát và xác định điểm tích hợp phù hợp.
+
+```text
+frontend/src/
+├── components/
+│   ├── layout/
+│   │   ├── GameShell.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── BottomNavigation.tsx
+│   ├── player/
+│   │   ├── PlayerProfile.tsx
+│   │   ├── XPBar.tsx
+│   │   └── CurrencyPanel.tsx
+│   ├── world-map/
+│   │   ├── FantasyWorld.tsx
+│   │   ├── QuestPath.tsx
+│   │   ├── QuestNode.tsx
+│   │   └── Companion.tsx
+│   └── quest/
+│       ├── ChapterBanner.tsx
+│       └── DailyQuest.tsx
+├── styles/
+│   ├── tokens.css
+│   ├── fantasy-theme.css
+│   ├── layout.css
+│   └── responsive.css
+└── assets/fantasy/
+    ├── backgrounds/
+    ├── characters/
+    ├── terrain/
+    ├── icons/
+    └── effects/
+```
+
+**Ranh giới kiến trúc:** component giao diện nhận dữ liệu và trạng thái từ logic ứng dụng hiện có. Không tự tính lại XP, tự mở khóa quest, tự ghi tiến độ hoặc tạo trạng thái học tập giả ở tầng UI.
+
+### 2.4 Tiêu chí nghiệm thu giao diện
+
+- [ ] Bố cục tổng thể bám concept gốc trên cả Mobile và Desktop.
+- [ ] World map có địa hình, tuyến đường và điểm nhiệm vụ; không chỉ là danh sách card trên nền gradient.
+- [ ] Nhân vật chibi 2D và asset có phong cách nhất quán.
+- [ ] Banner chương, quest node, khóa, phần thưởng và CTA có phân cấp rõ.
+- [ ] Màu sắc, ánh sáng, khung fantasy và icon nhất quán.
 - [ ] Không có ảnh vỡ, asset thiếu, chữ tràn, phần tử chồng lấn hoặc vùng bị cắt.
-- [ ] Điều hướng, trạng thái khóa/mở và các CTA phản ánh đúng logic hiện có.
-- [ ] Kiểm tra tối thiểu viewport mobile 390×844 và các viewport desktop phù hợp.
+- [ ] Trạng thái quest và điều hướng phản ánh đúng logic hiện có.
+- [ ] Kiểm tra viewport tối thiểu 390×844, 768×1024, 1440×900 và 1920×1080 khi môi trường cho phép.
 - [ ] Kiểm tra keyboard focus, vùng chạm và reduced motion.
 - [ ] Không phát sinh request ghi dữ liệu ngoài hành vi đã được cho phép.
-- [ ] Build/type-check và các kiểm thử liên quan thành công.
+- [ ] Build/type-check và kiểm thử liên quan thành công.
 
-**Báo cáo kiểm tra phải phân biệt rõ:** PASS (có bằng chứng), FAIL (có lỗi/bằng chứng), BLOCKED (thiếu môi trường, dữ liệu hoặc quyền). Không kết luận đạt chỉ dựa vào build thành công hoặc một ảnh chụp màn hình.
+### 2.5 Quy trình GitHub và phát hành
+
+```text
+feat/fantasy-game-assets-v1
+          |
+          v
+   P0 — Khảo sát hiện trạng
+          |
+          v
+   feat/fantasy-rpg-ui-v1
+          |
+          v
+   P1 → P2 → P3 → P4 → P5
+          |
+          v
+       P6 — QA
+          |
+          v
+   Pull Request chờ nghiệm thu
+          |
+          v
+   Người dùng phê duyệt
+          |
+          v
+       Merge / Deploy
+```
+
+- Nhánh `feat/fantasy-rpg-ui-v1` là nhánh triển khai đề xuất; chỉ tạo sau khi người dùng cho phép và sau khi kiểm tra branch hiện có.
+- Có thể chia PR theo giai đoạn nếu phù hợp với cấu trúc thực tế.
+- Không tự ý merge, deploy production, thay đổi cấu hình production hoặc ghi/xóa dữ liệu.
+- Không tự ý commit/push ngoài phạm vi người dùng cho phép.
+- Không chạy quiz hoặc thao tác làm thay đổi tiến độ trong kiểm thử read-only.
+- Không bật workflow deploy tự động như một phần của QA nếu chưa được phê duyệt.
+
+### 2.6 Trạng thái kế hoạch
+
+- **Concept gốc:** đã xác định tại `frontend/concept.png`.
+- **README/design direction:** đã ghi nhận.
+- **P0:** chưa hoàn tất khảo sát toàn bộ; cần xác minh mã nguồn, CSS, assets, workflow và baseline trước khi chốt danh sách file.
+- **P1–P6:** chưa triển khai theo kế hoạch này.
+- **Mã nguồn:** chưa có thay đổi nào được xác nhận là đã thực hiện theo roadmap mới.
 
 ## 3. Nguyên tắc bảo toàn sản phẩm
 
