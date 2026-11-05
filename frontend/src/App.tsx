@@ -606,7 +606,7 @@ function App() {
                   {[...quests].reverse().map((quest) => (
                     <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
                       <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
-                        {quest.status === 'done' ? '✓' : quest.status === 'locked' ? <UIIcon name="lock" size={25}/> : quest.id === 4 ? <UIIcon name="crown" size={30}/> : <UIIcon name="compass" size={27}/>}
+                        <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
                       </button>
                       <div className="rpg-node-copy">
                         <small>{quest.status === 'done' ? 'HOÀN THÀNH' : quest.status === 'active' ? 'ĐANG MỞ' : 'ĐANG KHÓA'}</small>
@@ -617,7 +617,7 @@ function App() {
                   ))}
                   <div className="rpg-companion" aria-label="Bạn đồng hành cổ vũ: Bắt đầu nào!">
                     <span className="rpg-speech">Bắt đầu nào!</span>
-                    <svg viewBox="0 0 100 150" role="img" aria-label="Cậu bé tóc nâu, áo sọc cam kem, quần jean và giày nâu">
+                    <img className="rpg-companion-art" src="/assets/incoming/nhan_vat_dong_hanh.png" alt="Nhân vật đồng hành" />
                       <ellipse cx="50" cy="143" rx="30" ry="5" fill="#05050d" opacity=".55"/>
                       <path d="M29 75Q50 63 71 75L76 112H24Z" fill="#e8a05c" stroke="#f5d5aa" strokeWidth="2"/>
                       <path d="M34 76v35m10-36v37m11-37v37m10-36v35" stroke="#f8dfbd" strokeWidth="5"/>
@@ -628,10 +628,10 @@ function App() {
                       <path d="M26 46Q20 20 43 17q7-14 19-2 17 2 14 24l-9-8-8 3-6-9-8 10-12-1z" fill="#5b392b"/>
                       <path d="M39 50h2m17 0h2" stroke="#3a2a28" strokeWidth="3" strokeLinecap="round"/>
                       <path d="M45 61q5 4 10 0" stroke="#a95e50" strokeWidth="2" fill="none" strokeLinecap="round"/>
-                    </svg>
+                    </div>
                   </div>
                 </div>
-                {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</button>}
+                {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}><img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" /><span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span></button>}
               </div>
 
               <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
@@ -640,12 +640,12 @@ function App() {
                   <div><small>NHÀ THÁM HIỂM</small><strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
                 </section>
                 <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
-                  <div><span className="rpg-side-stat-icon xp"><UIIcon name="sparkles" size={17}/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
+                  <div><span className="rpg-side-stat-icon xp"><img src="/assets/incoming/the_xp_18.png" alt="" aria-hidden="true"/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
                   <div><span className="rpg-side-stat-icon streak"><UIIcon name="flame" size={17}/></span><small>CHUỖI HỌC</small><strong>{learningStreak} ngày</strong></div>
-                  <div><span className="rpg-side-stat-icon gems"><UIIcon name="gem" size={17}/></span><small>GEMS</small><strong>120</strong></div>
+                  <div><span className="rpg-side-stat-icon gems"><img src="/assets/incoming/kim_cuong_gems.png" alt="" aria-hidden="true"/></span><small>GEMS</small><strong>120</strong></div>
                 </section>
                 <button className="rpg-daily-toggle" type="button" aria-expanded={dailySheetOpen} aria-controls="rpg-daily-sheet" onClick={() => setDailySheetOpen((open) => !open)}>
-                  <span><UIIcon name="sparkles" size={18}/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
+                  <span><img className="rpg-challenge-cup" src="/assets/incoming/cup_thu_thach.png" alt="" aria-hidden="true"/> Thử thách hôm nay</span><strong>{completedDailyQuestCount} / {dailyQuests.length}</strong><span className="rpg-chevron">{dailySheetOpen ? '−' : '+'}</span>
                 </button>
                 {dailySheetOpen && <section className="rpg-daily-sheet" id="rpg-daily-sheet" aria-label="Chi tiết thử thách hôm nay">
                   <p>Tiến độ được ghi nhận từ hoạt động quiz hợp lệ.</p>
