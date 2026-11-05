@@ -1,0 +1,64 @@
+name: RPG Dashboard Direct Staging Read-only QA
+
+on:
+  push:
+    branches: ["feat/ui-02-rpg-dashboard"]
+    # Run automatically only when the staging-specific Playwright target changes.
+    # Local test edits must not trigger checks against the deployed staging site.
+    paths:
+      - "frontend/playwright.rpg.staging.config.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rpg-dashboard-staging-readonly
+  cancel-in-progress: true
+
+jobs:
+  rpg-dashboard-staging:
+    name: Playwright against deployed staging RPG Dashboard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      STAGING_BASE_URL: https://hoctap-staging-frontend.onrender.com
+    steps:
+      - name: Checkout feature branch test suite
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies and ephemeral Playwright runner
+        run: |
+          npm install --no-package-lock
+          npm install --no-save --no-package-lock @playwright/test@1.56.1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify staging target is reachable
+        run: |
+          node --input-type=module -e "const url = process.env.STAGING_BASE_URL; const response = await fetch(url, { redirect: 'follow' }); console.log('Staging HTTP status:', response.status); if (!response.ok) process.exit(1);"
+
+      - name: Run RPG Dashboard read-only Playwright tests against staging
+        run: npx playwright test --config=playwright.rpg.staging.config.ts
+
+      - name: Upload staging screenshots, traces and HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpg-dashboard-direct-staging-evidence
+          path: |
+            frontend/test-results-staging/
+            frontend/playwright-report-staging/
+          if-no-files-found: warn
+          retention-days: 7

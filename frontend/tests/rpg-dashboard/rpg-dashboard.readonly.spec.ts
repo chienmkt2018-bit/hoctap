@@ -39,8 +39,9 @@ for (const viewport of viewports) {
     const attemptedWrites = await installReadOnlyGuards(page);
 
     const response = await page.goto('/');
-    expect(response?.status(), 'Vite development server should serve the app').toBe(200);
-    await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức' })).toBeVisible();
+    expect(response?.status(), 'local Vite preview root should return HTTP 200').toBe(200);
+    await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
+    await expect(page.getByRole('heading', { name: 'Chọn chặng tiếp theo', level: 2 })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Điều hướng chính' })).toBeVisible();
 
     const dimensions = await page.evaluate(() => ({
@@ -51,7 +52,7 @@ for (const viewport of viewports) {
     expect(dimensions.document, 'document must not overflow horizontally').toBeLessThanOrEqual(dimensions.viewport + 1);
     expect(dimensions.body, 'body must not overflow horizontally').toBeLessThanOrEqual(dimensions.viewport + 1);
 
-    const lockedQuest = page.getByRole('button', { name: 'Mở khóa kiến thức, đang khóa' });
+    const lockedQuest = page.locator('button.alternate-quest').filter({ hasText: /Mở khóa kiến thức/ });
     await expect(lockedQuest).toBeVisible();
     await expect(lockedQuest).toBeDisabled();
     await expect(lockedQuest).toHaveAttribute('disabled', '');
@@ -69,9 +70,9 @@ for (const viewport of viewports) {
     await expect(page.getByRole('region', { name: 'Chi tiết thử thách hôm nay' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Bài học', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Khám phá bài học' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Bài học.', level: 1 })).toBeVisible();
     await page.getByRole('button', { name: 'Bản đồ nhiệm vụ' }).click();
-    await expect(page.getByRole('heading', { name: 'Khởi nguyên tri thức' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Chọn chặng tiếp theo', level: 2 })).toBeVisible();
 
     // Verify keyboard focus is visible on a real navigation control.
     const navButton = page.getByRole('button', { name: 'Bản đồ nhiệm vụ' });
@@ -113,15 +114,54 @@ for (const viewport of viewports) {
       expect(tabletLayout.topbarBottom, 'topbar must not overlap the RPG HUD at initial scroll position').toBeLessThanOrEqual(tabletLayout.hudTop + 1);
       expect(tabletLayout.worldColumns, 'tablet world layout should use a single column below 900px').toBe(1);
       expect(tabletLayout.asideTop, 'tablet information panel should follow the map, not overlap it').toBeGreaterThanOrEqual(tabletLayout.mapBottom);
-      await page.screenshot({ path: 'test-results/tablet-768x1024-viewport.png' });
+      await page.screenshot({ path: 'test-results-local-ci/tablet-768x1024-viewport.png' });
     }
 
-    await page.screenshot({ path: `test-results/${viewport.name}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results-local-ci/${viewport.name}.png`, fullPage: true });
     expect(attemptedWrites, 'no mutating HTTP requests may be sent').toEqual([]);
     expect(pageErrors, 'no uncaught browser exceptions').toEqual([]);
     expect(consoleErrors, 'no console errors').toEqual([]);
   });
 }
+
+
+test('active quest opens its preview without submitting learning data', async ({ page }) => {
+  const attemptedWrites = await installReadOnlyGuards(page);
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
+  await expect(page.getByRole('heading', { name: 'Chọn chặng tiếp theo', level: 2 })).toBeVisible();
+
+  const activeQuest = page.locator('button.alternate-quest').filter({ hasText: /Khởi động tư duy/ });
+  await expect(activeQuest).toBeVisible();
+  await expect(activeQuest).toBeEnabled();
+  await activeQuest.click();
+
+  const panel = page.locator('.lesson-panel');
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Khởi động tư duy' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Đóng nhiệm vụ' }).click();
+  await expect(panel).toHaveCount(0);
+  expect(attemptedWrites, 'opening and closing an active quest must not write learning data').toEqual([]);
+});
+
+test('locked quest is disabled and pointer interaction sends no write request', async ({ page }) => {
+  const attemptedWrites = await installReadOnlyGuards(page);
+  await page.goto('/');
+  await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name: /Bản đồ nhiệm vụ/ }).click();
+  await expect(page.getByRole('heading', { name: 'Chọn chặng tiếp theo', level: 2 })).toBeVisible();
+
+  const lockedQuest = page.locator('button.alternate-quest').filter({ hasText: /Mở khóa kiến thức/ });
+  await expect(lockedQuest).toBeVisible();
+  await expect(lockedQuest).toBeDisabled();
+  await expect(lockedQuest).toHaveAttribute('disabled', '');
+  await expect(lockedQuest).toHaveAttribute('aria-disabled', 'true');
+  expect(await lockedQuest.evaluate(el => (el as HTMLButtonElement).matches(':disabled'))).toBe(true);
+
+  const bounds = await lockedQuest.boundingBox();
+  expect(bounds).not.toBeNull();
+  await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+  expect(attemptedWrites, 'a pointer click on a locked quest must not send a mutating request').toEqual([]);
+});
 
 test('reduced-motion preference disables continuous animation', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
