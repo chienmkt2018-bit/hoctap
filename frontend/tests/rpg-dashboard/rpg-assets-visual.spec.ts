@@ -64,6 +64,12 @@ for (const viewport of viewports) {
 
     await expect(page.locator('.rpg-node-art')).toHaveCount(4);
     await expect(page.locator('.rpg-companion-art')).toBeVisible();
+    const companionBounds = await page.locator('.rpg-companion').evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return { width: Math.round(rect.width), height: Math.round(rect.height), left: Math.round(rect.left), top: Math.round(rect.top) };
+    });
+    expect(companionBounds.width, 'companion should be visually prominent at this viewport').toBeGreaterThanOrEqual(viewport.width <= 390 ? 100 : 140);
+    expect(companionBounds.height, 'companion should have sufficient vertical presence').toBeGreaterThanOrEqual(viewport.width <= 390 ? 150 : 200);
     await expect(page.locator('.rpg-start-button-art')).toBeVisible();
     const startButtonLayout = await page.locator('.rpg-start-button').evaluate(element => {
       const map = element.closest('.rpg-stone-map');
@@ -95,7 +101,7 @@ for (const viewport of viewports) {
     expect(pageErrors, 'no uncaught browser exceptions').toEqual([]);
     expect(consoleErrors, 'no browser console errors').toEqual([]);
     await testInfo.attach('rpg-image-load-report.json', {
-      body: JSON.stringify({ viewport, backgroundImage, imageReport, dimensions }, null, 2),
+      body: JSON.stringify({ viewport, backgroundImage, imageReport, companionBounds, dimensions }, null, 2),
       contentType: 'application/json',
     });
   });
