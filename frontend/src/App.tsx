@@ -636,16 +636,9 @@ function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
                             aria-label={quest.title + ', ' + (quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, xem nhiệm vụ' : 'đang khóa, xem điều kiện')}
                             onClick={() => startQuest(quest)}
                           >
-                            <img
-                              className="rpg-node-art"
-                              src={quest.status === 'done'
-                                ? '/assets/incoming/node_hoan_thanh_vuong_mien.png'
-                                : quest.status === 'locked'
-                                  ? '/assets/incoming/node_khoa.png'
-                                  : '/assets/incoming/node_dang_mo.png'}
-                              alt=""
-                              aria-hidden="true"
-                            />
+                            <span className="rpg-node-glyph" aria-hidden="true">
+                              {quest.status === 'done' ? '✓' : quest.status === 'locked' ? '◇' : quest.id === 4 ? '♜' : '✦'}
+                            </span>
                           </button>
                           <div className="rpg-node-copy">
                             <small>{quest.status === 'done' ? '✓ ĐÃ HOÀN THÀNH' : quest.status === 'active' ? '✦ ĐANG MỞ' : '▣ ĐANG KHÓA'}</small>
