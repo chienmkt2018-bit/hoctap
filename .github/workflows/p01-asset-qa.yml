@@ -2,6 +2,13 @@ name: P0.1 Asset Dependency and Mask QA
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/fantasy-game-assets-v1
+    paths:
+      - '.github/workflows/p01-asset-qa.yml'
+      - 'tools/asset-qa/inspect_assets.py'
+      - 'frontend/public/assets/incoming/**'
 
 permissions:
   contents: read
