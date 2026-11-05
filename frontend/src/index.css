@@ -1027,3 +1027,46 @@ h1,h2,h3,.brand-name { font-family:'Baloo 2',sans-serif; }
 @media (prefers-reduced-motion:reduce) {
   .rpg-route-progress { transition:none; }
 }
+
+
+/* P2 route alignment v2 — place quest markers on the luminous river in the world art. */
+.rpg-quest-stack {
+  position:absolute;
+  inset:0;
+  min-height:0;
+  padding:0;
+  pointer-events:none;
+}
+.rpg-quest-row {
+  position:absolute;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-height:0;
+  padding:0 !important;
+  pointer-events:none;
+}
+.rpg-node-button { pointer-events:auto; }
+.rpg-node-copy {
+  width:min(210px,22vw);
+  max-width:210px;
+  padding:9px 12px;
+}
+.rpg-quest-1 { top:74%; left:7%; width:54%; }
+.rpg-quest-2 { top:53%; left:27%; width:62%; }
+.rpg-quest-3 { top:32%; left:53%; width:44%; }
+.rpg-quest-4 { top:10%; left:56%; width:41%; flex-direction:row-reverse; text-align:right; }
+.rpg-companion { pointer-events:none; }
+@media (max-width:760px) {
+  .rpg-quest-row { gap:8px; }
+  .rpg-node-copy { width:min(126px,35vw); padding:7px 8px; }
+  .rpg-quest-1 { top:73%; left:3%; width:88%; }
+  .rpg-quest-2 { top:52%; left:19%; width:78%; }
+  .rpg-quest-3 { top:31%; left:43%; width:55%; }
+  .rpg-quest-4 { top:9%; left:17%; width:80%; }
+}
+@media (max-width:390px) {
+  .rpg-node-copy { width:min(116px,34vw); padding:6px 7px; }
+  .rpg-quest-3 { left:40%; width:58%; }
+  .rpg-quest-4 { left:12%; width:85%; }
+}
