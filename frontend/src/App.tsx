@@ -257,18 +257,18 @@ function mergeRemoteProgress(remote: ApiProgress, timeZone: string): SavedProgre
     dailyActivity,
   };
 }
-function App() {
+function App({ readOnlyPreview = false }: { readOnlyPreview?: boolean }) {
   const [activeNav, setActiveNav] = useState('map');
   const [dailySheetOpen, setDailySheetOpen] = useState(false);
-  const [quests, setQuests] = useState(() => readSavedProgress()?.quests ?? initialQuests);
+  const [quests, setQuests] = useState(() => readOnlyPreview ? initialQuests : readSavedProgress()?.quests ?? initialQuests);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [notice, setNotice] = useState('');
-  const [earnedQuizXp, setEarnedQuizXp] = useState(() => readSavedProgress()?.earnedQuizXp ?? 0);
+  const [earnedQuizXp, setEarnedQuizXp] = useState(() => readOnlyPreview ? 0 : readSavedProgress()?.earnedQuizXp ?? 0);
   const [serverTotalXp, setServerTotalXp] = useState<number | null>(null);
-  const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readSavedProgress()?.quizBestXp ?? {});
-  const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readSavedProgress()?.completedLessons ?? {});
-  const [dailyActivity, setDailyActivity] = useState<DailyActivity>(() => readSavedProgress()?.dailyActivity ?? createDailyActivity());
-  const [learningDates, setLearningDates] = useState<string[]>(() => readSavedProgress()?.learningDates ?? []);
+  const [quizBestXp, setQuizBestXp] = useState<Record<number, number>>(() => readOnlyPreview ? {} : readSavedProgress()?.quizBestXp ?? {});
+  const [completedLessons, setCompletedLessons] = useState<Record<number, boolean>>(() => readOnlyPreview ? {} : readSavedProgress()?.completedLessons ?? {});
+  const [dailyActivity, setDailyActivity] = useState<DailyActivity>(() => readOnlyPreview ? createDailyActivity() : readSavedProgress()?.dailyActivity ?? createDailyActivity());
+  const [learningDates, setLearningDates] = useState<string[]>(() => readOnlyPreview ? [] : readSavedProgress()?.learningDates ?? []);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -299,6 +299,7 @@ function App() {
   }, [accountMenuOpen]);
 
   useEffect(() => {
+    if (readOnlyPreview) return;
     try {
       window.localStorage.setItem(getProgressStorageKey(user?.id ?? null), JSON.stringify({ quests, earnedQuizXp, quizBestXp, completedLessons, dailyActivity, learningDates } satisfies SavedProgress));
     } catch {
@@ -308,6 +309,7 @@ function App() {
 
   // Roll the daily checklist over in the saved account timezone, or device-local time for guests.
   useEffect(() => {
+    if (readOnlyPreview) return;
     const refreshDailyActivity = () => {
       const today = getLocalDateKey(user?.timezone);
       setDailyActivity((current) => current.date === today ? current : createDailyActivity(today));
@@ -322,6 +324,7 @@ function App() {
 
   // Restore a session token and load progress from server-verified quiz attempts.
   useEffect(() => {
+    if (readOnlyPreview) return;
     const token = readAccessToken();
     if (!token) return;
     let cancelled = false;
@@ -501,7 +504,7 @@ function App() {
 
   return (
     <main className="app-layout">
-      <aside className="sidebar">
+      <aside className={`sidebar ${readOnlyPreview ? 'rpg-preview-sidebar-hidden' : ''}`}>
         <a className="brand" href="#overview" onClick={() => setActiveNav('overview')} aria-label="HOC TAP QUEST trang chủ">
           <span className="brand-mark">HQ</span>
           <span className="brand-name">HOC TAP <strong>QUEST</strong></span>
@@ -530,7 +533,7 @@ function App() {
       </aside>
 
       <section className="main-area" id="overview">
-        <header className="topbar">
+        <header className={`topbar ${readOnlyPreview ? 'rpg-preview-topbar-hidden' : ''}`}>
           <div className="breadcrumb"><span>HOC TAP QUEST</span><span className="breadcrumb-slash">/</span><strong>{activeTitle}</strong></div>
           <div className="topbar-right">
             <div className="streak-chip" title="Chuỗi ngày tính từ các ngày có hoàn thành quiz"><UIIcon name="flame" /><strong>{learningStreak}</strong><span className="chip-caption">NGÀY</span></div>
@@ -544,7 +547,7 @@ function App() {
         </header>
 
         <div className="content-wrap">
-          {authOpen && !user && <section className="auth-panel" aria-labelledby="auth-panel-title">
+          {!readOnlyPreview && authOpen && !user && <section className="auth-panel" aria-labelledby="auth-panel-title">
             <div className="auth-panel-heading"><div><p className="section-kicker">TÀI KHOẢN HỌC TẬP</p><h2 id="auth-panel-title">{authMode === 'login' ? 'Chào mừng trở lại' : 'Tạo tài khoản mới'}</h2><p>Đăng nhập để đồng bộ bài đã hoàn thành giữa các thiết bị. Tiến độ hiện có trên trình duyệt sẽ được giữ và hợp nhất.</p></div><button type="button" className="close-button" aria-label="Đóng biểu mẫu" onClick={() => setAuthOpen(false)}>×</button></div>
             <form className="auth-form" onSubmit={handleAuthSubmit}>
               <label>Email<input type="email" autoComplete="email" required maxLength={254} value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} placeholder="ban@example.com" /></label>
@@ -583,7 +586,7 @@ function App() {
                 <div className="rpg-player">
                   <div className="rpg-level-orb" aria-label={`Cấp độ ${level}`}>{level}</div>
                   <div className="rpg-player-copy">
-                    <strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong>
+                    <strong>{readOnlyPreview ? 'Nhà thám hiểm' : user?.email ? user.email.split('@')[0] : 'Chiến'}</strong>
                     <div className="rpg-xp-track" role="progressbar" aria-label="Tiến độ XP đến cấp tiếp theo" aria-valuemin={0} aria-valuemax={levelXpRequired} aria-valuenow={levelProgress}><span style={{width:`${Math.min(100, levelProgress / levelXpRequired * 100)}%`}} /></div>
                     <small>{levelProgress.toLocaleString('vi-VN')} / {levelXpRequired.toLocaleString('vi-VN')} XP</small>
                   </div>
@@ -605,9 +608,15 @@ function App() {
                 <div className="rpg-quest-stack">
                   {[...quests].reverse().map((quest) => (
                     <div className={`rpg-quest-row rpg-quest-${quest.id} ${quest.status}`} key={quest.id}>
-                      <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
-                        <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
-                      </button>
+                      {readOnlyPreview ? (
+                        <div className={`rpg-node-button ${quest.status}`} role="img" aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở' : 'đang khóa'}`}>
+                          <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
+                        </div>
+                      ) : (
+                        <button className={`rpg-node-button ${quest.status}`} type="button" onClick={() => startQuest(quest)} disabled={quest.status === 'locked'} aria-label={`${quest.title}, ${quest.status === 'done' ? 'đã hoàn thành' : quest.status === 'active' ? 'đang mở, bắt đầu nhiệm vụ' : 'đang khóa'}`} aria-disabled={quest.status === 'locked'}>
+                          <img className="rpg-node-art" src={quest.status === 'done' ? '/assets/incoming/node_hoan_thanh_vuong_mien.png' : quest.status === 'locked' ? '/assets/incoming/node_khoa.png' : '/assets/incoming/node_dang_mo.png'} alt="" aria-hidden="true" />
+                        </button>
+                      )}
                       <div className="rpg-node-copy">
                         <small>{quest.status === 'done' ? 'HOÀN THÀNH' : quest.status === 'active' ? 'ĐANG MỞ' : 'ĐANG KHÓA'}</small>
                         <strong>{quest.title}</strong>
@@ -620,13 +629,13 @@ function App() {
                   </div>
                   <span className="rpg-speech">Bắt đầu nào!</span>
                   </div>
-                {quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}><img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" /><span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span></button>}
+                {!readOnlyPreview && quests.find((quest) => quest.status === 'active') && <button className="rpg-start-button" type="button" aria-label={`Bắt đầu nhiệm vụ ${quests.find((quest) => quest.status === 'active')!.title}, nhận tối đa ${quests.find((quest) => quest.status === 'active')!.xp} XP`} onClick={() => startQuest(quests.find((quest) => quest.status === 'active')!)}><img className="rpg-start-button-art" src="/assets/incoming/nut_bat_dau.png" alt="" aria-hidden="true" /><span>BẮT ĐẦU NHIỆM VỤ · +{quests.find((quest) => quest.status === 'active')!.xp} XP</span></button>}
                 </div>
 
               <aside className="rpg-world-aside" aria-label="Thông tin hành trình">
                 <section className="rpg-side-profile">
                   <span className="rpg-side-emblem"><UIIcon name="crown" size={24}/></span>
-                  <div><small>NHÀ THÁM HIỂM</small><strong>{user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
+                  <div><small>NHÀ THÁM HIỂM</small><strong>{readOnlyPreview ? 'Nhà thám hiểm' : user?.email ? user.email.split('@')[0] : 'Chiến'}</strong><span>Cấp độ {level}</span></div>
                 </section>
                 <section className="rpg-side-stats" aria-label="Chỉ số hành trình">
                   <div><span className="rpg-side-stat-icon xp"><img src="/assets/incoming/the_xp_18.png" alt="" aria-hidden="true"/></span><small>KINH NGHIỆM</small><strong>{xp.toLocaleString('vi-VN')} XP</strong></div>
@@ -687,11 +696,21 @@ function App() {
           {activeNav === 'practice' && <section className="alternate-panel"><p className="section-kicker">PRACTICE HUB</p><h2>Chọn cách bạn muốn luyện tập</h2><div className="practice-grid"><button type="button" onClick={() => startQuest(quests.find((quest) => quest.status === 'active') ?? quests[0])}><span>✧</span><strong>Luyện tập nhanh</strong><small>Ôn lại kiến thức trong vài phút</small></button><button type="button" onClick={() => setNotice('Chế độ thử thách sẽ được phát triển ở P2 — Learning Core.')}><span>⚡</span><strong>Thử thách kiến thức</strong><small>Kiểm tra mức độ ghi nhớ</small></button><button type="button" onClick={() => setNotice('Lịch sử học tập sẽ được kết nối với dữ liệu thực ở giai đoạn backend.')}><span>◷</span><strong>Lịch sử học tập</strong><small>Theo dõi những gì bạn đã học</small></button></div></section>}
           {activeNav === 'achievements' && <section className="alternate-panel"><p className="section-kicker">YOUR COLLECTION · P4.1</p><div className="achievement-heading"><div><h2>Thành tựu của nhà thám hiểm</h2><p className="section-description">Thành tựu được mở khóa tự động theo tiến độ quiz đã lưu; không có nút nhận thưởng nên không thể cộng XP trùng.</p></div><span className="achievement-counter">{unlockedAchievementCount}/{achievements.length} ĐÃ MỞ</span></div><div className="achievement-grid">{achievements.map((achievement) => <article key={achievement.id} className={`achievement-card ${achievement.unlocked ? 'achievement-unlocked' : 'achievement-locked'}`} aria-label={`${achievement.title}: ${achievement.unlocked ? 'đã mở khóa' : 'chưa mở khóa'}`}><span aria-hidden="true">{achievement.unlocked ? achievement.icon : '◇'}</span><strong>{achievement.title}</strong><small>{achievement.description}</small><div className="achievement-progress"><span>{achievement.progress}</span><span className={achievement.unlocked ? 'achievement-state is-unlocked' : 'achievement-state'}>{achievement.unlocked ? '✓ ĐÃ MỞ KHÓA' : 'ĐANG TIẾN TỚI'}</span></div></article>)}</div></section>}
 
-          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· LEARN THROUGH PLAY</span></span><span className="footer-status"><span className="status-dot" /> Đã lưu tiến độ</span></footer>
+          <footer className="footer"><span>HOC TAP QUEST <span className="footer-muted">· {readOnlyPreview ? 'STAGING PREVIEW' : 'LEARN THROUGH PLAY'}</span></span><span className="footer-status"><span className="status-dot" /> {readOnlyPreview ? 'READ-ONLY · KHÔNG GHI TIẾN ĐỘ' : 'Đã lưu tiến độ'}</span></footer>
         </div>
       </section>
     </main>
   );
+}
+
+
+/* Staging RPG preview: reuse the actual map UI without exposing account or write actions. */
+.rpg-preview-sidebar-hidden,
+.rpg-preview-topbar-hidden { display:none !important; }
+.rpg-preview-sidebar-hidden + .main-area { margin-left:0; }
+.rpg-preview-topbar-hidden + .content-wrap { padding-top:28px; }
+@media (max-width:760px) {
+  .rpg-preview-topbar-hidden + .content-wrap { padding-top:14px; }
 }
 
 export default App;
