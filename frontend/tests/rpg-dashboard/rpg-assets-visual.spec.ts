@@ -80,6 +80,15 @@ for (const viewport of viewports) {
     const mapBounds = await map.boundingBox();
     expect(mapBounds).not.toBeNull();
     expect(companionBounds.left, 'companion should occupy the right side of the map, away from the active node').toBeGreaterThan(mapBounds!.x + mapBounds!.width * 0.45);
+    const speechBounds = await page.locator('.rpg-speech').boundingBox();
+    expect(speechBounds).not.toBeNull();
+    expect(speechBounds!.x + speechBounds!.width).toBeLessThanOrEqual(mapBounds!.x + mapBounds!.width - 6);
+    const speechOverlapsQuest = await page.locator('.rpg-node-copy').evaluateAll((nodes, speech) => nodes.some(node => {
+      const a = node.getBoundingClientRect();
+      const b = speech as { x:number; y:number; width:number; height:number };
+      return a.left < b.x + b.width && a.right > b.x && a.top < b.y + b.height && a.bottom > b.y;
+    }), speechBounds);
+    expect(speechOverlapsQuest, 'companion speech bubble must not cover quest labels').toBe(false);
     await expect(page.locator('.rpg-start-button-art')).toBeVisible();
     const startButtonLayout = await page.locator('.rpg-start-button').evaluate(element => {
       const map = element.closest('.rpg-stone-map');
