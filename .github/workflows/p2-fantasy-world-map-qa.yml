@@ -1,0 +1,157 @@
+name: P2 Fantasy World Map visual QA
+
+on:
+  push:
+    branches:
+      - feat/p2-fantasy-world-map-v1
+    paths:
+      - "frontend/**"
+      - ".github/workflows/p2-fantasy-world-map-qa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p2-fantasy-world-map-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-visual:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout P2 branch
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install application dependencies
+        run: npm ci
+      - name: Type-check and build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Start local production preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/p2-vite-preview.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/p2-vite-preview.log
+          exit 1
+      - name: Verify responsive map, curved route and assets
+        run: |
+          mkdir -p artifacts
+          node --input-type=module <<'NODE'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true });
+          const results = [];
+          const check = (name, ok, detail) => {
+            results.push({ name, status: ok ? 'PASS' : 'FAIL', detail });
+            console.log(`${ok ? 'PASS' : 'FAIL'} | ${name} | ${detail}`);
+          };
+          try {
+            for (const viewport of [
+              { name: 'mobile-390x844', width: 390, height: 844 },
+              { name: 'tablet-768x1024', width: 768, height: 1024 },
+              { name: 'desktop-1440x900', width: 1440, height: 900 },
+              { name: 'desktop-1920x1080', width: 1920, height: 1080 },
+            ]) {
+              const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
+              const pageErrors = [];
+              const consoleErrors = [];
+              const writes = [];
+              page.on('pageerror', e => pageErrors.push(e.message));
+              page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+              page.on('request', req => {
+                if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method())) writes.push(`${req.method()} ${req.url()}`);
+              });
+              await page.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' });
+              await page.locator('.rpg-stone-map').waitFor({ state: 'visible' });
+              await page.waitForTimeout(250);
+              const data = await page.evaluate(() => {
+                const map = document.querySelector('.rpg-stone-map');
+                const svg = map?.querySelector('.rpg-route-art');
+                const activeRoute = map?.querySelector('.rpg-route-mobile:not([style*="display: none"]) path.rpg-route-base') &&
+                  matchMedia('(max-width: 760px)').matches
+                    ? map.querySelector('.rpg-route-mobile path.rpg-route-base')
+                    : map.querySelector('.rpg-route-desktop path.rpg-route-base');
+                const nodes = [...map.querySelectorAll('.rpg-quest-row')].map(row => {
+                  const button = row.querySelector('.rpg-node-button');
+                  const r = button.getBoundingClientRect();
+                  return { id: row.className.match(/rpg-quest-(\\d+)/)?.[1], x: r.left + r.width / 2, y: r.top + r.height / 2 };
+                });
+                const pathRect = svg?.getBoundingClientRect();
+                let distances = [];
+                if (activeRoute && pathRect) {
+                  const length = activeRoute.getTotalLength();
+                  distances = nodes.map(node => {
+                    let min = Infinity;
+                    for (let i = 0; i <= 160; i++) {
+                      const p = activeRoute.getPointAtLength(length * i / 160);
+                      const x = pathRect.left + p.x / 1000 * pathRect.width;
+                      const y = pathRect.top + p.y / 545 * pathRect.height;
+                      min = Math.min(min, Math.hypot(x - node.x, y - node.y));
+                    }
+                    return { id: node.id, distance: Math.round(min) };
+                  });
+                }
+                const imgs = [...map.querySelectorAll('img')].map(img => ({ src: img.getAttribute('src'), loaded: img.complete && img.naturalWidth > 0 }));
+                const rect = map.getBoundingClientRect();
+                return {
+                  mapVisible: !!map && rect.width > 0 && rect.height > 0,
+                  svgVisible: !!svg && getComputedStyle(svg).display !== 'none',
+                  pathLength: activeRoute?.getTotalLength() ?? 0,
+                  nodeCount: nodes.length,
+                  distances,
+                  images: imgs,
+                  documentWidth: document.documentElement.scrollWidth,
+                  viewportWidth: innerWidth,
+                  mapWidth: Math.round(rect.width),
+                };
+              });
+              check(`${viewport.name} map rendered`, data.mapVisible, `mapWidth=${data.mapWidth}`);
+              check(`${viewport.name} curved route visible`, data.svgVisible && data.pathLength > 300, `svg=${data.svgVisible}, pathLength=${Math.round(data.pathLength)}`);
+              check(`${viewport.name} four quest nodes`, data.nodeCount === 4, `nodes=${data.nodeCount}`);
+              check(`${viewport.name} route aligned with quest nodes`,
+                data.distances.length === 4 && data.distances.every(item => item.distance <= 75),
+                JSON.stringify(data.distances));
+              check(`${viewport.name} no horizontal overflow`,
+                data.documentWidth <= viewport.width,
+                `documentWidth=${data.documentWidth}, viewportWidth=${viewport.width}`);
+              check(`${viewport.name} companion and node art loaded`,
+                data.images.length >= 5 && data.images.every(item => item.loaded),
+                JSON.stringify(data.images));
+              check(`${viewport.name} no write requests`, writes.length === 0, writes.join(' | ') || 'No non-read-only requests');
+              check(`${viewport.name} browser runtime clean`,
+                pageErrors.length === 0 && consoleErrors.length === 0,
+                [...pageErrors, ...consoleErrors].join(' | ').slice(0, 700) || 'No page or console errors');
+              await page.screenshot({ path: `artifacts/${viewport.name}.png`, fullPage: true });
+              await page.close();
+            }
+          } finally {
+            await browser.close();
+          }
+          const failed = results.filter(item => item.status === 'FAIL');
+          console.log(`\\nResult: ${results.length - failed.length} PASS, ${failed.length} FAIL`);
+          console.log(JSON.stringify(results, null, 2));
+          if (failed.length) process.exit(1);
+          NODE
+      - name: Upload visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-fantasy-world-map-visual-evidence
+          path: frontend/artifacts/
+          if-no-files-found: warn
+          retention-days: 7
