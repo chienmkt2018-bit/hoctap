@@ -57,3 +57,12 @@ Before adding an external tool, library, font, asset pack or service, verify tha
 ## 7. Release gate
 
 An asset cannot be marked `VERIFIED` until its source and exact license have been checked. `PENDING` and `REJECTED` assets must not ship. Reviewers must be able to trace each third-party asset to its source and license record.
+
+
+## 8. A1 project-original asset record
+
+| Asset path | Creator/source | License status | Notes |
+|---|---|---|---|
+| `frontend/public/assets/game/backgrounds/world/bg-world-main.svg` | Original SVG authored for HOC TAP QUEST in this repository; no third-party image/font/texture imported | `PROJECT-ORIGINAL — verify repository ownership policy before external redistribution` | Created 2026-11-05. SVG source committed directly to GitHub. No external asset attribution required based on the authored source. |
+
+This record describes the provenance of the authored SVG; it is not a legal determination of copyright ownership.

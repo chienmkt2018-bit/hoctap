@@ -68,3 +68,12 @@ An asset is **accepted** only when its source, author, license, dimensions, form
 | UI baseline | Banner, panels, button, progress and core icons usable |
 | Responsive check | Same assets work at 390×844 and desktop viewport |
 | License check | Every non-original asset has a verifiable compatible license |
+
+
+## 7. A1 delivery — Main fantasy background
+
+| ID | Path | Status | Notes |
+|---|---|---|---|
+| BG-01 | `frontend/public/assets/game/backgrounds/world/bg-world-main.svg` | `CREATED — VECTOR BASELINE` | Original 2560×1440 SVG; layered sky, moon, mountains, distant castle, floating islands, waterfalls, clouds and foreground. No UI, text, character or quest nodes. |
+
+This is an original stylized vector baseline, not a painted/raster illustration. Review visual fidelity and responsive crops before treating it as final art direction. It can be rendered to WebP later using a free tool if a raster delivery is required.

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1440" viewBox="0 0 2560 1440" role="img" aria-labelledby="title desc">
+<title id="title">HOC TAP QUEST — Fantasy World Background</title>
+<desc id="desc">Original vector fantasy landscape with a violet and cyan twilight sky, distant castle, layered mountains, floating islands, waterfalls, clouds and foreground cliffs. No interface, text, characters or quest markers.</desc>
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#100d3d"/><stop offset=".48" stop-color="#39246f"/><stop offset="1" stop-color="#f18bba"/></linearGradient>
+ <radialGradient id="aurora"><stop stop-color="#58e8f5" stop-opacity=".55"/><stop offset="1" stop-color="#58e8f5" stop-opacity="0"/></radialGradient>
+ <linearGradient id="far" x2="0" y2="1"><stop stop-color="#8886ce"/><stop offset="1" stop-color="#44417f"/></linearGradient>
+ <linearGradient id="mid" x2="0" y2="1"><stop stop-color="#514c9d"/><stop offset="1" stop-color="#25285f"/></linearGradient>
+ <linearGradient id="near" x2="0" y2="1"><stop stop-color="#292c69"/><stop offset="1" stop-color="#101b43"/></linearGradient>
+ <linearGradient id="water" x2="0" y2="1"><stop stop-color="#b4faff" stop-opacity=".95"/><stop offset="1" stop-color="#38c9ed" stop-opacity="0"/></linearGradient>
+ <linearGradient id="island" x2="0" y2="1"><stop stop-color="#53639e"/><stop offset=".35" stop-color="#283568"/><stop offset="1" stop-color="#111b3e"/></linearGradient>
+ <linearGradient id="gold" x2="0" y2="1"><stop stop-color="#ffe9a1"/><stop offset="1" stop-color="#d99b59"/></linearGradient>
+ <filter id="blur"><feGaussianBlur stdDeviation="38"/></filter>
+ <filter id="glow"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+ <pattern id="stars" width="240" height="190" patternUnits="userSpaceOnUse"><circle cx="20" cy="30" r="2" fill="#fff" opacity=".75"/><circle cx="120" cy="80" r="1.5" fill="#bdfaff" opacity=".8"/><circle cx="205" cy="22" r="1.8" fill="#fff" opacity=".65"/><circle cx="72" cy="155" r="1.2" fill="#fff" opacity=".6"/><path d="M175 125v10m-5-5h10" stroke="#d8faff" stroke-width="1.5" opacity=".65"/></pattern>
+</defs>
+<!-- sky and distant magical haze -->
+<rect width="2560" height="1440" fill="url(#sky)"/>
+<ellipse cx="1270" cy="650" rx="980" ry="360" fill="url(#aurora)" filter="url(#blur)"/>
+<path d="M0 510Q420 300 820 470T1640 430T2560 390V800H0Z" fill="#8c6fbd" opacity=".16"/>
+<path d="M0 640Q500 430 960 600T1840 520T2560 550" fill="none" stroke="#b9e9ff" stroke-width="5" opacity=".12"/>
+<rect width="2560" height="760" fill="url(#stars)"/>
+<!-- moon -->
+<circle cx="1990" cy="255" r="92" fill="#c7f7ff" opacity=".12" filter="url(#blur)"/>
+<circle cx="1990" cy="255" r="48" fill="#f1efff" opacity=".82"/>
+<circle cx="2008" cy="240" r="48" fill="#4a367f" opacity=".52"/>
+<!-- distant mountains -->
+<path d="M0 850L220 650 390 760 610 535 810 760 1040 570 1260 790 1500 550 1710 760 1930 590 2180 790 2380 620 2560 760V1150H0Z" fill="url(#far)" opacity=".86"/>
+<path d="M470 675l140-140 110 140-90-48-38 30-42-42zM900 700l140-130 130 150-110-55-42 35-48-40zM1370 700l130-150 130 170-110-65-40 40-48-45zM2200 735l180-115 120 140-140-48-48 35-48-42z" fill="#d4d9f4" opacity=".55"/>
+<!-- far castle on central ridge -->
+<g transform="translate(1130 490)" fill="#30285f" stroke="#d8c8ff" stroke-opacity=".45" stroke-width="5">
+ <path d="M0 245V105h48V55h28v50h40V20h30v85h45V55h28v50h42v140z"/>
+ <path d="M80 245V150h55v-45h48v140z" fill="#51427e"/>
+ <path d="M150 245V125h58v120z" fill="#41366f"/>
+ <path d="M-12 108l74-35 75 35M110 22l28-38 30 38M185 108l50-34 55 34" fill="none"/>
+ <path d="M112 245v-58q25-48 50 0v58" fill="#f5c77b" opacity=".7"/>
+ <g fill="url(#gold)" stroke="none"><rect x="24" y="145" width="10" height="24"/><rect x="220" y="145" width="10" height="24"/><rect x="164" y="142" width="10" height="24"/></g>
+</g>
+<!-- middle mountain range -->
+<path d="M0 960L250 790 470 880 700 700 920 890 1130 735 1360 900 1580 720 1800 890 2030 735 2260 900 2450 760 2560 850V1250H0Z" fill="url(#mid)"/>
+<path d="M0 1000Q250 850 470 940T900 930T1330 920T1770 930T2200 900T2560 940" fill="none" stroke="#8de8f5" stroke-width="8" opacity=".15"/>
+<!-- floating islands -->
+<g>
+ <path d="M270 555Q390 485 520 535L610 600 570 665 520 690 485 790 440 710 380 735 350 660 300 645Z" fill="url(#island)" stroke="#8ce9f5" stroke-opacity=".45" stroke-width="5"/>
+ <path d="M300 570Q420 500 540 560L570 605Q440 575 320 625Z" fill="#7184b0"/>
+ <path d="M390 690l25 90 30-55 25 85 35-100" fill="none" stroke="#39d8f1" stroke-width="8" opacity=".45"/>
+ <path d="M1830 440Q1980 370 2130 445L2210 510 2150 585 2080 600 2030 710 1980 610 1900 635 1870 555Z" fill="url(#island)" stroke="#8ce9f5" stroke-opacity=".45" stroke-width="5"/>
+ <path d="M1860 460Q1990 390 2140 470L2165 510Q2010 475 1880 525Z" fill="#7e8cb8"/>
+ <path d="M1980 600l25 100 35-65 30 85" fill="none" stroke="#48d8f2" stroke-width="8" opacity=".45"/>
+ <path d="M810 365Q900 315 1000 360L1050 405 1010 450 950 460 920 525 880 460 830 470 800 420Z" fill="url(#island)" stroke="#a4eefa" stroke-opacity=".4" stroke-width="4"/>
+</g>
+<!-- waterfalls -->
+<g fill="none" stroke="url(#water)" stroke-linecap="round">
+ <path d="M440 700q-20 85 8 155t-5 120" stroke-width="17"/>
+ <path d="M485 710q-10 90 12 140t0 100" stroke-width="9"/>
+ <path d="M2020 620q-18 75 8 145t-8 115" stroke-width="16"/>
+ <path d="M2060 620q-8 90 15 135t-2 100" stroke-width="8"/>
+ <path d="M920 475q-8 55 10 90" stroke-width="7"/>
+</g>
+<!-- clouds -->
+<g fill="#d5c8f3" opacity=".22">
+ <path d="M90 480q-10-55 55-62 20-75 105-42 48-65 110-8 90-5 80 80 62 35 10 70H130q-70 0-40-38Z"/>
+ <path d="M1640 650q-5-48 55-55 24-68 92-35 50-58 105-5 72-2 75 65 52 35 0 62h-275q-70 0-52-32Z"/>
+ <path d="M650 260q0-40 50-45 20-55 75-25 38-48 82-4 62-2 65 48 45 24 0 48H690q-50 0-40-22Z"/>
+</g>
+<!-- foreground cliffs and vegetation -->
+<path d="M0 1110Q230 990 450 1080T880 1080Q1100 1000 1320 1100T1770 1070Q2020 990 2220 1080T2560 1030V1440H0Z" fill="url(#near)"/>
+<path d="M0 1240Q240 1130 470 1200T930 1190T1390 1210T1850 1170T2300 1200T2560 1150" fill="none" stroke="#7c70c5" stroke-width="9" opacity=".3"/>
+<g fill="#18264e">
+ <path d="M80 1170l-35 110h70zM135 1140l-48 145h96zM235 1190l-40 120h80zM2240 1160l-50 145h100zM2350 1120l-60 175h120zM2470 1170l-42 130h84z"/>
+</g>
+<g fill="#36b9bb" opacity=".55">
+ <path d="M40 1200q35-90 70 0-35-25-70 0M180 1240q42-100 84 0-42-30-84 0M2290 1220q40-95 80 0-40-25-80 0M2430 1260q35-85 70 0-35-25-70 0"/>
+</g>
+<!-- subtle foreground mist -->
+<path d="M0 1080Q500 1010 900 1090T1700 1070T2560 1050V1250Q2100 1180 1700 1230T800 1200T0 1250Z" fill="#a8d8ed" opacity=".08"/>
+</svg>
