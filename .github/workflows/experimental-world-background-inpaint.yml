@@ -1,76 +1,59 @@
-name: Experimental fantasy background inpainting
+name: Fantasy background — Round 2 LaMa Inpainting
 
 on:
-  push:
-    branches:
-      - feat/fantasy-game-assets-v1
-    paths:
-      - ".github/workflows/experimental-world-background-inpaint.yml"
-      - "tools/background-lab/**"
-      - "frontend/public/assets/game/backgrounds/world/world_final.jpg"
   workflow_dispatch:
     inputs:
-      source_image:
-        description: Repository-relative source image (must remain world_final.jpg)
+      mask_approved:
+        description: Set to yes only after reviewing the Round 1 mask artifact
         required: true
-        default: frontend/public/assets/game/backgrounds/world/world_final.jpg
-        type: string
+        type: choice
+        options:
+          - "no"
+          - "yes"
+        default: "no"
 
 permissions:
   contents: read
 
-concurrency:
-  group: fantasy-background-inpaint
-  cancel-in-progress: false
-
 jobs:
   inpaint:
-    name: Inpaint flattened mockup (CPU experiment)
+    name: LaMa inpainting (explicit mask approval required)
+    if: ${{ inputs.mask_approved == 'yes' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
-      - name: Checkout asset branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: feat/fantasy-game-assets-v1
-
-      - name: Validate source is the approved reference image
-        env:
-          SOURCE_IMAGE: ${{ inputs.source_image || 'frontend/public/assets/game/backgrounds/world/world_final.jpg' }}
+      - name: Validate approved source image
         run: |
-          test "$SOURCE_IMAGE" = "frontend/public/assets/game/backgrounds/world/world_final.jpg"
-          test -f "$SOURCE_IMAGE"
-          file "$SOURCE_IMAGE"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+          test -f "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+          file "frontend/public/assets/game/backgrounds/world/world_final.jpg"
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: tools/background-lab/requirements.txt
-
+          cache-dependency-path: tools/background-lab/requirements-inpaint.txt
       - name: Install CPU-only PyTorch
         run: |
           python -m pip install --upgrade pip
           python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-
-      - name: Install CPU inpainting dependencies
+      - name: Install compatible LaMa dependencies
         run: |
-          python -m pip install -r tools/background-lab/requirements.txt
-
-      - name: Generate mask preview and inpaint
+          python -m pip install -r tools/background-lab/requirements-inpaint.txt
+          python -c "import numpy, torch; from simple_lama_inpainting import SimpleLama; print('numpy', numpy.__version__, 'torch', torch.__version__)"
+      - name: Run LaMa after explicit mask approval
         env:
-          SOURCE_IMAGE: ${{ inputs.source_image || 'frontend/public/assets/game/backgrounds/world/world_final.jpg' }}
-          OUTPUT_DIR: artifacts/world-background-experiment
+          SOURCE_IMAGE: frontend/public/assets/game/backgrounds/world/world_final.jpg
+          OUTPUT_DIR: artifacts/world-background-inpaint
+          MASK_APPROVED: ${{ inputs.mask_approved }}
         run: |
-          mkdir -p "$OUTPUT_DIR"
-          python tools/background-lab/inpaint_world.py
-
-      - name: Upload experiment outputs (no repository write)
+          python tools/background-lab/inpaint_world.py --stage inpaint
+      - name: Upload inpainting artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: world-background-inpaint-experiment
-          path: artifacts/world-background-experiment/
+          name: world-background-inpaint-result
+          path: artifacts/world-background-inpaint/
           if-no-files-found: error
           retention-days: 7
