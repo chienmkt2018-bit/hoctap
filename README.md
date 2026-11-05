@@ -10,6 +10,10 @@ Nền tảng học tập theo phong cách trò chơi — React + TypeScript + Vi
 - **Kiểm tra giao diện:** người dùng xác nhận đã kiểm tra và thấy OK. Đây là xác nhận thủ công của người dùng, không phải báo cáo kiểm thử trình duyệt tự động.
 - **Giới hạn xác minh:** CI build/type-check không thay thế kiểm thử end-to-end. Chưa coi luồng quiz trên production là đã xác minh chỉ dựa trên CI; trạng thái triển khai Render cần kiểm tra riêng.
 
+## Kiến trúc hệ thống
+
+Tài liệu kiến trúc chi tiết, ranh giới module, mô hình dữ liệu, bảo mật, chiến lược mở rộng và release gate: [docs/architecture.md](docs/architecture.md).
+
 ## Công nghệ
 
 - React 19 + TypeScript + Vite
