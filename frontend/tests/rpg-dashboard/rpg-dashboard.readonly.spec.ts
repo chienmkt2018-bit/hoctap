@@ -114,10 +114,10 @@ for (const viewport of viewports) {
       expect(tabletLayout.topbarBottom, 'topbar must not overlap the RPG HUD at initial scroll position').toBeLessThanOrEqual(tabletLayout.hudTop + 1);
       expect(tabletLayout.worldColumns, 'tablet world layout should use a single column below 900px').toBe(1);
       expect(tabletLayout.asideTop, 'tablet information panel should follow the map, not overlap it').toBeGreaterThanOrEqual(tabletLayout.mapBottom);
-      await page.screenshot({ path: 'test-results-staging/tablet-768x1024-viewport.png' });
+      await page.screenshot({ path: 'test-results-local-ci/tablet-768x1024-viewport.png' });
     }
 
-    await page.screenshot({ path: `test-results-staging/${viewport.name}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results-local-ci/${viewport.name}.png`, fullPage: true });
     expect(attemptedWrites, 'no mutating HTTP requests may be sent').toEqual([]);
     expect(pageErrors, 'no uncaught browser exceptions').toEqual([]);
     expect(consoleErrors, 'no console errors').toEqual([]);
