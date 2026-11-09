@@ -1,0 +1,263 @@
+name: WP0.9 PNG Binary Evidence (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wp09-png-binary-evidence
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    name: SHA-256, PNG IDAT and alpha statistics
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout workflow branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout immutable asset source
+        uses: actions/checkout@v4
+        with:
+          ref: b150a7da3c7b6c9df754b55711e6fc158bf110ac
+          path: asset-source
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PNG decoder
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Calculate SHA-256, parse IDAT and decode alpha
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib
+          import json
+          import struct
+          import zlib
+
+          SOURCE = Path("asset-source/frontend/public/assets/incoming")
+          OUT = Path("asset-inspection")
+          OUT.mkdir(parents=True, exist_ok=True)
+          COMMIT = "b150a7da3c7b6c9df754b55711e6fc158bf110ac"
+          TARGETS = {
+              "AST-08": ("cup_thu_thach.png", "a60ebb078bd4d1ba64e23d68291a4456a7c51097"),
+              "AST-09": ("node_dang_mo.png", "5512c4c23f252d1ecd57ab903a3dc2ebb87f7e1e"),
+              "AST-10": ("node_hoan_thanh_vuong_mien.png", "d06262edeb7cf43b2bf01bf0b320bcaa453c2101"),
+          }
+          SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+          def inspect_png(path, expected_blob):
+              data = path.read_bytes()
+              blob_sha1 = hashlib.sha1(
+                  b"blob " + str(len(data)).encode("ascii") + b"\0" + data
+              ).hexdigest()
+              if blob_sha1 != expected_blob:
+                  raise ValueError(
+                      f"Git blob SHA mismatch: expected {expected_blob}, got {blob_sha1}"
+                  )
+              if not data.startswith(SIGNATURE):
+                  raise ValueError("Invalid PNG signature")
+
+              offset = len(SIGNATURE)
+              chunks = []
+              idat_parts = []
+              ihdr = None
+              seen_iend = False
+              idat_ended = False
+              while offset < len(data):
+                  if offset + 12 > len(data):
+                      raise ValueError("Truncated PNG chunk header")
+                  length = struct.unpack(">I", data[offset:offset + 4])[0]
+                  chunk_type = data[offset + 4:offset + 8]
+                  end = offset + 12 + length
+                  if end > len(data):
+                      raise ValueError(f"Truncated {chunk_type!r} chunk")
+                  chunk_data = data[offset + 8:offset + 8 + length]
+                  stored_crc = struct.unpack(">I", data[offset + 8 + length:end])[0]
+                  calculated_crc = zlib.crc32(chunk_type)
+                  calculated_crc = zlib.crc32(chunk_data, calculated_crc) & 0xffffffff
+                  if calculated_crc != stored_crc:
+                      raise ValueError(f"CRC mismatch in {chunk_type.decode('ascii', 'replace')} chunk")
+                  chunks.append((chunk_type, length))
+                  if chunk_type == b"IHDR":
+                      if ihdr is not None or length != 13:
+                          raise ValueError("Invalid IHDR chunk")
+                      ihdr = struct.unpack(">IIBBBBB", chunk_data)
+                  elif chunk_type == b"IDAT":
+                      if idat_ended:
+                          raise ValueError("PNG IDAT chunks are not consecutive")
+                      idat_parts.append(chunk_data)
+                  else:
+                      if idat_parts:
+                          idat_ended = True
+                  if chunk_type == b"IEND":
+                      if length != 0:
+                          raise ValueError("Invalid IEND chunk")
+                      seen_iend = True
+                      offset = end
+                      break
+                  offset = end
+
+              if not seen_iend or offset != len(data):
+                  raise ValueError("Missing IEND or trailing bytes after IEND")
+              if ihdr is None or not idat_parts:
+                  raise ValueError("Missing IHDR or IDAT")
+              width, height, bit_depth, color_type, compression, filtering, interlace = ihdr
+              idat_stream = b"".join(idat_parts)
+              inflated = zlib.decompress(idat_stream)
+
+              # Pillow independently verifies and decodes the image pixels.
+              with Image.open(path) as image:
+                  image.verify()
+              with Image.open(path) as image:
+                  original_mode = image.mode
+                  rgba = image.convert("RGBA")
+                  rgba.load()
+                  alpha = rgba.getchannel("A")
+                  histogram = alpha.histogram()
+                  total_pixels = width * height
+                  alpha_bins = {
+                      "alpha_0": histogram[0],
+                      "alpha_1_63": sum(histogram[1:64]),
+                      "alpha_64_127": sum(histogram[64:128]),
+                      "alpha_128_191": sum(histogram[128:192]),
+                      "alpha_192_254": sum(histogram[192:255]),
+                      "alpha_255": histogram[255],
+                  }
+                  alpha_values = [i for i, count in enumerate(histogram) if count]
+                  alpha_chunk_present = color_type in (4, 6) or any(
+                      kind == b"tRNS" for kind, _ in chunks
+                  )
+                  if sum(alpha_bins.values()) != total_pixels:
+                      raise ValueError("Alpha histogram total does not match pixel count")
+
+              return {
+                  "file": path.name,
+                  "size_bytes": len(data),
+                  "git_blob_sha1": blob_sha1,
+                  "sha256": hashlib.sha256(data).hexdigest(),
+                  "png_signature_valid": True,
+                  "chunk_count_total": len(chunks),
+                  "idat_chunk_count": len(idat_parts),
+                  "idat_total_compressed_bytes": len(idat_stream),
+                  "idat_chunk_lengths": [length for kind, length in chunks if kind == b"IDAT"],
+                  "idat_zlib_decompression": "PASS",
+                  "idat_inflated_bytes": len(inflated),
+                  "ihdr": {
+                      "width": width, "height": height, "bit_depth": bit_depth,
+                      "color_type": color_type, "compression_method": compression,
+                      "filter_method": filtering, "interlace_method": interlace
+                  },
+                  "pillow_decode": "PASS",
+                  "pillow_original_mode": original_mode,
+                  "alpha_channel_or_transparency_present": alpha_chunk_present,
+                  "alpha_unique_values": len(alpha_values),
+                  "alpha_min": min(alpha_values) if alpha_values else None,
+                  "alpha_max": max(alpha_values) if alpha_values else None,
+                  "pixel_count": total_pixels,
+                  "alpha_bins_pixels": alpha_bins,
+                  "alpha_transparent_pct": round(alpha_bins["alpha_0"] * 100 / total_pixels, 6),
+                  "alpha_partial_pct": round(sum(alpha_bins[k] for k in (
+                      "alpha_1_63", "alpha_64_127", "alpha_128_191", "alpha_192_254"
+                  )) * 100 / total_pixels, 6),
+                  "alpha_opaque_pct": round(alpha_bins["alpha_255"] * 100 / total_pixels, 6),
+                  "status": "PASS"
+              }
+
+          results = []
+          failures = []
+          for asset_id, (filename, expected_blob) in TARGETS.items():
+              path = SOURCE / filename
+              try:
+                  if not path.is_file():
+                      raise FileNotFoundError(path.as_posix())
+                  result = inspect_png(path, expected_blob)
+                  result["asset_id"] = asset_id
+                  results.append(result)
+              except Exception as exc:
+                  failures.append({"asset_id": asset_id, "file": filename,
+                                   "error": f"{type(exc).__name__}: {exc}"})
+                  results.append({"asset_id": asset_id, "file": filename, "status": "FAIL",
+                                  "error": f"{type(exc).__name__}: {exc}"})
+
+          report = {
+              "scope": "AST-08, AST-09 and AST-10 only",
+              "source_commit": COMMIT,
+              "source_directory": SOURCE.as_posix(),
+              "read_only": True,
+              "assets": results,
+              "failures": failures
+          }
+          (OUT / "png-binary-evidence.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+          )
+
+          lines = [
+              "# WP0.9 PNG Binary Evidence",
+              "",
+              f"- Source commit: `{COMMIT}`",
+              "- Scope: AST-08, AST-09, AST-10 only",
+              "- Operation: read-only; source assets and project documents are not modified",
+              "",
+              "| Asset | File | Bytes | SHA-256 | IDAT chunks | IDAT bytes | Inflated bytes | Alpha transparent / partial / opaque | Result |",
+              "|---|---|---:|---|---:|---:|---:|---:|---|"
+          ]
+          for row in results:
+              if row["status"] != "PASS":
+                  lines.append(f"| {row['asset_id']} | `{row['file']}` | — | — | — | — | — | — | FAIL |")
+                  continue
+              a = row["alpha_bins_pixels"]
+              alpha_pct = (
+                  f"{row['alpha_transparent_pct']}% / "
+                  f"{row['alpha_partial_pct']}% / {row['alpha_opaque_pct']}%"
+              )
+              lines.append(
+                  f"| {row['asset_id']} | `{row['file']}` | {row['size_bytes']} | "
+                  f"`{row['sha256']}` | {row['idat_chunk_count']} | "
+                  f"{row['idat_total_compressed_bytes']} | {row['idat_inflated_bytes']} | "
+                  f"{alpha_pct} | PASS |"
+              )
+          lines += ["", "## Alpha histogram (pixel counts)", ""]
+          for row in results:
+              if row["status"] == "PASS":
+                  lines.append(f"### {row['asset_id']} — {row['file']}")
+                  for key, value in row["alpha_bins_pixels"].items():
+                      lines.append(f"- {key}: {value:,}")
+                  lines.append(f"- Unique alpha values: {row['alpha_unique_values']}")
+                  lines.append(f"- Alpha range: {row['alpha_min']}–{row['alpha_max']}")
+                  lines.append("")
+          if failures:
+              lines += ["## Errors", ""]
+              for item in failures:
+                  lines.append(f"- **{item['asset_id']}**: {item['error']}")
+          (OUT / "png-binary-evidence.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+          print(f"ASSETS_INSPECTED={len(results)}")
+          print(f"ASSETS_PASS={sum(x['status'] == 'PASS' for x in results)}")
+          print(f"ASSETS_FAIL={len(failures)}")
+          print(f"REPORT={OUT / 'png-binary-evidence.md'}")
+          print(f"JSON={OUT / 'png-binary-evidence.json'}")
+          if failures:
+              raise SystemExit(1)
+          PY
+
+      - name: Upload binary evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp09-png-binary-evidence-${{ github.run_number }}
+          path: asset-inspection/
+          if-no-files-found: warn
+          retention-days: 14
