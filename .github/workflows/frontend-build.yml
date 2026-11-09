@@ -7,6 +7,7 @@ on:
       - staging
       - "fix/**"
       - "feat/fantasy-game-assets-v1"
+      - "ai/**"
     paths:
       - "frontend/**"
       - "backend/**"
