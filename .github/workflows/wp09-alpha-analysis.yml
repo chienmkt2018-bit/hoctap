@@ -1,0 +1,172 @@
+name: WP0.9 PNG Alpha Evidence (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wp09-alpha-analysis-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    name: Analyze AST-08 to AST-10
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout selected branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned PNG decoder
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Calculate SHA-256 and decode IDAT for alpha statistics
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import csv
+          import hashlib
+          import json
+          import sys
+
+          TARGETS = {
+              "AST-08": Path("frontend/public/assets/incoming/cup_thu_thach.png"),
+              "AST-09": Path("frontend/public/assets/incoming/node_dang_mo.png"),
+              "AST-10": Path("frontend/public/assets/incoming/node_hoan_thanh_vuong_mien.png"),
+          }
+          BINS = [
+              ("alpha_0", 0, 0),
+              ("alpha_1_63", 1, 63),
+              ("alpha_64_127", 64, 127),
+              ("alpha_128_191", 128, 191),
+              ("alpha_192_254", 192, 254),
+              ("alpha_255", 255, 255),
+          ]
+
+          out = Path("wp09-alpha-evidence")
+          out.mkdir(parents=True, exist_ok=True)
+          results = []
+          failures = []
+
+          for asset_id, path in TARGETS.items():
+              row = {
+                  "asset_id": asset_id,
+                  "path": path.as_posix(),
+                  "exists": path.is_file(),
+                  "sha256": None,
+                  "file_size_bytes": path.stat().st_size if path.is_file() else None,
+                  "idat_decode": "NOT_RUN",
+                  "width": None,
+                  "height": None,
+                  "source_mode": None,
+                  "has_alpha_channel": None,
+                  "has_transparency_metadata": None,
+                  "alpha_pixels": None,
+                  "alpha_bins": {},
+                  "error": None,
+              }
+
+              try:
+                  if not path.is_file():
+                      raise FileNotFoundError(f"Expected asset not found: {path.as_posix()}")
+
+                  digest = hashlib.sha256()
+                  with path.open("rb") as stream:
+                      for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                          digest.update(chunk)
+                  row["sha256"] = digest.hexdigest()
+
+                  # verify() checks PNG structure/CRC; reopen and load() forces
+                  # decompression of image data, including the IDAT stream.
+                  with Image.open(path) as probe:
+                      if probe.format != "PNG":
+                          raise ValueError(f"Expected PNG, got {probe.format!r}")
+                      probe.verify()
+
+                  with Image.open(path) as image:
+                      image.load()
+                      row["idat_decode"] = "PASS"
+                      row["width"], row["height"] = image.size
+                      row["source_mode"] = image.mode
+                      row["has_alpha_channel"] = "A" in image.getbands()
+                      row["has_transparency_metadata"] = "transparency" in image.info
+
+                      rgba = image.convert("RGBA")
+                      alpha_histogram = rgba.getchannel("A").histogram()
+                      total = row["width"] * row["height"]
+                      row["alpha_pixels"] = total
+                      for name, low, high in BINS:
+                          row["alpha_bins"][name] = sum(alpha_histogram[low:high + 1])
+
+                      if sum(row["alpha_bins"].values()) != total:
+                          raise AssertionError("Alpha histogram does not equal pixel count")
+
+              except Exception as exc:
+                  row["idat_decode"] = "FAIL" if row["exists"] else "BLOCKED"
+                  row["error"] = f"{type(exc).__name__}: {exc}"
+                  failures.append(f"{asset_id}: {row['error']}")
+
+              results.append(row)
+
+          json_path = out / "alpha-evidence.json"
+          json_path.write_text(json.dumps(results, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+          csv_path = out / "alpha-evidence.csv"
+          columns = [
+              "asset_id", "path", "exists", "sha256", "file_size_bytes",
+              "idat_decode", "width", "height", "source_mode",
+              "has_alpha_channel", "has_transparency_metadata", "alpha_pixels",
+              *[name for name, _, _ in BINS], "error",
+          ]
+          with csv_path.open("w", newline="", encoding="utf-8") as stream:
+              writer = csv.DictWriter(stream, fieldnames=columns)
+              writer.writeheader()
+              for result in results:
+                  flat = {key: result.get(key) for key in columns}
+                  flat.update(result["alpha_bins"])
+                  writer.writerow(flat)
+
+          summary = Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
+          with summary.open("a", encoding="utf-8") as stream:
+              stream.write("## WP0.9 PNG Alpha Evidence\n\n")
+              stream.write("| Asset | SHA-256 | IDAT decode | Dimensions | Alpha channel | tRNS |\n")
+              stream.write("|---|---|---|---:|---|---|\n")
+              for result in results:
+                  dims = (
+                      f"{result['width']}×{result['height']}"
+                      if result["width"] is not None else "—"
+                  )
+                  stream.write(
+                      f"| {result['asset_id']} | "
+                      f"`{result['sha256'] or 'UNAVAILABLE'}` | "
+                      f"{result['idat_decode']} | {dims} | "
+                      f"{result['has_alpha_channel']} | "
+                      f"{result['has_transparency_metadata']} |\n"
+                  )
+              stream.write("\nAlpha-bin counts are in the JSON/CSV artifact. ")
+              stream.write("No source asset or project document is modified.\n")
+
+          if failures:
+              print("\n".join(failures), file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Upload evidence report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wp09-alpha-evidence
+          path: wp09-alpha-evidence/
+          if-no-files-found: warn
+          retention-days: 14
