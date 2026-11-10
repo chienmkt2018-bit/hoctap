@@ -17,12 +17,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout selected branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -67,10 +67,11 @@ jobs:
                   "sha256": None,
                   "file_size_bytes": path.stat().st_size if path.is_file() else None,
                   "idat_decode": "NOT_RUN",
+                  "alpha_analysis": "NOT_RUN",
                   "width": None,
                   "height": None,
                   "source_mode": None,
-                  "has_alpha_channel": None,
+                  "has_explicit_alpha_band": None,
                   "has_transparency_metadata": None,
                   "alpha_pixels": None,
                   "alpha_bins": {},
@@ -99,23 +100,29 @@ jobs:
                       row["idat_decode"] = "PASS"
                       row["width"], row["height"] = image.size
                       row["source_mode"] = image.mode
-                      row["has_alpha_channel"] = "A" in image.getbands()
+                      row["has_explicit_alpha_band"] = "A" in image.getbands()
                       row["has_transparency_metadata"] = "transparency" in image.info
 
-                      rgba = image.convert("RGBA")
-                      alpha_histogram = rgba.getchannel("A").histogram()
-                      total = row["width"] * row["height"]
-                      row["alpha_pixels"] = total
-                      for name, low, high in BINS:
-                          row["alpha_bins"][name] = sum(alpha_histogram[low:high + 1])
+                      try:
+                          rgba = image.convert("RGBA")
+                          alpha_histogram = rgba.getchannel("A").histogram()
+                          total = row["width"] * row["height"]
+                          row["alpha_pixels"] = total
+                          for name, low, high in BINS:
+                              row["alpha_bins"][name] = sum(alpha_histogram[low:high + 1])
 
-                      if sum(row["alpha_bins"].values()) != total:
-                          raise AssertionError("Alpha histogram does not equal pixel count")
+                          if sum(row["alpha_bins"].values()) != total:
+                              raise AssertionError("Alpha histogram does not equal pixel count")
+                          row["alpha_analysis"] = "PASS"
+                      except Exception as exc:
+                          row["alpha_analysis"] = "FAIL"
+                          row["error"] = f"{type(exc).__name__}: {exc}"
+                          failures.append(f"{asset_id} alpha analysis: {row['error']}")
 
               except Exception as exc:
                   row["idat_decode"] = "FAIL" if row["exists"] else "BLOCKED"
                   row["error"] = f"{type(exc).__name__}: {exc}"
-                  failures.append(f"{asset_id}: {row['error']}")
+                  failures.append(f"{asset_id} IDAT decode: {row['error']}")
 
               results.append(row)
 
@@ -125,8 +132,8 @@ jobs:
           csv_path = out / "alpha-evidence.csv"
           columns = [
               "asset_id", "path", "exists", "sha256", "file_size_bytes",
-              "idat_decode", "width", "height", "source_mode",
-              "has_alpha_channel", "has_transparency_metadata", "alpha_pixels",
+              "idat_decode", "alpha_analysis", "width", "height", "source_mode",
+              "has_explicit_alpha_band", "has_transparency_metadata", "alpha_pixels",
               *[name for name, _, _ in BINS], "error",
           ]
           with csv_path.open("w", newline="", encoding="utf-8") as stream:
@@ -140,8 +147,8 @@ jobs:
           summary = Path(__import__("os").environ["GITHUB_STEP_SUMMARY"])
           with summary.open("a", encoding="utf-8") as stream:
               stream.write("## WP0.9 PNG Alpha Evidence\n\n")
-              stream.write("| Asset | SHA-256 | IDAT decode | Dimensions | Alpha channel | tRNS |\n")
-              stream.write("|---|---|---|---:|---|---|\n")
+              stream.write("| Asset | SHA-256 | IDAT decode | Alpha analysis | Dimensions | Explicit alpha band | tRNS metadata |\n")
+              stream.write("|---|---|---|---|---:|---|---|\n")
               for result in results:
                   dims = (
                       f"{result['width']}×{result['height']}"
@@ -164,7 +171,7 @@ jobs:
 
       - name: Upload evidence report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: wp09-alpha-evidence
           path: wp09-alpha-evidence/
