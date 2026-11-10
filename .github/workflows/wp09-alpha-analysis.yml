@@ -157,8 +157,8 @@ jobs:
                   stream.write(
                       f"| {result['asset_id']} | "
                       f"`{result['sha256'] or 'UNAVAILABLE'}` | "
-                      f"{result['idat_decode']} | {dims} | "
-                      f"{result['has_alpha_channel']} | "
+                      f"{result['idat_decode']} | {result['alpha_analysis']} | {dims} | "
+                      f"{result['has_explicit_alpha_band']} | "
                       f"{result['has_transparency_metadata']} |\n"
                   )
               stream.write("\nAlpha-bin counts are in the JSON/CSV artifact. ")
