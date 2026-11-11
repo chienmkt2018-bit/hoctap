@@ -2,6 +2,11 @@ name: WP0.9 PNG Alpha Visual Preview (read-only)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/wp09-alpha-preview.yml
 
 permissions:
   contents: read
