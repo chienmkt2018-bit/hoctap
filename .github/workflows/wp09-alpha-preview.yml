@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wp09-alpha-preview-\${{ github.ref }}
+  group: wp09-alpha-preview-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
       - name: Generate alpha previews
         shell: bash
         env:
-          SOURCE_COMMIT: \${{ steps.source.outputs.sha }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.sha }}
         run: |
           python - <<'PY'
           from pathlib import Path
