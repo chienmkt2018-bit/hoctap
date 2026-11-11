@@ -68,7 +68,7 @@ jobs:
               },
               "AST-10": {
                   "path": "frontend/public/assets/incoming/node_hoan_thanh_vuong_mien.png",
-                  "sha256": "57347ea5bbc2d4b2f0143f24ead177eead225c8ff0a75cbf58299c428730a239",
+                  "sha256": "57347ea5bbc4d2b8f0143f24ead177eead225c8ff0a75cbf58299c428730a239",
               },
           }
 
