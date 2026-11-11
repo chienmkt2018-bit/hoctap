@@ -1,0 +1,213 @@
+name: WP0.9 PNG Alpha Visual Preview (read-only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wp09-alpha-preview-\${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    name: Generate AST-08 to AST-10 previews
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout verified source from staging
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: staging
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Record checked-out source commit
+        id: source
+        shell: bash
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned Pillow
+        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Generate alpha previews
+        shell: bash
+        env:
+          SOURCE_COMMIT: \${{ steps.source.outputs.sha }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw, __version__ as PILLOW_VERSION
+          import hashlib
+          import json
+          import os
+          import sys
+
+          TARGETS = {
+              "AST-08": {
+                  "path": "frontend/public/assets/incoming/cup_thu_thach.png",
+                  "sha256": "f2ddc97e92d839c77048e3e234c803e991b26ab8c91c5bff10c0c2c0782cdef9",
+              },
+              "AST-09": {
+                  "path": "frontend/public/assets/incoming/node_dang_mo.png",
+                  "sha256": "818d9763ee7c9f4544ccea3140bcbef26b6836afda5ac4f78bd53beeddac2b57",
+              },
+              "AST-10": {
+                  "path": "frontend/public/assets/incoming/node_hoan_thanh_vuong_mien.png",
+                  "sha256": "57347ea5bbc2d4b2f0143f24ead177eead225c8ff0a75cbf58299c428730a239",
+              },
+          }
+
+          OUTPUT = Path("wp09-alpha-previews")
+          OUTPUT.mkdir(parents=True, exist_ok=True)
+
+          def sha256_file(path):
+              digest = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          def make_checkerboard(size, cell_size=48):
+              width, height = size
+              background = Image.new("RGB", size, "#FFFFFF")
+              draw = ImageDraw.Draw(background)
+              colors = ("#FFFFFF", "#D7D7D7")
+
+              for y in range(0, height, cell_size):
+                  for x in range(0, width, cell_size):
+                      color = colors[
+                          ((x // cell_size) + (y // cell_size)) % 2
+                      ]
+                      draw.rectangle(
+                          (
+                              x,
+                              y,
+                              min(x + cell_size - 1, width - 1),
+                              min(y + cell_size - 1, height - 1),
+                          ),
+                          fill=color,
+                      )
+              return background
+
+          manifest = {
+              "workflow": "WP0.9 PNG Alpha Visual Preview",
+              "source_branch": "staging",
+              "source_commit": os.environ["SOURCE_COMMIT"],
+              "python": sys.version.split()[0],
+              "pillow": PILLOW_VERSION,
+              "method": "Pillow Image.alpha_composite",
+              "source_assets": [],
+              "previews": [],
+          }
+
+          # Verify all three original assets before generating previews.
+          sources = {}
+          for asset_id, item in TARGETS.items():
+              source = Path(item["path"])
+              if not source.is_file():
+                  raise FileNotFoundError(
+                      f"{asset_id}: source file not found: {source}"
+                  )
+
+              actual_hash = sha256_file(source)
+              if actual_hash != item["sha256"]:
+                  raise ValueError(
+                      f"{asset_id}: SHA-256 mismatch; "
+                      f"expected {item['sha256']}, got {actual_hash}"
+                  )
+
+              with Image.open(source) as probe:
+                  if probe.format != "PNG":
+                      raise ValueError(f"{asset_id}: source is not PNG")
+                  probe.verify()
+
+              with Image.open(source) as image:
+                  image.load()
+                  original_mode = image.mode
+                  has_alpha = "A" in image.getbands()
+
+                  if not has_alpha:
+                      raise ValueError(
+                          f"{asset_id}: explicit alpha band is missing"
+                      )
+
+                  rgba = image.convert("RGBA")
+
+              sources[asset_id] = {
+                  "image": rgba.copy(),
+                  "original_mode": original_mode,
+              }
+
+              manifest["source_assets"].append({
+                  "asset_id": asset_id,
+                  "path": item["path"],
+                  "sha256": actual_hash,
+                  "width": rgba.width,
+                  "height": rgba.height,
+                  "source_mode": original_mode,
+                  "has_explicit_alpha_band": True,
+              })
+
+          # Create three independent RGB composites per source asset.
+          for asset_id, source_data in sources.items():
+              rgba = source_data["image"]
+              backgrounds = {
+                  "checkerboard": make_checkerboard(rgba.size),
+                  "light": Image.new("RGB", rgba.size, "#F7F7F7"),
+                  "dark": Image.new("RGB", rgba.size, "#20232B"),
+              }
+
+              for background_name, background in backgrounds.items():
+                  composite = Image.alpha_composite(
+                      background.convert("RGBA"),
+                      rgba,
+                  ).convert("RGB")
+
+                  filename = f"{asset_id}_{background_name}.png"
+                  output_path = OUTPUT / filename
+                  composite.save(output_path, format="PNG", optimize=True)
+
+                  manifest["previews"].append({
+                      "asset_id": asset_id,
+                      "background": background_name,
+                      "file": filename,
+                      "width": composite.width,
+                      "height": composite.height,
+                      "mode": composite.mode,
+                      "sha256": sha256_file(output_path),
+                  })
+
+          if len(manifest["source_assets"]) != 3:
+              raise AssertionError("Expected exactly 3 source assets")
+          if len(manifest["previews"]) != 9:
+              raise AssertionError("Expected exactly 9 preview images")
+
+          manifest_path = OUTPUT / "preview-manifest.json"
+          manifest_path.write_text(
+              json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+              encoding="utf-8",
+          )
+
+          print("PASS: 3 source PNGs verified.")
+          print("PASS: 9 RGB previews generated.")
+          print("PASS: Original source files were not modified.")
+          PY
+
+      - name: Upload preview artifact
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: wp09-alpha-previews
+          path: wp09-alpha-previews/
+          if-no-files-found: error
+          retention-days: 14
